@@ -4,6 +4,8 @@ Investigación del 14 de noviembre de 2026. Precios en USD, antes de impuestos. 
 
 ## Recomendación para nuestro código actual
 
+**Para la preferencia del equipo por una VM con almacenamiento persistente, evaluar primero Google Cloud con créditos y protección de gasto confirmada.** Puede encajar mejor que Render: permite mantener FastAPI activo y guardar datos en disco. La oferta de Space Apps sigue sin verificarse; no asumir que tiene las mismas condiciones que la prueba pública. Pages + Render sigue siendo la alternativa de USD 0 para una demo sin estado si no hay créditos utilizables.
+
 **Cloudflare Pages Free para la web estática + Render Free para FastAPI, sin agregar método de pago en Render. Costo de hosting previsto: USD 0.** Usar primero la dirección gratuita `*.pages.dev`; no hace falta comprar un dominio para publicar una demo.
 
 La aplicación actual no guarda información del productor: `/compare` es una demostración sin estado y `/climate/power` consulta un servicio externo. Esta arquitectura sirve para ese alcance. No proporciona una base de datos persistente en disco ni disponibilidad garantizada. El precio cero depende de mantener los planes gratuitos y aceptar que el servicio se suspenda al alcanzar sus límites.
@@ -54,6 +56,14 @@ Render otorga 750 horas gratuitas por workspace/mes. El servicio duerme tras 15 
 
 ## Si preferimos una VM y almacenamiento local
 
+### Google Cloud como primera candidata con créditos
+
+Compute Engine incluye en su Free Tier una `e2-micro` en `us-west1`, `us-central1` o `us-east1`, hasta 30 GB-mes de disco **standard** y una cuota de salida. No incluye automáticamente todo el costo de publicar una VM. La IPv4 externa en uso cuesta USD 0,005/hora (aproximadamente USD 3,65 por 730 horas, antes de la pequeña franquicia); transferencia y extras también deben revisarse. [Free Tier](https://docs.cloud.google.com/free/docs/free-cloud-features), [red e IPv4](https://cloud.google.com/vpc/network-pricing).
+
+La prueba pública para clientes nuevos ofrece USD 300 durante 90 días y detiene recursos al agotarse o vencer si no se actualiza manualmente a cuenta pagada. Esto es distinto de mantener una cuenta pagada dentro del Free Tier: en esa cuenta los excedentes sí se cobran. Confirmar qué tipo de cuenta y crédito concede la oferta del evento antes de elegir. [Condiciones de prueba](https://docs.cloud.google.com/free/docs/free-cloud-features).
+
+Propuesta técnica: una sola VM pequeña, frontend construido fuera de ella, proxy HTTPS y FastAPI; SQLite en disco persistente para datos editables, JSON para catálogos de solo lectura. Hacer backups fuera de la VM y probar memoria/latencia antes de fijar tamaño. No crear balanceadores, NAT Gateway ni bases administradas para este primer alcance. El dominio gratis de GoDaddy puede apuntar al despliegue si sus términos permiten administrar DNS. El costo de esos recursos consume crédito aunque el pago de bolsillo sea cero durante la prueba.
+
 Servir el frontend ya construido como archivos estáticos; ejecutar solo FastAPI y un proxy HTTPS en la VM. JSON es adecuado para tablas públicas de referencia de solo lectura. Para escrituras concurrentes de usuarios, preferir SQLite con transacciones y backups en disco persistente, sin agregar un servicio de base de datos pago. El disco de una VM puede fallar: persistencia no significa backup.
 
 Configurar actualizaciones de seguridad, HTTPS, límites de solicitudes/cuerpo/tiempo de respuesta y respaldos. Si se usa Cloudflare delante del servidor, restringir el origen para evitar que se acceda directamente por su IP. No prometer invulnerabilidad: el plan gratuito incluye mitigación DDoS, pero la protección de la web no protege por sí sola un endpoint de API expuesto por otra dirección.
@@ -66,4 +76,4 @@ Cloudflare incluye protección DDoS en sus planes, según su [documentación](ht
 
 ## Decisión propuesta
 
-Publicar primero la demo sin estado con Pages + Render Free por USD 0. Reclamar GoDaddy únicamente como dominio opcional. Si se confirma necesidad de datos persistentes o de evitar el arranque lento, evaluar Azure para estudiantes; usar Lightsail pequeño como alternativa paga después de confirmar costo total y presupuesto. Antes de desplegar, acordar si los usuarios deben guardar campos en el servidor y revisar las condiciones reales de las ofertas del evento.
+Para la VM y persistencia que prefiere el equipo, comprobar primero Google Cloud: crédito concedido, vencimiento y suspensión al agotarse sin cargos automáticos. Si eso se confirma, priorizar una VM pequeña cubierta por crédito. Si no se confirma, Pages + Render Free permite publicar la demo sin estado por USD 0; Azure para estudiantes y Lightsail siguen como alternativas según elegibilidad y presupuesto. Reclamar GoDaddy únicamente como dominio opcional. Antes de desplegar, revisar las condiciones reales de la oferta del evento y acordar la permanencia esperada de los datos.
