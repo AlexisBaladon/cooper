@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Cooper</title>
+  <rect width="64" height="64" rx="12" fill="#fff"/>
+  <path d="M8 30Q27 4 52 11" fill="none" stroke="#22643e" stroke-width="2"/>
+  <path d="M40 9Q48 8 54 12" fill="none" stroke="#49a8b5" stroke-width="2"/>
+  <circle cx="57" cy="15" r="3" fill="#49a8b5"/>
+  <path d="M25 33a10 10 0 0 1 20 0z" fill="#efa728"/>
+  <path d="M6 38q18-8 36-3Q23 39 10 43z" fill="#508e47"/>
+  <path d="M10 46q19-10 39-10Q30 43 20 53z" fill="#7eaf4e"/>
+  <path d="M23 55q12-14 32-18Q44 48 35 57z" fill="#2d7944"/>
+  <path d="M39 57q9-13 20-19-2 10-20 19" fill="#15513b"/>
+  <g transform="translate(51 23) rotate(40)" fill="#15513b">
+    <rect x="-1.5" y="-2" width="3" height="4" rx=".5"/>
+    <path d="M-6-2h3v4h-3zm9 0h3v4H3z"/>
+  </g>
+</svg>
