@@ -6,6 +6,8 @@ La meta es ayudar a un productor a **comparar su rotación actual con dos altern
 
 ## Estado
 
+Demo pública inicial: **[https://52.71.101.193](https://52.71.101.193)**. Frontend y API en una VM AWS Lightsail de USD 5/mes de base; ver [recursos, verificaciones y operación](deploy/aws-lightsail/DEPLOYMENT.md). El código de despliegue está en la rama `work/aws-demo`.
+
 Este repositorio es un **punto de partida funcional**, no una recomendación agronómica validada. El comparador incluido usa datos y reglas **ilustrativos**. La conexión NASA POWER permite consultar temperatura y precipitación históricas para una coordenada, pero aún no alimenta la puntuación de rotaciones. No se han integrado SMAP, ECOSTRESS, MODIS/Landsat, GPM, SRTM ni datos de suelo uruguayos.
 
 ## Inicio rápido

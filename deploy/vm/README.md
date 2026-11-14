@@ -28,6 +28,8 @@ sudo bash /opt/nasa2026/deploy/vm/install.sh
 
 El servicio Python escucha solo en loopback, con un proceso y límites de concurrencia. Nginx solo expone comparación y salud; las consultas NASA y documentación API quedan fuera de la demo pública. Los límites de solicitudes ayudan frente al abuso de aplicación, pero no garantizan disponibilidad ni un tope de transferencia facturada.
 
+Para futuras integraciones Groq/OpenAI, el servicio lee opcionalmente `/etc/nasa2026/ai-keys.env`, creado vacío con permisos 600 y directorio 700. Editarlo con `sudoedit` en el servidor y reiniciar `nasa2026-api` cuando se implemente una integración. No escribir claves en el chat, en Git ni en `NEXT_PUBLIC_*`. La demo no realiza llamadas a modelos ni necesita claves para funcionar. No se agregan endpoints de IA genéricos sin autenticación, límites y un presupuesto para el proveedor.
+
 ## HTTPS directo sobre la IP
 
 No hace falta comprar un dominio: Let's Encrypt admite certificados para IP públicas. Usar **Certbot 5.4 o superior**, instalado según sus instrucciones oficiales, y revisar/aceptar personalmente sus términos antes de solicitar el certificado.
@@ -35,6 +37,8 @@ No hace falta comprar un dominio: Let's Encrypt admite certificados para IP púb
 Después de autorizar esa solicitud y con el puerto 80 accesible, usar el modo `certonly --webroot`, raíz `/var/www/acme`, `--ip-address IP_PUBLICA` y `--preferred-profile shortlived`. El certificado no configura Nginx automáticamente: sustituir `PUBLIC_IP` en `nginx-https.conf.template`, instalar como `/etc/nginx/sites-available/default`, ejecutar `nginx -t` y recargar.
 
 Configurar renovación automática y un deploy hook `systemctl reload nginx`, y verificarla con `certbot renew --dry-run`. Estos certificados duran aproximadamente seis días: no publicar sin haber comprobado el temporizador de renovación. Un cambio de IP requiere otro certificado. No usar certificados de staging para la URL final ni omitir las advertencias del navegador.
+
+`enable-https.sh IP_PUBLICA` automatiza esa configuración tras revisar los términos de Let's Encrypt. Instala Certbot en un entorno separado, habilita `nasa2026-certbot.timer` dos veces al día y comprueba una renovación simulada. La instalación del primer certificado usa el servicio de producción; la prueba de renovación utiliza staging sin sustituir el certificado público.
 
 Fuentes: [Certbot y certificados IP](https://letsencrypt.org/2026/03/11/shorter-certs-certbot/), [firewall Lightsail](https://docs.aws.amazon.com/lightsail/latest/userguide/understanding-firewall-and-port-mappings-in-amazon-lightsail.html), [Next.js estático](https://nextjs.org/docs/app/guides/static-exports).
 
