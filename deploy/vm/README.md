@@ -25,7 +25,7 @@ El servicio lee `/etc/nasa2026/ai-keys.env`, con permisos 600 y directorio 700. 
 
 ## Dominio y configuración persistente
 
-El dominio del equipo es `agrocooper.earth`. En GoDaddy, configurar `A @ → 52.71.101.193` y `CNAME www → agrocooper.earth`; conservar registros de correo. Con ambos nombres apuntando a la VM, ejecutar `sudo bash /opt/nasa2026/current/deploy/vm/enable-domain.sh agrocooper.earth`. El script reutiliza la cuenta ACME existente y solicita un certificado gratuito para ambos nombres. El temporizador de Certbot renueva los certificados de dominio y de IP.
+El dominio del equipo es `agrocooper.earth`. En el proveedor DNS autoritativo (actualmente Porkbun), configurar `A @ → 52.71.101.193` y `CNAME www → agrocooper.earth`; conservar registros de correo. Con ambos nombres apuntando a la VM, ejecutar `sudo bash /opt/nasa2026/current/deploy/vm/enable-domain.sh agrocooper.earth`. El script reutiliza la cuenta ACME existente y solicita un certificado gratuito para ambos nombres. El temporizador de Certbot renueva los certificados de dominio y de IP.
 
 `configure-proxy.sh` instala las rutas comunes, valida Nginx y restaura la configuración anterior si falla. Se ejecuta también en cada despliegue. `/etc/nasa2026/domain` y `/etc/nasa2026/public-ip` conservan los nombres fuera de los releases. La URL HTTPS de la IP sigue disponible para los controles de CI. Las claves y los certificados nunca se incluyen en el release.
 
