@@ -136,9 +136,11 @@ def test_analyze_returns_zones_and_erosion(client):
         assert r["indicadores"]["erosion_t_ha"] > 0
 
 
-def test_analyze_falls_back_when_srtm_fails(client, monkeypatch):
+@pytest.mark.parametrize("error", [ValueError("SRTM has no data for part of the field"),
+                                  OSError(30, "Read-only file system")])
+def test_analyze_falls_back_when_srtm_fails(client, monkeypatch, error):
     def down(*_):
-        raise ValueError("SRTM has no data for part of the field")
+        raise error
     monkeypatch.setattr(terrain, "fetch_dem", down)
     data = client.post("/api/analyze", json=BODY).json()
     assert data["zonas"] is None

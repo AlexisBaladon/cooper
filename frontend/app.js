@@ -185,7 +185,12 @@ async function analyze() {
     const resp = await fetch("/api/analyze", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
-    const data = await resp.json();
+    let data;
+    try {
+      data = await resp.json();
+    } catch {
+      throw new Error(`The server returned an unexpected response (HTTP ${resp.status}). Please try again.`);
+    }
     if (!resp.ok) throw new Error(data.detail ? JSON.stringify(data.detail) : resp.statusText);
     render(data, body.prioridades);
     state.analyzed = true;
