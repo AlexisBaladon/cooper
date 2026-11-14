@@ -62,7 +62,7 @@ Mandatory rules:
 
 Reply with JSON only: {"slides": [{"key": "...", "headline": "...", "narration": ["...", "..."]}]}"""
 
-_NUM = re.compile(r"\d+(?:\.\d+)?")
+_NUM = re.compile(r"[+-]?\d+(?:\.\d+)?")
 _THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}\b)")
 MAX_CACHE_ENTRIES = 64
 _cache: OrderedDict[str, dict] = OrderedDict()
@@ -71,7 +71,7 @@ _cache_lock = Lock()
 
 def _numbers(text: str) -> list[str]:
     """Números de una frase; en inglés la coma es separador de miles ("1,308" = "1308")."""
-    return sorted(_NUM.findall(_THOUSANDS.sub("", text)))
+    return sorted(_NUM.findall(_THOUSANDS.sub("", text.replace("−", "-"))))
 
 
 def validate_slide(original: dict, new: dict) -> str | None:

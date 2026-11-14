@@ -71,7 +71,10 @@ async function init() {
     if ($("#explain-modal").hidden) return;
     if (e.key === "Escape") closeExplain();
     if (e.key === "Tab" && e.target === $("#explain-close") && e.shiftKey) {
-      e.preventDefault(); $("#explain-frame").focus();
+      e.preventDefault();
+      const frame = $("#explain-frame");
+      const controls = [...(frame.contentDocument?.querySelectorAll('a[href], button:not([disabled]), input, select') || [])].filter((el) => el.getClientRects().length);
+      if (controls.length) controls[controls.length - 1].focus(); else frame.focus();
     }
   });
   window.addEventListener("message", (e) => {
@@ -261,7 +264,7 @@ async function analyze() {
     $("#stale-results").hidden = true; $("#explain").disabled = false; $("#print-report").disabled = false;
     $("#charts-link").setAttribute("aria-disabled", "false"); $("#charts-link").tabIndex = 0;
     // Reach results on a phone without scrolling past the complete input form.
-    if (matchMedia("(max-width: 900px)").matches) $("#results-title").focus();
+    if (matchMedia("(max-width: 900px)").matches) { $("#results-title").focus(); $("#results-title").scrollIntoView({ block: "start" }); }
   } catch (err) {
     if (!state.queue.isCurrent(run)) return;
     $("#error").textContent = err.name === "TimeoutError"

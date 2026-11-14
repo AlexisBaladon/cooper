@@ -48,6 +48,14 @@ def test_narration_cache_is_bounded_and_reuses_recent_entries(monkeypatch):
     assert len(calls) == 4
 
 
+def test_rewrite_cannot_reverse_a_negative_number():
+    original = {"key": "clima", "headline": "Rainfall scenario", "narration": ["Rainfall changes by -20%."]}
+    reversed_value = {**original, "narration": ["Rainfall changes by 20%."]}
+    assert narrator.validate_slide(original, reversed_value) == "numbers don't match the data"
+    same_value = {**original, "narration": ["Rainfall changes by −20%."]}
+    assert narrator.validate_slide(original, same_value) is None
+
+
 def test_good_rewrite_is_accepted(monkeypatch):
     fake(monkeypatch, [
         {"key": "hoy", "headline": "Your soil sits bare 6 months",

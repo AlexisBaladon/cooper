@@ -21,7 +21,7 @@ Help a farmer compare their current rotation with two alternatives, understand t
 | Medium | Chart/3D dependencies could leave broken interfaces. | Show the climate table if Chart.js is unavailable; offer the same analysis as charts if 3D cannot load. |
 | Medium | Missing rotation label, invalid table/tab semantics, tiny touch controls and modal focus issues. | Label the rotation, use a real calendar table, pressed-state layer controls, larger targets, skip link, status/error announcements and modal focus restoration. |
 | Medium | Light heatmap colours used white text in dark mode; wide calendars/tables were difficult on phones. | Select readable text from cell luminance, improve muted text contrast, and contain horizontal scrolling inside tables/calendars. |
-| Medium | Narration cache grew without a bound on the 512 MB server. | Bound the recent-result cache to 64 entries, protect concurrent access, and cap completion tokens per request. |
+| Medium | Narration cache grew without a bound on the 512 MB server; numeric validation also ignored minus signs. | Bound the recent-result cache to 64 entries, protect concurrent access, cap completion tokens per request, and preserve signs when validating rewritten numbers. |
 | Medium | Climate storage errors could become plain-text 500 responses. | Return a structured temporary-unavailable response and test it. |
 
 The previously reported read-only terrain cache, missing narration route and iframe header issues remain covered by the existing deployment and regression checks. No scientific thresholds, crop calendars, soil factors or scoring weights were changed during this audit.
@@ -29,9 +29,9 @@ The previously reported read-only terrain cache, missing narration route and ifr
 ## Verification
 
 - Backend regression suite: synthetic climate, terrain, recommendations and narration; new tests for zero priorities, structured storage failures and bounded narration caching.
-- Frontend regression suite: stale response rejection/queueing, coordinates/priorities validation, HTTP failure messages, current-tab explanation data with blocked/corrupt storage, and explicit scenario source labels.
+- Frontend regression suite: stale response rejection/queueing, coordinates/priorities validation, HTTP failure messages, current-tab explanation data with blocked/corrupt storage, and explicit visual/spoken scenario labels. Narration regression tests also reject rewrites that turn negative values positive.
 - Syntax checks include inline scripts in both explanation pages, not just app.js.
-- Browser review includes desktop and a 390 × 844 phone viewport. Local and public checks and any remaining limitations are recorded below after verification.
+- Browser review includes desktop and a 390 × 844 phone viewport. The detailed checks below distinguish real analysis from deliberate degraded-data fixtures.
 
 ## Remaining product work
 
@@ -45,3 +45,21 @@ The previously reported read-only terrain cache, missing narration route and ifr
 ## Technical reference
 
 The narration output limit uses Groq's documented `max_completion_tokens` parameter: [Groq API reference](https://console.groq.com/docs/api-reference). The public proxy retains the existing body, request and concurrency limits and server-only secret storage.
+
+## Browser and release checks
+
+| Case | Result |
+| --- | --- |
+| Real NASA POWER/SRTM analysis for the Young sample | Passed locally; complete climate, terrain and three-rotation output. |
+| Change area after a completed result | Stale banner appeared; explanation, chart link and report were paused. |
+| Change 50 ha to 200 ha while a request was in flight | Latest 200 ha result rendered; earlier response did not overwrite it. |
+| Rainfall scenario −20% | Recalculated and labelled “What-if simulation · not a forecast”. |
+| All five priorities set to zero | Clear client validation; backend regression independently rejects it before downloading. |
+| Leaflet/Chart.js unavailable, terrain response absent (local fixture) | Coordinate/sample selection remained available, climate table opened, and the explanation showed the same field as charts. |
+| Close explanation with Escape | Closed and returned focus to the explanation button. |
+| 390 × 844 phone viewport | No document-wide horizontal overflow; three crop calendars scroll within their cards; results receive focus after analysis. |
+| Form labels | No unlabelled select controls in the reviewed comparison page. |
+| Adviser report | Generated content includes field, area, soil storage, livestock, priorities, scenario, source period, alternatives, risks and limitations. The embedded automation browser did not expose a native print/PDF preview; the system print dialog still needs manual confirmation in a regular browser. |
+| CI | Backend suite, six Node workflow regression tests, frontend/inline script syntax and release packaging passed. |
+
+Public deployment verification is recorded in the pull request and its Actions run. No test fixture, environment file or private key is included in the release.

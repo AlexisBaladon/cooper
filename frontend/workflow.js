@@ -49,5 +49,10 @@
       ? `${prefix} · What-if simulation: rainfall ${scenario.lluvia_pct > 0 ? "+" : ""}${scenario.lluvia_pct}%, temperature +${scenario.temp_delta} °C. This is not a forecast.`
       : `${prefix} · Historical climate comparison, 1996–2025. This is not a weather forecast.`;
   }
-  return { AnalysisQueue, validate, readResponse, explanationData, sourceNote };
+  function labelScenario(slides, data) {
+    if (data.escenario?.activo && slides[0]?.narration?.length)
+      slides[0].narration[0] = "This is a what-if simulation, not a forecast. " + slides[0].narration[0];
+    return slides;
+  }
+  return { AnalysisQueue, validate, readResponse, explanationData, sourceNote, labelScenario };
 });

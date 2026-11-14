@@ -1,6 +1,6 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {AnalysisQueue, validate, readResponse, explanationData, sourceNote} = require('../workflow.js');
+const {AnalysisQueue, validate, readResponse, explanationData, sourceNote, labelScenario} = require('../workflow.js');
 
 test('changed inputs discard an old response and queue only the latest comparison', () => {
   const queue = new AnalysisQueue();
@@ -42,4 +42,7 @@ test('standalone charts handle unavailable/corrupt storage without crashing', ()
 test('the narration labels simulated climate explicitly', () => {
   const text=sourceNote({context:{field:'Sample field'},escenario:{activo:true,lluvia_pct:-20,temp_delta:1}});
   assert.match(text,/Sample field/); assert.match(text,/-20%/); assert.match(text,/not a forecast/);
+  const slides=labelScenario([{narration:['Your field.']}],{escenario:{activo:true}});
+  assert.match(slides[0].narration[0],/not a forecast/);
+  assert.equal(slides[0].narration.length,1);
 });

@@ -48,7 +48,7 @@
   <p class="note">The text comes from templates filled with your analysis data, and the voice is your browser's. Keys: space = pause, ← → = change slide.</p>
 </div>
 
-<script src="workflow.js?v=1"></script>
+<script src="workflow.js?v=2"></script>
 <script src="slides-sample.js"></script>
 <script src="slides.js?v=1"></script>
 <script>
@@ -65,7 +65,7 @@ let data = CooperWorkflow.explanationData(window);
 
     const { buildSlides, Player } = window.CooperSlides;
     const root = document.getElementById("player");
-    const player = new Player(root, buildSlides(data));
+    const player = new Player(root, CooperWorkflow.labelScenario(buildSlides(data), data));
     if (window.parent !== window) document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") window.parent.postMessage({type: "cooper-close"}, location.origin);
     });
