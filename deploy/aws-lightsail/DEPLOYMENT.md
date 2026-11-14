@@ -1,6 +1,6 @@
 # Demo publicada
 
-Publicación verificada el 14 de noviembre de 2026.
+Publicación verificada el 14 de noviembre de 2026. Las actualizaciones de aplicación ahora usan [GitHub Actions](../../docs/AUTODEPLOY.md).
 
 URL: **https://52.71.101.193**. No se compró ni configuró un dominio de GoDaddy.
 
@@ -15,7 +15,7 @@ URL: **https://52.71.101.193**. No se compró ni configuró un dominio de GoDadd
 | Sistema | Ubuntu 24.04 LTS |
 | IP estática asociada | `nasa2026-demo-ip`: `52.71.101.193` |
 | Clave SSH registrada | `nasa2026-demo-key` |
-| Sitio y API | `/opt/nasa2026`, Nginx y `nasa2026-api.service` |
+| Sitio y API | `/opt/nasa2026/current` → release activo, Nginx y `nasa2026-api.service` |
 | Certificado | Let's Encrypt para la IP; renovación automática con `nasa2026-certbot.timer` |
 
 No se configuraron balanceadores, bases de datos administradas, snapshots automáticos ni llamadas pagas a modelos de IA. El disco incluye un archivo de swap de 1 GB para dar margen durante instalación y renovación de certificados. No hay escalado automático. La tarifa base no es un límite absoluto: revisar transferencia excedente, impuestos y recursos que se agreguen en el futuro.
@@ -27,6 +27,7 @@ No se configuraron balanceadores, bases de datos administradas, snapshots autom�
 - La configuración para futuras claves es `/etc/nasa2026/ai-keys.env`, vacía al publicar. Directorio root con modo 700 y archivo root con modo 600. Nunca incluir claves en Git, el frontend o variables `NEXT_PUBLIC_*`.
 - Se puede usar `sudoedit /etc/nasa2026/ai-keys.env` para configurar `GROQ_API_KEY` u `OPENAI_API_KEY` cuando se implemente la integración. Después, reiniciar `nasa2026-api`. Agregar una clave no implementa llamadas al proveedor: la demo actual no las realiza.
 - Las credenciales AWS y las claves privadas de GitHub/SSH no se copiaron al servidor. La clave SSH local está fuera de los archivos versionados; conservarla de forma segura.
+- GitHub Actions obtiene acceso temporal mediante un rol limitado a esta instancia y abre SSH únicamente para la IP del runner durante el despliegue. No utiliza la clave SSH local del administrador.
 
 ## Verificaciones realizadas
 

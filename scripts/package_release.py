@@ -10,7 +10,10 @@ def main() -> None:
     if not (web / "index.html").is_file():
         raise SystemExit("Build the frontend first: cd web && npm ci && npm run build")
     files = [root / "api" / "pyproject.toml"]
-    files.extend((root / "api" / "app").glob("*.py"))
+    files.extend(
+        path for path in (root / "api" / "app").rglob("*")
+        if path.is_file() and "__pycache__" not in path.parts and path.suffix not in {".pyc", ".pyo"}
+    )
     files.extend(path for path in web.rglob("*") if path.is_file())
     files.extend(path for path in (root / "deploy" / "vm").iterdir() if path.is_file())
     output = root / "dist" / "nasa2026-release.tar.gz"

@@ -31,8 +31,20 @@ server {
     add_header X-Frame-Options DENY always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
 
-    root /opt/nasa2026/web/out;
+    root /opt/nasa2026/current/web/out;
     index index.html;
+
+    location = /version.json {
+        expires -1;
+        try_files $uri =404;
+    }
+    location /_next/static/ {
+        try_files $uri @previous_assets;
+    }
+    location @previous_assets {
+        root /opt/nasa2026/previous/web/out;
+        try_files $uri =404;
+    }
 
     location = /api/compare {
         limit_except POST { deny all; }

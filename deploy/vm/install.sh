@@ -20,14 +20,22 @@ fi
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y nginx python3-venv ca-certificates unattended-upgrades
-python3 -m venv /opt/nasa2026/venv
-/opt/nasa2026/venv/bin/pip install /opt/nasa2026/api
+if [[ ! -e /opt/nasa2026/current ]]; then
+  bootstrap=/opt/nasa2026/releases/bootstrap
+  install -d -m 755 "$bootstrap"
+  cp -a /opt/nasa2026/api /opt/nasa2026/web "$bootstrap/"
+  python3 -m venv "$bootstrap/venv"
+  "$bootstrap/venv/bin/pip" install "$bootstrap/api"
+  ln -s "$bootstrap" /opt/nasa2026/current
+  ln -s "$bootstrap" /opt/nasa2026/previous
+fi
 install -d -m 755 /var/www/acme
 install -d -m 700 /etc/nasa2026
 if [[ ! -e /etc/nasa2026/ai-keys.env ]]; then
   install -m 600 /dev/null /etc/nasa2026/ai-keys.env
 fi
 install -m 644 /opt/nasa2026/deploy/vm/nasa2026-api.service /etc/systemd/system/nasa2026-api.service
+install -m 755 /opt/nasa2026/deploy/vm/activate-release.sh /usr/local/sbin/nasa2026-activate
 install -m 644 /opt/nasa2026/deploy/vm/nginx-http.conf /etc/nginx/sites-available/default
 systemctl daemon-reload
 systemctl enable nasa2026-api

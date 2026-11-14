@@ -7,11 +7,11 @@ Wants=network-online.target
 [Service]
 Type=simple
 DynamicUser=yes
-WorkingDirectory=/opt/nasa2026/api
+WorkingDirectory=/opt/nasa2026/current/api
 Environment=PYTHONDONTWRITEBYTECODE=1
 # Optional server-only keys; this file is never copied from the repository.
 EnvironmentFile=-/etc/nasa2026/ai-keys.env
-ExecStart=/opt/nasa2026/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 --limit-concurrency 20 --timeout-keep-alive 5 --no-access-log
+ExecStart=/opt/nasa2026/current/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 --limit-concurrency 20 --timeout-keep-alive 5 --no-access-log
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=yes
