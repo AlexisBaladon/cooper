@@ -1,5 +1,9 @@
 /* Offline Spanish copy; numerical values and scientific IDs are not translated. */
 window.CooperSpanish = {
+  "Field settings": "Configuración del campo",
+  "Your priorities": "Sus prioridades",
+  "Climate scenario": "Escenario climático",
+  "Analysis created": "Análisis generado",
   "Skip to results": "Ir a los resultados",
   "Compare crop rotations using 30 years of NASA data for your area.": "Compare rotaciones de cultivos con 30 años de datos de la NASA para su zona.",
   "This tool": "Esta herramienta",

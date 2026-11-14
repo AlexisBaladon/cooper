@@ -10,7 +10,8 @@
   <meta name="theme-color" content="#1b5e20">
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=9">
+  <link rel="stylesheet" href="styles.css?v=10">
+  <link id="report-styles" rel="stylesheet" href="print.css?v=1" media="print">
 </head>
 <body>
 <a class="skip-link" href="#results-title">Skip to results</a>
@@ -103,7 +104,7 @@
           <span>Save as PDF</span>
         </button>
       </div>
-      <p id="input-summary" class="print-context" hidden></p>
+      <div id="input-summary" class="print-context" hidden></div>
       <button type="button" class="explain-btn" id="explain" aria-haspopup="dialog" aria-controls="explain-modal">
         <span class="explain-ic">🎧</span>
         <span><strong>Explain it simply</strong><br><small>A narrated 3D explanation of your field</small></span>
@@ -225,9 +226,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="translations-es.js?v=3"></script>
+<script src="translations-es.js?v=4"></script>
 <script src="language.js?v=2"></script>
 <script src="workflow.js?v=2"></script>
-<script src="app.js?v=8"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>
