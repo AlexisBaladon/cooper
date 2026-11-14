@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Explain it simply · Cooper</title>
+  <link rel="stylesheet" href="slides.css">
+</head>
+<body>
+<div class="player" id="player">
+  <div class="topbar">
+    <a class="brand" href="index.html">← Cooper</a>
+    <span class="styles">Style: <a class="on" href="slides.html">Charts</a> · <a href="slides-3d.html">3D</a></span>
+    <span class="counter"></span>
+  </div>
+
+  <div class="stage" aria-live="off">
+    <h1 class="headline"></h1>
+    <p class="subhead"></p>
+    <div class="stage-inner"></div>
+    <div class="start" id="start">
+      <h2>🎧 Explain it simply</h2>
+      <p>A one-minute narrated summary, with drawings, of what the data says about your field.</p>
+      <button class="btn primary" id="start-btn">▶ Start</button>
+      <p id="data-source" class="note"></p>
+    </div>
+  </div>
+
+  <div class="subs" aria-live="polite" aria-label="Text of what the voice says"></div>
+
+  <div class="controls">
+    <div class="ctl-group">
+      <button class="btn round" id="prev" aria-label="Previous">◀</button>
+      <button class="btn round play" id="play" aria-label="Play or pause"><span class="play-ic">▶</span><span class="pause-ic">❚❚</span></button>
+      <button class="btn round" id="next" aria-label="Next">▶▶</button>
+    </div>
+    <div class="dots"></div>
+    <div class="ctl-group">
+      <label class="opt"><input type="checkbox" id="voice-on" checked> Voice</label>
+      <label class="opt">Speed
+        <select id="rate"><option value="0.85">Slow</option><option value="1" selected>Normal</option><option value="1.15">Fast</option></select>
+      </label>
+      <label class="opt" id="voice-pick-wrap">Voice
+        <select id="voice-pick"></select>
+      </label>
+    </div>
+  </div>
+  <p class="note">The text comes from templates filled with your analysis data, and the voice is your browser's. Keys: space = pause, ← → = change slide.</p>
+</div>
+
+<script src="slides-sample.js"></script>
+<script src="slides.js?v=1"></script>
+<script>
+  (function () {
+    let data = null, source = "";
+    try {
+      const raw = localStorage.getItem("cooper-analysis");
+      if (raw) { data = JSON.parse(raw); source = "Using the analysis you ran on the main screen."; }
+    } catch (e) { /* datos corruptos: usar el ejemplo */ }
+    if (!data) { data = window.SAMPLE_ANALYSIS; source = "Using the sample field near Young (real NASA POWER and SRTM data)."; }
+    document.getElementById("data-source").textContent = source;
+
+    const { buildSlides, Player } = window.CooperSlides;
+    const root = document.getElementById("player");
+    const player = new Player(root, buildSlides(data));
+    window.cooperPlayer = player; // útil para depurar desde la consola
+
+    // ?slide=N muestra la slide N completa, sin voz (para revisar o capturar pantallas).
+    const only = new URLSearchParams(location.search).get("slide");
+    if (only) {
+      document.documentElement.classList.add("static");
+      document.getElementById("start").hidden = true;
+      player.go(Math.max(0, Number(only) - 1));
+      player.beat(99);
+      player.highlight(-1);
+    }
+
+    const voicePick = document.getElementById("voice-pick");
+    const fillVoices = (vs) => {
+      document.getElementById("voice-pick-wrap").hidden = !vs.length;
+      voicePick.innerHTML = vs.map((v, i) => `<option value="${i}">${v.name.replace(/Microsoft |Google /, "")} (${v.lang})</option>`).join("");
+      const idx = vs.indexOf(player.voice);
+      if (idx >= 0) voicePick.value = idx;
+    };
+    root.addEventListener("voices", (e) => fillVoices(e.detail));
+    fillVoices(player.voices || []);
+    voicePick.addEventListener("change", () => { player.voice = player.voices[Number(voicePick.value)]; });
+    if (!("speechSynthesis" in window)) {
+      document.getElementById("voice-on").checked = false;
+      document.getElementById("voice-on").disabled = true;
+    }
+
+    document.getElementById("start-btn").addEventListener("click", () => {
+      document.getElementById("start").hidden = true;
+      player.go(0);
+      player.play();
+    });
+    document.getElementById("play").addEventListener("click", () => player.toggle());
+    document.getElementById("prev").addEventListener("click", () => player.go(player.i - 1));
+    document.getElementById("next").addEventListener("click", () => player.go(player.i + 1));
+    document.getElementById("voice-on").addEventListener("change", (e) => player.setVoiceEnabled(e.target.checked));
+    document.getElementById("rate").addEventListener("change", (e) => { player.rate = Number(e.target.value); });
+    root.addEventListener("click", (e) => {
+      if (e.target.closest("[data-act=restart]")) { player.go(0); player.play(); }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+      if (e.code === "Space") { e.preventDefault(); document.getElementById("start").hidden = true; player.toggle(); }
+      if (e.key === "ArrowRight") player.go(player.i + 1);
+      if (e.key === "ArrowLeft") player.go(player.i - 1);
+    });
+  })();
+</script>
+</body>
+</html>

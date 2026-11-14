@@ -101,3 +101,53 @@ def test_user_facing_text_is_english(cat):
     text += " ".join(c["nombre"] for c in cat.crops.values()) + " ".join(r["nombre"] for r in cat.rotations.values())
     for spanish in (" el ", " los ", " cultivo", " lluvia", " año", "rotación"):
         assert spanish not in text.lower()
+
+
+PRIO = {"agua": 3, "suelo": 4, "ingreso": 4, "forraje": 1, "clima": 3}
+
+
+def _diag(cat, rot_id, prio=PRIO, ganado=False):
+    m = monthly(synthetic_raw())
+    res = engine.compare(rot_id, prio, m, 120, climate.climatology(m), cat, tiene_ganado=ganado)
+    return res[0]["diagnostico"], res[0]
+
+
+def test_diagnosis_levels_follow_scores(cat):
+    diag, rot = _diag(cat, "soja_continua")
+    for item in diag["items"]:
+        score = rot["puntajes"][item["area"]]
+        expected = "fuerte" if score >= engine.NIVEL_FUERTE else "flojo" if score < engine.NIVEL_FLOJO else "medio"
+        assert item["nivel"] == expected and item["puntaje"] == score
+        assert item["por_que"]
+
+
+def test_diagnosis_recommendations_come_from_the_curated_list(cat):
+    allowed = {a for p in cat.recs.values() for a in p["acciones"]}
+    for rot_id in cat.rotations:
+        diag, _ = _diag(cat, rot_id, ganado=True)
+        for item in diag["items"]:
+            assert set(item["recomendaciones"]) <= allowed
+            assert len(item["recomendaciones"]) <= 2
+            if item["nivel"] == "fuerte":
+                assert not item["recomendaciones"]
+
+
+def test_soja_continua_soil_is_weak_because_of_bare_months(cat):
+    diag, _ = _diag(cat, "soja_continua")
+    suelo = next(i for i in diag["items"] if i["area"] == "suelo")
+    assert suelo["nivel"] == "flojo" and suelo["problema"] == "suelo_descubierto"
+    assert "without a crop" in suelo["por_que"]
+
+
+def test_diagnosis_skips_what_the_farmer_does_not_care_about(cat):
+    diag, _ = _diag(cat, "soja_continua", prio={**PRIO, "agua": 0})
+    areas = {i["area"] for i in diag["items"]}
+    assert "agua" not in areas          # importancia 0
+    assert "forraje" not in areas       # no tiene ganado
+
+
+def test_diagnosis_text_is_english(cat):
+    diag, _ = _diag(cat, "soja_continua", ganado=True)
+    text = " ".join(i["por_que"] + " " + i["tema"] + " " + " ".join(i["recomendaciones"]) for i in diag["items"])
+    for spanish in (" el ", " los ", " cultivo", " suelo", " año", "agua"):
+        assert spanish not in f" {text.lower()} "

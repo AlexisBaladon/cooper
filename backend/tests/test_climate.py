@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from app import climate, main, power
+from app import climate, main, power, terrain
 
 
 def synthetic_raw(years=6, rain_mm_day=3.0, seed=0):
@@ -72,7 +72,17 @@ def client(monkeypatch):
     meta = {"fuente": "prueba", "periodo": "2000-2005", "lat": 0, "lon": 0,
             "elevacion_m": 70, "resolucion": "~50 km"}
     monkeypatch.setattr(power, "fetch_daily", lambda lat, lon: (synthetic_raw(), meta))
+    monkeypatch.setattr(terrain, "fetch_dem", synthetic_dem)
     return TestClient(main.app)
+
+
+def synthetic_dem(lat, lon, area_ha):
+    """Ladera suave hacia el este con una loma: misma forma que devuelve terrain.fetch_dem."""
+    lats, lons, cell_m, bounds, (dlat, dlon) = terrain.field_grid(lat, lon, area_ha)
+    n = terrain.GRID_N
+    jj, ii = np.meshgrid(np.arange(n), np.arange(n))
+    z = 80 - jj * cell_m * 0.03 + 4 * np.exp(-((ii - 7) ** 2 + (jj - 7) ** 2) / 10)
+    return {"z": z, "lats": lats, "lons": lons, "cell_m": cell_m, "bounds": bounds, "dlat": dlat, "dlon": dlon}
 
 
 def test_catalog_lists_demo_fields(client):
@@ -114,3 +124,34 @@ def test_analyze_warns_outside_uruguay(client):
 
 def test_analyze_validates_coordinates(client):
     assert client.post("/api/analyze", json={**BODY, "lat": 120, "lon": 0}).status_code == 422
+
+
+def test_analyze_returns_zones_and_erosion(client):
+    data = client.post("/api/analyze", json={**BODY, "area_ha": 50}).json()
+    z = data["zonas"]
+    assert len(z["celdas"]) == terrain.GRID_N ** 2 and z["area_ha"] == 50
+    rot_ids = {r["id"] for r in data["rotaciones"]}
+    assert set(z["celdas"][0]["eros"]) == rot_ids
+    for r in data["rotaciones"]:
+        assert r["indicadores"]["erosion_t_ha"] > 0
+
+
+def test_analyze_falls_back_when_srtm_fails(client, monkeypatch):
+    def down(*_):
+        raise ValueError("SRTM has no data for part of the field")
+    monkeypatch.setattr(terrain, "fetch_dem", down)
+    data = client.post("/api/analyze", json=BODY).json()
+    assert data["zonas"] is None
+    assert any("SRTM" in w for w in data["advertencias"])
+    assert all("erosion_t_ha" not in r["indicadores"] for r in data["rotaciones"])
+
+
+def test_narrate_without_key_returns_template(client, monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "")
+    slides = [{"key": "intro", "headline": "Your field in one minute", "narration": ["Hi.", "Today you use soybean."]}]
+    data = client.post("/api/narrate", json={"slides": slides}).json()
+    assert data["fuente"] == "plantilla" and data["slides"] == slides
+
+
+def test_narrate_rejects_bad_payload(client):
+    assert client.post("/api/narrate", json={"slides": []}).status_code == 422

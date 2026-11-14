@@ -7,19 +7,22 @@ challenge.
 
 Cooper helps farmers think; it doesn't decide for them. It shows data, reasons and risks
 to review with a local agronomist. No AI makes the decisions: every result comes from
-written rules and published formulas that anyone can check.
+written rules and published formulas that anyone can check. The only AI in Cooper is
+optional and only rewrites the narration text of "Explain it simply".
+
+For a full explanation of the system, see [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
 
 ## Status
 
-The project is being brought into this repository in five phases. This is **phase 2**.
+The project was brought into this repository in five phases, and all of them are in.
 
 | Phase | Content | Status |
 |---|---|---|
 | 1. Base and climate | Server, daily NASA POWER data, local climate and trends | ✅ |
 | 2. Rotation engine | Crop table, water balance, scores, explanations and climate scenarios | ✅ |
-| 3. Terrain and erosion | SRTM elevation, RUSLE erosion per rotation and a map of zones within the field | ⏳ |
-| 4. Diagnosis and "Explain it simply" | Strengths and weaknesses, recommendations and a narrated 3D summary | ⏳ |
-| 5. AI and documentation | Narration text written with Groq, and full documentation | ⏳ |
+| 3. Terrain and erosion | SRTM elevation, RUSLE erosion per rotation and a map of zones within the field | ✅ |
+| 4. Diagnosis and "Explain it simply" | Strengths and weaknesses, recommendations and a narrated 3D summary | ✅ |
+| 5. AI and documentation | Narration text written with Groq, and full documentation | ✅ |
 
 The team's earlier scaffold (FastAPI API, Next.js web app and first documents) is in
 [`legacy/`](legacy/).
@@ -35,10 +38,11 @@ requests. Server-side API keys and the NASA cache persist outside application re
 ## What it does
 
 1. The farmer marks a point on a map of Uruguay, or picks one of three sample fields,
-   and tells Cooper which rotation they use today, whether they have livestock, roughly how
+   sets its approximate size, and tells Cooper which rotation they use today, whether they have livestock, roughly how
    much water their soil holds and what matters most to them (saving water, soil health,
    income, forage, climate resilience).
-2. The server downloads 30 years of daily NASA POWER data (1996–2025) for that point.
+2. The server downloads 30 years of daily NASA POWER data (1996–2025) for that point and
+   NASA SRTM elevation for the field.
 3. The page shows:
    - monthly rainfall against reference evapotranspiration, to see when crops go thirsty;
    - a risk calendar: hot days, frost-risk days, heavy-rain days and water deficit;
@@ -47,7 +51,18 @@ requests. Server-side API keys and the NASA cache persist outside application re
      fit the farmer's priorities, each with five scores, a month-by-month calendar and an
      explanation of why it's suggested, the supporting data, possible benefits, what we
      don't know yet, and risks to review with an agronomist;
+   - **zones of the field** on satellite imagery: erosion for each rotation, relative
+     wetness (where water collects or dries out first), low spots with more frost risk, and slope;
+   - **strengths and weaknesses** of each rotation: every score rated good, fair or weak,
+     the reason behind it, and up to two ideas to improve each weak point;
    - a scenario slider to recalculate everything with less rain or more heat.
+4. **Explain it simply** opens a one-minute narrated summary over a 3D model of the field:
+   its real SRTM terrain, crops changing month by month, soil colored by erosion and soil
+   washing downhill, followed by the climate, the diagnosis, a better option and what to
+   check with an agronomist. There's also a version with simple 2D charts. The narration is
+   built from templates filled with the analysis data and read aloud by the browser's
+   English voice. Optionally, a Groq language model rewrites it in more natural English;
+   every rewritten sentence must keep exactly the same numbers, or it's discarded.
 
 ## Adapted to Uruguay
 
@@ -86,8 +101,16 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 Tests (no internet needed): `cd backend && python -m pytest -q`
 
-The first query for a new point takes about 15 seconds while it downloads the NASA POWER
-series into `data/cache/`, which is not committed. Later queries for the same point are
+### Optional: AI-written narration (Groq)
+
+Copy `backend/.env.example` to `backend/.env`, paste a key from
+<https://console.groq.com/keys> into `GROQ_API_KEY` and restart the server. Without a key,
+or if Groq fails, Cooper uses the template narration and says so on screen.
+`backend/.env` is ignored by git; never commit it. Only the slides' text is sent to Groq,
+never coordinates.
+
+The first query for a new point takes about 15 to 20 seconds while it downloads the NASA
+POWER series and the SRTM elevation into `data/cache/`, which is not committed. Later queries for the same point are
 instant. The map and the page's libraries load from the internet.
 
 ## Project layout
@@ -96,11 +119,18 @@ instant. The map and the page's libraries load from the internet.
 backend/app/power.py     NASA POWER client with an on-disk cache
 backend/app/climate.py   evapotranspiration, heat, frost, heavy rain and trends
 backend/app/engine.py    water balance, indicators, scores and explanations
-backend/app/main.py      API (/api/catalog, /api/analyze) and web server
-backend/tests/           tests with synthetic data
+backend/app/terrain.py   SRTM elevation, slope, water flow, RUSLE erosion and field zones
+backend/app/narrator.py  narration rewriting with Groq, with number checks
+backend/app/main.py      API (/api/catalog, /api/analyze, /api/narrate) and web server
+backend/tests/           tests with synthetic data and a simulated Groq
+backend/.env.example     template for the Groq key
 data/crops.json          crop table (editable by an agronomist)
 data/rotations.json      rotation library
+data/recommendations.json ideas to improve each weak point (editable by an agronomist)
 frontend/                web page in HTML and JavaScript (Leaflet and Chart.js)
+frontend/slides*.{html,js,css}  "Explain it simply" (2D charts and Three.js 3D model)
+scripts/make_slides_sample.py   rebuilds the sample analysis the slides use when there is none
+docs/HOW-IT-WORKS.md     full explanation of the system
 legacy/                  the team's earlier scaffold
 ```
 
@@ -109,6 +139,7 @@ legacy/                  the team's earlier scaffold
 | Data | Source | Resolution |
 |---|---|---|
 | Max and min temperature, rainfall, root-zone soil moisture | [NASA POWER](https://power.larc.nasa.gov/) (MERRA-2 and GPM-IMERG), daily | ~50 km |
+| Elevation | NASA SRTM 1 arc-second, via [OpenTopoData](https://www.opentopodata.org/) | 30 m |
 | Crops and rotations | `data/crops.json`, `data/rotations.json` (general literature for Uruguay) | — |
 
 - **Reference evapotranspiration (ET0):** Hargreaves-Samani (FAO-56), from daily maximum
@@ -125,6 +156,19 @@ legacy/                  the team's earlier scaffold
 - **Scores (0–100):** water saving, soil health, indicative income, forage and climate
   resilience. The total is a weighted average using the farmer's priorities. Thresholds
   are heuristic and documented in `engine.subscores()`.
+- **Field:** approximated by a square of the chosen area around the point, sampled on a
+  15 × 15 grid of SRTM elevation. Slope, water flow (D8), relative wetness (TWI) and low
+  spots come from that grid.
+- **Erosion (RUSLE, A = R × K × LS × C × P):** R from NASA POWER rainfall (Renard & Freimund,
+  1994), spread over the months with erosive rain; K = 0.035 (a typical value, not measured);
+  LS from SRTM (Moore & Burch, with a 250 m maximum slope length); C month by month from each
+  rotation's calendar, **assuming no-till**; P = 1. Reference tolerance: 7 t/ha a year.
+  Absolute values are indicative; they're most useful for comparing rotations.
+- **If OpenTopoData doesn't respond**, Cooper keeps working and estimates erosion from the
+  rain that falls on bare soil.
+- **Diagnosis:** a score of 65 or more is "good", under 40 is "weak", the rest "fair".
+  Topics the farmer rated 0 are skipped, and forage is skipped without livestock. The
+  improvement ideas come from `data/recommendations.json`, a hand-written list, not from AI.
 - **Income is relative:** it compares crops with each other; there are no prices, costs or
   yields yet.
 - **Scale:** the climate describes the area, not the field. Neighboring fields get the
