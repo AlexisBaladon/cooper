@@ -52,7 +52,7 @@ fi
 install -m 755 /opt/nasa2026/deploy/vm/activate-release.sh /usr/local/sbin/nasa2026-activate
 config_changed=true
 install -m 644 /opt/nasa2026/deploy/vm/nasa2026-api.service /etc/systemd/system/nasa2026-api.service
-sed "s/PUBLIC_IP/$public_ip/g" /opt/nasa2026/deploy/vm/nginx-https.conf.template > /etc/nginx/sites-available/default
+bash /opt/nasa2026/deploy/vm/configure-proxy.sh "$public_ip"
 nginx -t
 systemctl daemon-reload
 systemctl restart nasa2026-api

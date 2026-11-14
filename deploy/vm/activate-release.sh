@@ -66,7 +66,7 @@ systemctl restart nasa2026-api
 curl --fail --silent --retry 15 --retry-connrefused --retry-delay 1 --max-time 3 http://127.0.0.1:8000/health > /dev/null
 curl --fail --silent --max-time 5 http://127.0.0.1:8000/api/catalog \
   | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r["rotaciones"] and r["campos_demo"]'
-nginx -t
+bash "$release/deploy/vm/configure-proxy.sh"
 curl --fail --silent --max-time 5 http://127.0.0.1:8000/health
 
 # Keep the active release and its predecessor plus at most one older release.
