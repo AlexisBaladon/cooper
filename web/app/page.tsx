@@ -26,7 +26,7 @@ export default function Home() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/compare`, {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "/api"}/compare`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ priority, rain_change_percent: rain }),
@@ -38,7 +38,7 @@ export default function Home() {
       })
       .then((data: Comparison) => { setComparison(data); setError(""); })
       .catch((cause: Error) => {
-        if (cause.name !== "AbortError") setError("No se pudo conectar con la API. Iniciá el servidor en el puerto 8000.");
+        if (cause.name !== "AbortError") setError("La comparación no está disponible en este momento. Probá nuevamente en unos instantes.");
       });
     return () => controller.abort();
   }, [priority, rain]);

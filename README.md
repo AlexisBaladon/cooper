@@ -10,7 +10,7 @@ Este repositorio es un **punto de partida funcional**, no una recomendación agr
 
 ## Inicio rápido
 
-Requisitos: Python 3.11+, Node.js 20+ y npm.
+Requisitos: Python 3.11+, Node.js 20.9+ y npm.
 
 ### API
 
@@ -45,6 +45,8 @@ Abrir <http://localhost:3000>. El frontend usa `NEXT_PUBLIC_API_URL`; por defect
 - `docs/propuesta-original.pdf`: copia del documento compartido por el equipo.
 - [Guía del participante Uruguay 2026](docs/resources/SpaceApps2026_GuiaDelParticipante.pptx.pdf): documento original de Space Uruguay, con agenda y Global Offers (p. 14).
 - [Comparación de despliegue y costos](docs/DESPLIEGUE.md): opciones gratuitas, ofertas y alternativa con VM.
+- [Despliegue AWS Lightsail](deploy/aws-lightsail/README.md): plan de publicación inicial elegido por el equipo.
+- [Preparación de VM](deploy/vm/README.md): release estático, API local, HTTPS sin dominio y controles de acceso.
 
 ## Próximos pasos del equipo
 

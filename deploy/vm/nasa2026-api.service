@@ -1,0 +1,27 @@
+[Unit]
+# Shared by Debian/Ubuntu VMs on AWS or Google Cloud.
+Description=NASA Space Apps demo API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+WorkingDirectory=/opt/nasa2026/api
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/nasa2026/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 --limit-concurrency 20 --timeout-keep-alive 5 --no-access-log
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+StateDirectory=nasa2026
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
