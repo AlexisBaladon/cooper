@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Explain it simply (3D) · Cooper</title>
+  <link rel="stylesheet" href="slides.css?v=1">
+  <style>
+    /* ---- capa 3D detrás del texto ---- */
+    .stage.s3d { padding: 0; }
+    .canvas3d { position: absolute; inset: 0; z-index: 0; }
+    .canvas3d canvas { width: 100%; height: 100%; display: block; }
+    .s3d .titles {
+      position: relative; z-index: 2; padding: 1.6rem 2.2rem 2.6rem; pointer-events: none;
+      background: linear-gradient(rgba(255,253,248,.92), rgba(255,253,248,.55) 65%, rgba(255,253,248,0));
+    }
+    .s3d .stage-inner { position: absolute; inset: 0; z-index: 1; display: block; pointer-events: none; }
+    .s3d .stage-inner a, .s3d .stage-inner button { pointer-events: auto; }
+
+    .hud { position: absolute; }
+    .hud-bottom { left: 50%; bottom: 1.2rem; transform: translateX(-50%); display: flex; justify-content: center; }
+    .hud-tag {
+      right: 1.2rem; top: 6.6rem; background: rgba(255,253,248,.92); border-radius: 999px; padding: .4rem .9rem;
+      font-size: .9rem; color: var(--text-2); box-shadow: 0 4px 14px rgba(0,0,0,.08); z-index: 3;
+    }
+    .hud-month {
+      left: 1.4rem; bottom: 1.4rem; background: rgba(255,253,248,.94); border-radius: 16px; padding: .6rem 1rem;
+      display: flex; flex-direction: column; min-width: 9rem; box-shadow: 0 6px 18px rgba(0,0,0,.1);
+    }
+    .hud-month .m { font-size: 1.8rem; font-weight: 800; line-height: 1.1; }
+    .hud-month .c { color: var(--accent); font-weight: 600; }
+    .hud-month.bare .c { color: #b0441a; }
+    .hud-trucks {
+      right: 1.4rem; bottom: 1.4rem; width: min(46%, 420px); background: rgba(255,253,248,.95); border-radius: 16px;
+      padding: .8rem 1rem; box-shadow: 0 6px 18px rgba(0,0,0,.1);
+    }
+    .t-label { font-weight: 700; color: var(--text-2); font-size: .9rem; }
+    .t-icons { display: flex; flex-wrap: wrap; gap: 2px; margin: .4rem 0; font-size: 1.05rem; line-height: 1.2; }
+    .t-icons span { opacity: 0; transform: scale(.4); transition: all .35s var(--ease); transition-delay: var(--d); }
+    .hud-trucks.on .t-icons span { opacity: 1; transform: none; }
+    .t-icons b { align-self: center; margin-left: .3rem; color: var(--text-2); }
+    .t-num strong { font-size: 1.4rem; }
+    .t-num small { color: var(--muted); }
+    .hud-chips { left: 1.6rem; top: 8.4rem; display: flex; flex-direction: column; align-items: flex-start; gap: .45rem; }
+    .hud-chips .chip, .hud-bottom .chip { box-shadow: 0 4px 14px rgba(0,0,0,.1); background: rgba(229,239,224,.96); }
+    .legend3d { display: flex; gap: 1rem; background: rgba(255,253,248,.94); padding: .5rem 1rem; border-radius: 999px; font-size: .92rem; box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+    .legend3d span { display: inline-flex; gap: .4rem; align-items: center; }
+    .legend3d .step { transform: none; }
+    .legend3d i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+    .cmp-nums { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+    .cmp-nums > div { background: rgba(255,253,248,.95); border-radius: 14px; padding: .55rem 1rem; box-shadow: 0 4px 14px rgba(0,0,0,.08); font-size: 1.05rem; }
+    .cmp-nums s { color: var(--muted); }
+    .cmp-nums em { font-style: normal; font-weight: 700; padding: .1rem .5rem; border-radius: 999px; margin-left: .3rem; }
+    .cmp-nums em.down { background: #fde7dc; color: #b0441a; }
+    .hud-panel { right: 1.2rem; top: 6.5rem; bottom: 1.2rem; width: min(52%, 520px); display: flex; align-items: center; }
+    .hud-panel .checklist li { background: rgba(255,253,248,.95); box-shadow: 0 4px 14px rgba(0,0,0,.08); font-size: clamp(.85rem, 1.5vw, 1.05rem); }
+    .hud-panel .checklist li.strong { background: rgba(229,239,224,.97); }
+    .hud-panel .diag li { background: rgba(255,253,248,.96); box-shadow: 0 4px 14px rgba(0,0,0,.08); font-size: clamp(.78rem, 1.3vw, .95rem); padding: .55rem .8rem; }
+    .hud-panel .diag { gap: .45rem; }
+    .hud-closing { left: 50%; bottom: 1.5rem; transform: translateX(-50%); }
+    .hud-closing .closing { gap: .8rem; }
+    .hud-closing .hand { font-size: 3.5rem; }
+    .no3d { padding: 6rem 2rem; text-align: center; pointer-events: auto; }
+    @media (max-width: 720px) { .hud-trucks, .hud-panel { width: 92%; left: 4%; right: auto; } }
+  </style>
+  <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    } }
+  </script>
+</head>
+<body>
+<div class="player" id="player">
+  <div class="topbar">
+    <a class="brand" href="index.html">← Cooper</a>
+    <span class="styles">Style: <a href="slides.html">Charts</a> · <a class="on" href="slides-3d.html">3D</a></span>
+    <span class="counter"></span>
+  </div>
+
+  <div class="stage s3d" aria-live="off">
+    <div class="canvas3d" aria-hidden="true"></div>
+    <div class="titles">
+      <h1 class="headline"></h1>
+      <p class="subhead"></p>
+    </div>
+    <div class="stage-inner"></div>
+    <div class="start" id="start">
+      <h2>🎧 Explain it simply · 3D</h2>
+      <p>Your field as a 3D model built from its real data: terrain, climate, crops and erosion.</p>
+      <button class="btn primary" id="start-btn">▶ Start</button>
+      <p id="data-source" class="note"></p>
+    </div>
+  </div>
+
+  <div class="subs" aria-live="polite" aria-label="Text of what the voice says"></div>
+
+  <div class="controls">
+    <div class="ctl-group">
+      <button class="btn round" id="prev" aria-label="Previous">◀</button>
+      <button class="btn round play" id="play" aria-label="Play or pause"><span class="play-ic">▶</span><span class="pause-ic">❚❚</span></button>
+      <button class="btn round" id="next" aria-label="Next">▶▶</button>
+    </div>
+    <div class="dots"></div>
+    <div class="ctl-group">
+      <label class="opt"><input type="checkbox" id="voice-on" checked> Voice</label>
+      <label class="opt">Speed
+        <select id="rate"><option value="0.85">Slow</option><option value="1" selected>Normal</option><option value="1.15">Fast</option></select>
+      </label>
+      <label class="opt" id="voice-pick-wrap">Voice <select id="voice-pick"></select></label>
+    </div>
+  </div>
+  <p class="note">The 3D model and every number come from the data (SRTM terrain, NASA POWER climate, RUSLE erosion). The narration comes from templates. Keys: space = pause, ← → = change slide.</p>
+</div>
+
+<script src="slides-sample.js"></script>
+<script src="slides.js?v=1"></script>
+<script type="module">
+  import { start3D } from "./slides3d.js?v=1";
+
+  let data = null, source = "";
+  try {
+    const raw = localStorage.getItem("cooper-analysis");
+    if (raw) { data = JSON.parse(raw); source = "Using the analysis you ran on the main screen."; }
+  } catch (e) { /* datos corruptos: usar el ejemplo */ }
+  if (!data || !data.terreno) { data = window.SAMPLE_ANALYSIS; source = "Using the sample field near Young (real NASA POWER and SRTM data)."; }
+  document.getElementById("data-source").textContent = source;
+
+  const root = document.getElementById("player");
+  const only = new URLSearchParams(location.search).get("slide");
+  if (only) document.documentElement.classList.add("static");
+  const player = start3D(root, data);
+  window.cooperPlayer = player;
+
+  if (player) {
+    const voicePick = document.getElementById("voice-pick");
+    const fillVoices = (vs) => {
+      document.getElementById("voice-pick-wrap").hidden = !vs.length;
+      voicePick.innerHTML = vs.map((v, i) => `<option value="${i}">${v.name.replace(/Microsoft |Google /, "")} (${v.lang})</option>`).join("");
+      const idx = vs.indexOf(player.voice);
+      if (idx >= 0) voicePick.value = idx;
+    };
+    root.addEventListener("voices", (e) => fillVoices(e.detail));
+    fillVoices(player.voices || []);
+    voicePick.addEventListener("change", () => { player.voice = player.voices[Number(voicePick.value)]; });
+    if (!("speechSynthesis" in window)) { const v = document.getElementById("voice-on"); v.checked = false; v.disabled = true; }
+
+    document.getElementById("start-btn").addEventListener("click", () => { document.getElementById("start").hidden = true; player.go(0); player.play(); });
+    document.getElementById("play").addEventListener("click", () => player.toggle());
+    document.getElementById("prev").addEventListener("click", () => player.go(player.i - 1));
+    document.getElementById("next").addEventListener("click", () => player.go(player.i + 1));
+    document.getElementById("voice-on").addEventListener("change", (e) => player.setVoiceEnabled(e.target.checked));
+    document.getElementById("rate").addEventListener("change", (e) => { player.rate = Number(e.target.value); });
+    root.addEventListener("click", (e) => { if (e.target.closest("[data-act=restart]")) { player.go(0); player.play(); } });
+    document.addEventListener("keydown", (e) => {
+      if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+      if (e.code === "Space") { e.preventDefault(); document.getElementById("start").hidden = true; player.toggle(); }
+      if (e.key === "ArrowRight") player.go(player.i + 1);
+      if (e.key === "ArrowLeft") player.go(player.i - 1);
+    });
+
+    // ?slide=N: muestra una slide completa, sin voz (para revisar o capturar).
+    const showStatic = () => { player.go(Math.max(0, Number(only) - 1)); player.beat(99); player.highlight(-1); };
+    if (only) { document.getElementById("start").hidden = true; showStatic(); }
+
+    // Dentro del programa principal (iframe): "volver" cierra la ventana en vez de navegar.
+    if (window.parent !== window) {
+      document.addEventListener("click", (e) => {
+        if (e.target.closest('a[href="index.html"]')) {
+          e.preventDefault();
+          window.parent.postMessage({ type: "cooper-close" }, location.origin);
+        }
+      });
+    }
+
+  }
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-/* Cooper — frontend sin frameworks. Fases 1-3: clima, rotaciones y zonas del campo. UI en inglés. */
+/* Cooper — frontend sin frameworks. Fases 1-4: clima, rotaciones, zonas y "Explain it simply". UI en inglés. */
 "use strict";
 
 const $ = (s) => document.querySelector(s);
@@ -43,6 +43,20 @@ async function init() {
   applyDemo(state.catalog.campos_demo[0]);
   $("#analyze").addEventListener("click", analyze);
   $("#rotation").addEventListener("change", updateRotationDesc);
+
+  // "Explain it simply" en 3D, dentro del programa (ventana superpuesta).
+  const closeExplain = () => { $("#explain-modal").hidden = true; $("#explain-frame").src = "about:blank"; };
+  $("#explain").addEventListener("click", () => {
+    $("#explain-frame").src = "slides-3d.html";
+    $("#explain-modal").hidden = false;
+    $("#explain-close").focus();
+  });
+  $("#explain-close").addEventListener("click", closeExplain);
+  $("#explain-modal").addEventListener("click", (e) => { if (e.target.id === "explain-modal") closeExplain(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#explain-modal").hidden) closeExplain(); });
+  window.addEventListener("message", (e) => {
+    if (e.origin === location.origin && e.data && e.data.type === "cooper-close") closeExplain();
+  });
   $("#area").addEventListener("change", updateFieldRect);
   $("#zone-layers").addEventListener("click", (e) => {
     const b = e.target.closest("button");
@@ -197,6 +211,27 @@ function render(data, prio) {
   renderTrends(data.clima.tendencias.indicadores);
   renderRotations(data.rotaciones, prio);
   renderZones(data.zonas, data.rotaciones);
+  saveForSlides(data);
+}
+
+/* Guarda una versión liviana del análisis para "Explain it simply" (slides*.html). */
+function saveForSlides(data) {
+  const chip = document.querySelector(".chip.active");
+  const slim = {
+    campo: chip ? chip.textContent : "",
+    meta: data.meta,
+    clima: { mensual: data.clima.mensual, tendencias: data.clima.tendencias.indicadores },
+    rotaciones: data.rotaciones.map(({ id, nombre, rol, total, puntajes, indicadores, calendario, explicacion, diagnostico }) =>
+      ({ id, nombre, rol, total, puntajes, indicadores, calendario, explicacion, diagnostico })),
+    zonas: data.zonas ? { resumen: data.zonas.resumen, tolerancia_t_ha: data.zonas.tolerancia_t_ha, area_ha: data.zonas.area_ha } : null,
+    // Grilla SRTM y erosión por celda: la usa la versión 3D para modelar el relieve real.
+    terreno: data.zonas ? {
+      n: Math.round(Math.sqrt(data.zonas.celdas.length)),
+      elev: data.zonas.celdas.map((c) => c.elev),
+      eros: Object.fromEntries(data.rotaciones.map((r) => [r.id, data.zonas.celdas.map((c) => c.eros[r.id])])),
+    } : null,
+  };
+  try { localStorage.setItem("cooper-analysis", JSON.stringify(slim)); } catch (e) { /* sin almacenamiento: las slides usan el ejemplo */ }
 }
 
 /* ------------------------------------------------------------- zonas */
@@ -501,6 +536,12 @@ function renderRotations(rots, prio) {
     </div>`;
     const ex = r.explicacion;
     const list = (items) => `<ul>${items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
+    const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+    const LEVEL = { fuerte: "✅ Good", medio: "🟡 Fair", flojo: "⚠️ Weak" };
+    const diag = r.diagnostico ? `<details ${r.rol === "actual" ? "open" : ""}><summary>Strengths and weaknesses</summary><ul class="diag-list">${
+      r.diagnostico.items.map((i) => `<li><strong>${LEVEL[i.nivel]} · ${esc(i.etiqueta)}</strong> — ${esc(cap(i.por_que))}.${
+        i.recomendaciones.length ? `<br><span class="idea">💡 ${i.recomendaciones.map((a) => esc(cap(a))).join(". ")}.</span>` : ""}</li>`).join("")
+    }</ul></details>` : "";
     return `<article class="${cls}">
       <span class="badge">${role}${r === best ? " · best score" : ""}</span>
       <h3>${esc(r.nombre)}</h3>
@@ -509,6 +550,7 @@ function renderRotations(rots, prio) {
       <div class="bars">${bars}</div>
       ${cal}
       ${kpis}
+      ${diag}
       <details ${r.rol !== "actual" ? "open" : ""}><summary>Why we suggest it</summary>${list(ex.por_que)}</details>
       <details><summary>Supporting data</summary>${list(ex.evidencia)}</details>
       <details><summary>Possible benefits</summary>${list(ex.beneficios)}</details>

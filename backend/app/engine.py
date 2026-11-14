@@ -51,6 +51,7 @@ def _clamp01(x: float) -> float:
 class Catalog:
     crops: dict
     rotations: dict
+    recs: dict  # recomendaciones por problema (data/recommendations.json)
 
 
 def load_catalog() -> Catalog:
@@ -59,7 +60,8 @@ def load_catalog() -> Catalog:
     rotations = {r["id"]: r for r in json.loads(
         (DATA_DIR / "rotations.json").read_text(encoding="utf-8"))["rotaciones"]}
     _validate(crops, rotations)
-    return Catalog(crops, rotations)
+    recs = json.loads((DATA_DIR / "recommendations.json").read_text(encoding="utf-8"))["problemas"]
+    return Catalog(crops, rotations, recs)
 
 
 def _validate(crops: dict, rotations: dict) -> None:
@@ -400,6 +402,113 @@ def explain(rot: dict, ev: dict, cur: dict | None, prio: dict,
             "vacios": vacios, "riesgos": riesgos}
 
 
+# ------------------------------------------------------------ diagnóstico
+
+NIVEL_FUERTE, NIVEL_FLOJO = 65, 40
+TEMAS = {  # cómo se nombra cada puntaje al hablar (texto de UI, en inglés)
+    "agua": "water use",
+    "suelo": "soil care",
+    "ingreso": "income",
+    "forraje": "forage",
+    "clima": "climate resilience",
+}
+
+
+def diagnose(ev: dict, prio: dict, tiene_ganado: bool, recs: dict) -> dict:
+    """Lo bueno y lo flojo de una rotación, con el porqué y hasta 2 ideas por punto flojo.
+
+    Todo sale de reglas sobre los puntajes e indicadores; las ideas vienen de
+    data/recommendations.json. Un LLM puede redactarlo, pero no decide nada de esto.
+    Los textos (por_que, tema) son de UI y están en inglés.
+    """
+    mt, sub = ev["indicadores"], ev["puntajes"]
+    det = sub["_detalle_suelo"]
+    items = []
+
+    def add(area: str, bueno: str, malo: str, problema: str | None):
+        if prio.get(area, 0) <= 0 or (area == "forraje" and not tiene_ganado):
+            return
+        score = sub[area]
+        nivel = "fuerte" if score >= NIVEL_FUERTE else "flojo" if score < NIVEL_FLOJO else "medio"
+        fuerte = nivel == "fuerte"
+        items.append({
+            "area": area, "etiqueta": SUBSCORES[area], "tema": TEMAS[area], "nivel": nivel,
+            "puntaje": score, "importancia": prio.get(area, 0),
+            "por_que": bueno if fuerte else malo,
+            "problema": None if fuerte else problema,
+            "recomendaciones": [] if fuerte or not problema else recs.get(problema, {}).get("acciones", [])[:2],
+        })
+
+    # --- Suelo: se explica por su parte más débil (o la más fuerte, si está bien)
+    eros = mt.get("erosion_t_ha")
+    partes = {
+        "cobertura": ("suelo_descubierto", "the soil stays covered almost all year",
+                      f"the field is left without a crop {_months_txt(mt['meses_descubiertos'])} a year"),
+        "materia_organica": ("poco_rastrojo", "the crops leave plenty of stubble, which feeds the soil",
+                             "the crops leave little stubble to feed the soil"),
+        "nitrogeno": ("sin_nitrogeno", "some crops add nitrogen to the soil",
+                      "almost no crop adds nitrogen to the soil"),
+        "diversidad": ("poca_diversidad", f"it rotates {mt['familias']} plant families",
+                       "the same crop is repeated year after year, which favors pests and diseases"
+                       if mt["repeticion"] >= 0.75 else "it rotates few plant families"),
+    }
+    if eros is not None:
+        partes["erosion"] = (
+            "erosion_alta",
+            f"little soil is lost: about {eros:.0f} tonnes per hectare a year, within the tolerable limit",
+            f"about {eros:.0f} tonnes of soil per hectare are lost each year, and the tolerable limit is {EROSION_TOL:.0f}")
+    # La erosión solo cuenta como problema si supera la tolerancia.
+    # Primero lo más visible para el productor: erosión sobre la tolerancia y meses sin cultivo.
+    urgencia = {"erosion": 0 if eros is not None and eros > EROSION_TOL else 2,
+                "cobertura": 1 if mt["meses_descubiertos"] >= 3 else 2}
+    malas = sorted((k for k in partes if not (k == "erosion" and eros <= EROSION_TOL)),
+                   key=lambda k: (urgencia.get(k, 2), det[k]))
+    buenas = sorted((k for k in partes if not (k == "erosion" and eros > EROSION_TOL)), key=lambda k: -det[k])
+    peor = malas[0]
+    malo = partes[peor][2]
+    if len(malas) > 1 and det[malas[1]] < NIVEL_FLOJO:
+        malo += "; on top of that, " + partes[malas[1]][2]
+    add("suelo", partes[buenas[0]][1], malo, partes[peor][0])
+
+    # --- Agua
+    add("agua",
+        f"even in a dry year, the crops are short of only about {mt['deficit_seco_mm']:.0f} millimeters of water",
+        f"in a dry year, the crops are short of about {mt['deficit_seco_mm']:.0f} millimeters of water",
+        "deficit_agua")
+
+    # --- Clima: la penalización más grande explica el puntaje
+    motivos = []
+    if mt["deficit_critico_seco_mm"] > 60:
+        motivos.append((0.5 * _clamp01(mt["deficit_critico_seco_mm"] / 300), "deficit_critico",
+                        f"in dry years the crops are short of about {mt['deficit_critico_seco_mm']:.0f} millimeters of water right at their most sensitive stage"))
+    if mt["dias_calor_critico"] > 5:
+        motivos.append((0.25 * _clamp01(mt["dias_calor_critico"] / 15), "calor_floracion",
+                        f"there are about {mt['dias_calor_critico']:.0f} days of strong heat a year right at flowering"))
+    if mt["dias_helada_critico"] > 0.5:
+        motivos.append((0.25 * _clamp01(mt["dias_helada_critico"] / 5), "helada_critica",
+                        "there is frost risk during sensitive crop stages"))
+    motivos.sort(reverse=True)
+    problema, malo = (motivos[0][1], motivos[0][2]) if motivos else (
+        "deficit_agua", "the crops suffer from water shortage in dry years")
+    add("clima", "the crops' most sensitive stages fall in low-risk months", malo, problema)
+
+    # --- Ingreso (relativo) y forraje
+    doble = mt["anios_doble_cultivo"]
+    add("ingreso",
+        "it grows two cash crops a year" if doble else "it relies on crops with good sale value",
+        "it grows only one cash crop a year" if not doble else "its crops have lower sale value",
+        "ingreso_bajo")
+    add("forraje", "it provides plenty of forage for livestock", "it produces little forage for livestock", "forraje_bajo")
+
+    orden = {"fuerte": 0, "flojo": 1, "medio": 2}
+    items.sort(key=lambda i: (orden[i["nivel"]], -i["importancia"], i["puntaje"]))
+    return {
+        "items": items,
+        "fuertes": [i["area"] for i in items if i["nivel"] == "fuerte"],
+        "flojos": [i["area"] for i in items if i["nivel"] == "flojo"],
+    }
+
+
 # ----------------------------------------------------------------- API
 
 def evaluate(rotation: dict, cat: Catalog, arr: dict, cap: float, prio: dict,
@@ -462,5 +571,6 @@ def compare(current_id: str, prio: dict, m: pd.DataFrame, cap: float,
             "calendario": calendar(rot, cat.crops),
             "explicacion": explain(rot, ev, None if role == "actual" else current,
                                    prio, cat.crops, clim, ctx),
+            "diagnostico": diagnose(ev, prio, tiene_ganado, cat.recs),
         })
     return result

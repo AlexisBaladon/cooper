@@ -11,14 +11,14 @@ written rules and published formulas that anyone can check.
 
 ## Status
 
-The project is being brought into this repository in five phases. This is **phase 3**.
+The project is being brought into this repository in five phases. This is **phase 4**.
 
 | Phase | Content | Status |
 |---|---|---|
 | 1. Base and climate | Server, daily NASA POWER data, local climate and trends | ✅ |
 | 2. Rotation engine | Crop table, water balance, scores, explanations and climate scenarios | ✅ |
 | 3. Terrain and erosion | SRTM elevation, RUSLE erosion per rotation and a map of zones within the field | ✅ |
-| 4. Diagnosis and "Explain it simply" | Strengths and weaknesses, recommendations and a narrated 3D summary | ⏳ |
+| 4. Diagnosis and "Explain it simply" | Strengths and weaknesses, recommendations and a narrated 3D summary | ✅ |
 | 5. AI and documentation | Narration text written with Groq, and full documentation | ⏳ |
 
 The team's earlier scaffold (FastAPI API, Next.js web app and first documents) is in
@@ -42,7 +42,15 @@ The team's earlier scaffold (FastAPI API, Next.js web app and first documents) i
      don't know yet, and risks to review with an agronomist;
    - **zones of the field** on satellite imagery: erosion for each rotation, relative
      wetness (where water collects or dries out first), low spots with more frost risk, and slope;
+   - **strengths and weaknesses** of each rotation: every score rated good, fair or weak,
+     the reason behind it, and up to two ideas to improve each weak point;
    - a scenario slider to recalculate everything with less rain or more heat.
+4. **Explain it simply** opens a one-minute narrated summary over a 3D model of the field:
+   its real SRTM terrain, crops changing month by month, soil colored by erosion and soil
+   washing downhill, followed by the climate, the diagnosis, a better option and what to
+   check with an agronomist. There's also a version with simple 2D charts. The narration is
+   built from templates filled with the analysis data and read aloud by the browser's
+   English voice.
 
 ## Adapted to Uruguay
 
@@ -96,7 +104,10 @@ backend/app/main.py      API (/api/catalog, /api/analyze) and web server
 backend/tests/           tests with synthetic data
 data/crops.json          crop table (editable by an agronomist)
 data/rotations.json      rotation library
+data/recommendations.json ideas to improve each weak point (editable by an agronomist)
 frontend/                web page in HTML and JavaScript (Leaflet and Chart.js)
+frontend/slides*.{html,js,css}  "Explain it simply" (2D charts and Three.js 3D model)
+scripts/make_slides_sample.py   rebuilds the sample analysis the slides use when there is none
 legacy/                  the team's earlier scaffold
 ```
 
@@ -132,6 +143,9 @@ legacy/                  the team's earlier scaffold
   Absolute values are indicative; they're most useful for comparing rotations.
 - **If OpenTopoData doesn't respond**, Cooper keeps working and estimates erosion from the
   rain that falls on bare soil.
+- **Diagnosis:** a score of 65 or more is "good", under 40 is "weak", the rest "fair".
+  Topics the farmer rated 0 are skipped, and forage is skipped without livestock. The
+  improvement ideas come from `data/recommendations.json`, a hand-written list, not from AI.
 - **Income is relative:** it compares crops with each other; there are no prices, costs or
   yields yet.
 - **Scale:** the climate describes the area, not the field. Neighboring fields get the

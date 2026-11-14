@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cooper · Crop rotations with NASA data</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
 <header class="top">
@@ -75,6 +75,12 @@
 
     <div id="content" hidden>
       <div id="warnings"></div>
+
+      <button type="button" class="explain-btn" id="explain">
+        <span class="explain-ic">🎧</span>
+        <span><strong>Explain it simply</strong><br><small>A one-minute narrated summary with a 3D model of your field</small></span>
+      </button>
+      <p class="hint explain-hint">There's also a <a href="slides.html" target="_blank">version with simple charts</a>.</p>
 
       <section class="card">
         <h2>Your area in numbers</h2>
@@ -181,8 +187,15 @@
   Data: NASA POWER (power.larc.nasa.gov) · NASA SRTM via OpenTopoData · Map: © OpenStreetMap · Prototype for NASA Space Apps 2026. It does not replace the judgment of farmers or agronomists.
 </footer>
 
+<div class="modal" id="explain-modal" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-label="Explain it simply, 3D">
+    <button type="button" class="modal-close" id="explain-close" aria-label="Close">✕</button>
+    <iframe id="explain-frame" title="Explain it simply, 3D"></iframe>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
