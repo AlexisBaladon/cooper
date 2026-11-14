@@ -1120,7 +1120,7 @@ export function start3D(root, data) {
     return null;
   }
   const scene = new FieldScene(root.querySelector(".canvas3d"), data);
-  const player = new Player(root, window.CooperWorkflow.labelScenario(build3DSlides(data, scene), data));
+  const player = new Player(root, window.CooperLang.prepareSlides(window.CooperWorkflow.labelScenario(build3DSlides(data, scene), data)));
   window.cooperScene = scene;
   return player;
 }

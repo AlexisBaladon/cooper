@@ -12,6 +12,7 @@ Ejecutar desde backend/:  python -m uvicorn app.main:app --reload
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -71,6 +72,7 @@ class SlideText(BaseModel):
 
 class NarrateRequest(BaseModel):
     slides: list[SlideText] = Field(..., min_length=1, max_length=12)
+    language: Literal["en", "es"] = "en"
 
 
 @app.post("/api/narrate")
@@ -79,7 +81,7 @@ def narrate(req: NarrateRequest) -> dict:
     slides = [s.model_dump() for s in req.slides]
     if any(len(t) > 600 for s in slides for t in s["narration"]):
         raise HTTPException(400, "Sentence too long")
-    return narrator.rewrite(slides)
+    return narrator.rewrite(slides, language=req.language)
 
 
 @app.get("/health")

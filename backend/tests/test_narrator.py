@@ -30,6 +30,32 @@ def test_without_key_uses_template(monkeypatch):
     assert "GROQ_API_KEY" in out["motivo"]
 
 
+def test_language_is_forwarded_and_cached_separately(monkeypatch):
+    calls = []
+    def rewrite(slides, key, model, language):
+        calls.append(language)
+        return slides
+    monkeypatch.setattr(narrator, "_call_groq", rewrite)
+    narrator.rewrite(SLIDES, language="en")
+    narrator.rewrite(SLIDES, language="es")
+    narrator.rewrite(SLIDES, language="es")
+    assert calls == ["en", "es"]
+
+
+def test_spanish_prompt_preserves_numeric_rules(monkeypatch):
+    import json
+    payloads = []
+    def post(url, **kwargs):
+        payloads.append(kwargs["json"])
+        return httpx.Response(200, request=httpx.Request("POST", url),
+            json={"choices": [{"message": {"content": json.dumps({"slides": SLIDES})}}]})
+    monkeypatch.setattr(narrator.httpx, "post", post)
+    narrator._call_groq(SLIDES, "test-key", narrator.DEFAULT_MODEL, "es")
+    prompt = payloads[0]["messages"][0]["content"]
+    assert "friendly Spanish" in prompt
+    assert "Keep every number exactly" in prompt
+
+
 def test_narration_cache_is_bounded_and_reuses_recent_entries(monkeypatch):
     monkeypatch.setattr(narrator, "MAX_CACHE_ENTRIES", 2)
     calls = []

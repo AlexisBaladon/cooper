@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#1b5e20">
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=8">
+  <link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
 <a class="skip-link" href="#results-title">Skip to results</a>
@@ -21,6 +21,7 @@
     <p class="tagline">Compare crop rotations using 30 years of NASA data for your area.</p>
     </div>
   </div>
+  <label class="language-control"><span>Language / Idioma</span><select id="language" aria-label="Language / Idioma"><option value="en">English</option><option value="es">Español</option></select></label>
   <p class="notice" role="note">🤝 This tool <strong>helps you think, it doesn't decide</strong>. Review every result with your agronomist.</p>
 </header>
 
@@ -84,7 +85,7 @@
   <!-- ====================== Resultados ====================== -->
   <div class="results" id="results">
     <h2 id="results-title" tabindex="-1">Your comparison</h2>
-    <div id="stale-results" class="warn" role="status" hidden>Field settings changed. Run the analysis again to update these results. The explanation and report are paused until then.</div>
+    <div id="stale-results" class="warn" role="status" hidden>Settings changed. Run the analysis again to update these results.</div>
     <div class="empty" id="empty">
       <p>👈 Mark your field, choose your current rotation and your priorities, then press <strong>Analyze my field</strong>.</p>
     </div>
@@ -95,24 +96,19 @@
 
     <div id="content" hidden>
       <div id="warnings"></div>
-      <section class="card decision-summary" aria-labelledby="summary-title">
-        <div class="summary-top"><p class="badge" id="analysis-mode"></p><button id="print-report" class="ghost" type="button">Print / save report as PDF</button></div>
-        <h2 id="summary-title">Start with the trade-offs</h2>
-        <p id="input-summary" class="sub"></p>
-        <p id="decision-summary"></p>
-        <p class="hint">Scores compare the rotations in this prototype. Income is relative potential, not profit: prices, yields, costs and your farm's constraints still need checking.</p>
-        <details><summary>What to check with your agronomist</summary><ul>
-          <li>Confirm soil water storage, the actual field boundary, drainage and crop dates.</li>
-          <li>Check machinery, livestock infrastructure, workload, local costs and sale prices.</li>
-          <li>Climate data represents an area of about 50 km. The square field and terrain model are approximations, not a field survey or an approved soil-use plan.</li>
-        </ul></details>
-      </section>
-
+      <div class="result-actions">
+        <p class="badge" id="analysis-mode" hidden></p>
+        <button id="print-report" class="pdf-button" type="button" title="Save the charts, maps and tables using your browser's Save as PDF destination">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m-4-4 4 4 4-4M5 16v5h14v-5"/></svg>
+          <span>Save as PDF</span>
+        </button>
+      </div>
+      <p id="input-summary" class="print-context" hidden></p>
       <button type="button" class="explain-btn" id="explain" aria-haspopup="dialog" aria-controls="explain-modal">
         <span class="explain-ic">🎧</span>
-        <span><strong>Explain it simply</strong><br><small>A narrated summary of this comparison, with charts or a 3D model</small></span>
+        <span><strong>Explain it simply</strong><br><small>A narrated 3D explanation of your field</small></span>
       </button>
-      <p class="hint explain-hint">An AI rewrites the narration from your data; the numbers don't change. There's also a <a href="slides.html?analysis=1" id="charts-link">version with simple charts</a>.</p>
+
 
       <section class="card">
         <h2>Your area in numbers</h2>
@@ -229,8 +225,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<section id="print-report-content" hidden></section>
+<script src="translations-es.js?v=3"></script>
+<script src="language.js?v=2"></script>
 <script src="workflow.js?v=2"></script>
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>
