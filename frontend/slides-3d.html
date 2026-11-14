@@ -90,6 +90,7 @@
       <p>Your field as a 3D model built from its real data: terrain, climate, crops and erosion.</p>
       <button class="btn primary" id="start-btn">▶ Start</button>
       <p id="data-source" class="note"></p>
+      <p id="ai-source" class="note"></p>
     </div>
   </div>
 
@@ -110,7 +111,7 @@
       <label class="opt" id="voice-pick-wrap">Voice <select id="voice-pick"></select></label>
     </div>
   </div>
-  <p class="note">The 3D model and every number come from the data (SRTM terrain, NASA POWER climate, RUSLE erosion). The narration comes from templates. Keys: space = pause, ← → = change slide.</p>
+  <p class="note">The 3D model and every number come from the data (SRTM terrain, NASA POWER climate, RUSLE erosion). <span id="ai-note">AI only rewrites the narration text.</span> Keys: space = pause, ← → = change slide.</p>
 </div>
 
 <script src="slides-sample.js"></script>
@@ -171,6 +172,30 @@
           window.parent.postMessage({ type: "cooper-close" }, location.origin);
         }
       });
+    }
+
+    // Redacción con IA (Groq): solo cambia titulares y frases; si falla, quedan las plantillas.
+    const params = new URLSearchParams(location.search);
+    const aiSource = document.getElementById("ai-source"), startBtn = document.getElementById("start-btn");
+    const setNote = (t) => { aiSource.textContent = t; document.getElementById("ai-note").textContent = t; };
+    if (params.get("ai") === "0") setNote("Template text (AI turned off).");
+    else {
+      startBtn.disabled = true;
+      startBtn.textContent = "Preparing the explanation…";
+      const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 45000);
+      fetch("/api/narrate", {
+        method: "POST", headers: { "Content-Type": "application/json" }, signal: ctrl.signal,
+        body: JSON.stringify({ slides: player.slides.map((s) => ({ key: s.key, headline: s.headline, narration: s.narration })) }),
+      }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status)))).then((res) => {
+        if (res.fuente !== "groq") { setNote(`Template text, no AI. ${res.motivo || ""}`); return; }
+        res.slides.forEach((t, i) => {
+          const s = player.slides[i];
+          if (s && s.key === t.key && t.narration.length === s.narration.length) { s.headline = t.headline; s.narration = t.narration; }
+        });
+        setNote(`Narration rewritten with AI (Groq · ${res.modelo}) in ${res.reescritas} of ${res.slides.length} slides. The numbers come from the data.`);
+        if (only) showStatic(); else if (!player.playing) player.show(player.i);
+      }).catch(() => setNote("Template text, no AI (couldn't connect)."))
+        .finally(() => { clearTimeout(timer); startBtn.disabled = false; startBtn.textContent = "▶ Start"; });
     }
 
   }

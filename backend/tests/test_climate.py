@@ -144,3 +144,14 @@ def test_analyze_falls_back_when_srtm_fails(client, monkeypatch):
     assert data["zonas"] is None
     assert any("SRTM" in w for w in data["advertencias"])
     assert all("erosion_t_ha" not in r["indicadores"] for r in data["rotaciones"])
+
+
+def test_narrate_without_key_returns_template(client, monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "")
+    slides = [{"key": "intro", "headline": "Your field in one minute", "narration": ["Hi.", "Today you use soybean."]}]
+    data = client.post("/api/narrate", json={"slides": slides}).json()
+    assert data["fuente"] == "plantilla" and data["slides"] == slides
+
+
+def test_narrate_rejects_bad_payload(client):
+    assert client.post("/api/narrate", json={"slides": []}).status_code == 422

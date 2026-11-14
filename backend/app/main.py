@@ -4,6 +4,8 @@ Fase 1: clima de la zona a partir de 30 años de datos diarios de NASA POWER.
 Fase 2: comparación de rotaciones (balance de agua, puntajes, explicaciones)
         y simulador de clima (menos lluvia, más temperatura).
 Fase 3: relieve SRTM, erosión RUSLE por rotación y zonas dentro del campo.
+Fase 4: diagnóstico (lo bueno y lo flojo) y recomendaciones, en engine.compare().
+Fase 5: redacción opcional de la voz de "Explain it simply" con Groq (/api/narrate).
 
 Ejecutar desde backend/:  python -m uvicorn app.main:app --reload
 """
@@ -16,7 +18,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import climate, engine, power, terrain
+from . import climate, engine, narrator, power, terrain
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -33,7 +35,7 @@ DEMO_FIELDS = [
      "rotacion": "trigo_soja2", "tiene_ganado": True},
 ]
 
-app = FastAPI(title="Cooper", version="0.3.0")
+app = FastAPI(title="Cooper", version="0.5.0")
 catalog = engine.load_catalog()
 
 
@@ -59,6 +61,25 @@ class AnalyzeRequest(BaseModel):
     capacidad_suelo_mm: float = Field(120, ge=40, le=250)
     tiene_ganado: bool = True
     area_ha: float = Field(100, ge=5, le=2000)
+
+
+class SlideText(BaseModel):
+    key: str = Field(..., max_length=30)
+    headline: str = Field(..., max_length=200)
+    narration: list[str] = Field(..., min_length=1, max_length=8)
+
+
+class NarrateRequest(BaseModel):
+    slides: list[SlideText] = Field(..., min_length=1, max_length=12)
+
+
+@app.post("/api/narrate")
+def narrate(req: NarrateRequest) -> dict:
+    """Reescribe los textos de "Explain it simply" con Groq; si no se puede, devuelve la plantilla."""
+    slides = [s.model_dump() for s in req.slides]
+    if any(len(t) > 600 for s in slides for t in s["narration"]):
+        raise HTTPException(400, "Sentence too long")
+    return narrator.rewrite(slides)
 
 
 @app.get("/api/catalog")

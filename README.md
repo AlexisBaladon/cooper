@@ -7,11 +7,14 @@ challenge.
 
 Cooper helps farmers think; it doesn't decide for them. It shows data, reasons and risks
 to review with a local agronomist. No AI makes the decisions: every result comes from
-written rules and published formulas that anyone can check.
+written rules and published formulas that anyone can check. The only AI in Cooper is
+optional and only rewrites the narration text of "Explain it simply".
+
+For a full explanation of the system, see [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
 
 ## Status
 
-The project is being brought into this repository in five phases. This is **phase 4**.
+The project was brought into this repository in five phases, and all of them are in.
 
 | Phase | Content | Status |
 |---|---|---|
@@ -19,7 +22,7 @@ The project is being brought into this repository in five phases. This is **phas
 | 2. Rotation engine | Crop table, water balance, scores, explanations and climate scenarios | ✅ |
 | 3. Terrain and erosion | SRTM elevation, RUSLE erosion per rotation and a map of zones within the field | ✅ |
 | 4. Diagnosis and "Explain it simply" | Strengths and weaknesses, recommendations and a narrated 3D summary | ✅ |
-| 5. AI and documentation | Narration text written with Groq, and full documentation | ⏳ |
+| 5. AI and documentation | Narration text written with Groq, and full documentation | ✅ |
 
 The team's earlier scaffold (FastAPI API, Next.js web app and first documents) is in
 [`legacy/`](legacy/).
@@ -50,7 +53,8 @@ The team's earlier scaffold (FastAPI API, Next.js web app and first documents) i
    washing downhill, followed by the climate, the diagnosis, a better option and what to
    check with an agronomist. There's also a version with simple 2D charts. The narration is
    built from templates filled with the analysis data and read aloud by the browser's
-   English voice.
+   English voice. Optionally, a Groq language model rewrites it in more natural English;
+   every rewritten sentence must keep exactly the same numbers, or it's discarded.
 
 ## Adapted to Uruguay
 
@@ -89,6 +93,14 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 Tests (no internet needed): `cd backend && python -m pytest -q`
 
+### Optional: AI-written narration (Groq)
+
+Copy `backend/.env.example` to `backend/.env`, paste a key from
+<https://console.groq.com/keys> into `GROQ_API_KEY` and restart the server. Without a key,
+or if Groq fails, Cooper uses the template narration and says so on screen.
+`backend/.env` is ignored by git; never commit it. Only the slides' text is sent to Groq,
+never coordinates.
+
 The first query for a new point takes about 15 to 20 seconds while it downloads the NASA
 POWER series and the SRTM elevation into `data/cache/`, which is not committed. Later queries for the same point are
 instant. The map and the page's libraries load from the internet.
@@ -100,14 +112,17 @@ backend/app/power.py     NASA POWER client with an on-disk cache
 backend/app/climate.py   evapotranspiration, heat, frost, heavy rain and trends
 backend/app/engine.py    water balance, indicators, scores and explanations
 backend/app/terrain.py   SRTM elevation, slope, water flow, RUSLE erosion and field zones
-backend/app/main.py      API (/api/catalog, /api/analyze) and web server
-backend/tests/           tests with synthetic data
+backend/app/narrator.py  narration rewriting with Groq, with number checks
+backend/app/main.py      API (/api/catalog, /api/analyze, /api/narrate) and web server
+backend/tests/           tests with synthetic data and a simulated Groq
+backend/.env.example     template for the Groq key
 data/crops.json          crop table (editable by an agronomist)
 data/rotations.json      rotation library
 data/recommendations.json ideas to improve each weak point (editable by an agronomist)
 frontend/                web page in HTML and JavaScript (Leaflet and Chart.js)
 frontend/slides*.{html,js,css}  "Explain it simply" (2D charts and Three.js 3D model)
 scripts/make_slides_sample.py   rebuilds the sample analysis the slides use when there is none
+docs/HOW-IT-WORKS.md     full explanation of the system
 legacy/                  the team's earlier scaffold
 ```
 
