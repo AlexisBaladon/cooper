@@ -278,23 +278,39 @@ function updateReportContext(data, body, context) {
   $("#analysis-mode").hidden = !data.escenario.activo;
   $("#analysis-mode").textContent = "What-if simulation · not a forecast";
   const priorities = Object.entries(body.prioridades).map(([key, value]) => `${PRIORITY_HINTS[key]} ${value}/5`).join(" · ");
-  $("#input-summary").textContent = `${context.field} · ${body.lat.toFixed(4)}, ${body.lon.toFixed(4)} · ${body.area_ha} ha · Soil water storage ${body.capacidad_suelo_mm} mm · ${body.tiene_ganado ? "Livestock available" : "No livestock"} · ${new Date(context.generatedAt).toLocaleString("en-GB")} · ${priorities} · Rainfall ${body.escenario.lluvia_pct}%, temperature +${body.escenario.temp_delta} °C. ${data.escenario.activo ? "What-if simulation, not a forecast." : "Historical comparison, not a forecast."}`;
+  const lines = [
+    [context.field, `${body.lat.toFixed(4)}, ${body.lon.toFixed(4)} · ${body.area_ha} ha`],
+    ["Field settings", `Soil water storage ${body.capacidad_suelo_mm} mm · ${body.tiene_ganado ? "Livestock available" : "No livestock"}`],
+    ["Your priorities", priorities],
+    ["Climate scenario", `Rainfall ${body.escenario.lluvia_pct}%, temperature +${body.escenario.temp_delta} °C. ${data.escenario.activo ? "What-if simulation, not a forecast." : "Historical comparison, not a forecast."}`],
+    ["Analysis created", new Date(context.generatedAt).toLocaleString(CooperLang.current === "es" ? "es-UY" : "en-GB")],
+  ];
+  $("#input-summary").innerHTML = lines.map(([label, value]) => `<p><strong>${esc(label)}</strong><span>${esc(value)}</span></p>`).join("");
+  if (new URLSearchParams(location.search).get("preview") === "print") {
+    document.documentElement.classList.add("report-preview");
+    $("#report-styles").media = "all";
+    preparePrint();
+    requestAnimationFrame(() => { state.zonesMap?.invalidateSize(); state.chart?.resize(); });
+  }
 }
-let printTableWasOpen = false;
-window.addEventListener("beforeprint", () => {
+let printTableWasOpen = null;
+function preparePrint() {
   document.documentElement.classList.add("printing");
-  printTableWasOpen = $(".table-view").open;
+  if (printTableWasOpen === null) printTableWasOpen = $(".table-view").open;
   $(".table-view").open = true;
   CooperLang.refresh();
   if (state.result) {
     renderWaterChart(state.result.clima.mensual, state.result.escenario.activo ? state.result.clima.mensual_base : null);
-    state.chart?.resize(680, 260);
+    state.chart?.resize(680, 240);
     state.chart?.update("none");
   }
-});
+}
+window.addEventListener("beforeprint", preparePrint);
 window.addEventListener("afterprint", () => {
+  if (document.documentElement.classList.contains("report-preview")) return;
   document.documentElement.classList.remove("printing");
-  $(".table-view").open = printTableWasOpen;
+  if (printTableWasOpen !== null) $(".table-view").open = printTableWasOpen;
+  printTableWasOpen = null;
   if (state.result) renderWaterChart(state.result.clima.mensual, state.result.escenario.activo ? state.result.clima.mensual_base : null);
 });
 

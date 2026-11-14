@@ -1,0 +1,57 @@
+/* Shared by browser printing and the opt-in ?preview=print local review. */
+* { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+body { color: #111; background: white; font-size: 10pt; line-height: 1.4; }
+.top { padding: 0 0 8pt; gap: 8pt; }
+.brand { gap: 10pt; }
+.brand-logo { width: 64px; height: 64px; }
+.tagline, .notice { font-size: 9pt; }
+.notice { padding: 6pt 8pt; }
+.skip-link, .panel, .foot, .modal, .result-actions, .explain-btn, .scenario, .language-control, #retry-load { display: none !important; }
+.layout { display: block; padding: 10pt 0 0; }
+#results-title { margin-bottom: 8pt; font-size: 16pt; }
+.print-context[hidden] { display: block !important; margin: 0 0 12pt; padding: 8pt 10pt; border-left: 3px solid var(--accent); background: #f5f7f3; font-size: 9pt; }
+.print-context p { margin: 0 0 5pt; display: grid; grid-template-columns: 100pt 1fr; gap: 10pt; break-inside: avoid; }
+.print-context p:last-child { margin-bottom: 0; }
+.print-context p:first-child { display: block; margin-bottom: 8pt; }
+.print-context p:first-child strong { display: block; margin-bottom: 3pt; font-size: 10pt; }
+.print-context strong { color: #234e32; }
+.card, .rot { box-shadow: none; border: 1px solid #bbb; background: white; padding: 10pt; margin: 0 0 12pt; break-inside: auto; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+/* Large flex cards fragmented into nearly empty pages in Chromium. Use normal flow. */
+.rotations, .rot { display: block; }
+.rot > * { margin-top: 0; margin-bottom: 7pt; }
+.rot h3 { margin-top: 7pt; }
+.rot .total, .bars, .kpis, .calendar-scroll, .chart-box, #zones-map, .tile { break-inside: avoid; }
+h2, h3, summary, dt, .section-title, .legend, .sub, .hint { break-after: avoid; }
+h2 { font-size: 12pt; }
+h3 { font-size: 10pt; margin-top: 12pt; }
+p, li, dd { orphans: 3; widows: 3; }
+.hint, .sub, .rot .desc, .rot details ul { font-size: 9pt; }
+.rot details { margin: 7pt 0 0; padding-top: 5pt; }
+.rot summary, .table-view summary { min-height: 0; padding: 3pt 0; font-size: 9pt; }
+.rot details:not([open]) { display: none; }
+.rot details li { margin-bottom: 5pt; }
+.tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6pt; }
+.tile { padding: 7pt; }
+.tile .label { font-size: 8pt; }
+.tile .detail { font-size: 7.5pt; }
+.tile .value { font-size: 15pt; }
+.scroll-x, .calendar-scroll { overflow: visible; }
+.cal-table { min-width: 0; }
+.data { font-size: 8pt !important; }
+table.data th, table.data td { padding: 4pt 3pt; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+.risk td.cell { min-width: 0; }
+table.data th:first-child, table.data td:first-child { white-space: normal; }
+#zones-map { height: 280px; }
+.chart-box { height: 240px; }
+.glossary { column-count: 2; column-gap: 20pt; font-size: 9pt; }
+.glossary dd { font-size: 9pt; margin-bottom: 8pt; }
+.glossary dt { margin-top: 0; }
+.method ul { font-size: 9pt; }
+.method li { margin-bottom: 5pt; }
+@page { size: A4; margin: 12mm; }
+@media screen {
+  html.report-preview { background: #e7e9e6; }
+  .report-preview body { max-width: 186mm; margin: 24px auto; padding: 12mm; box-sizing: content-box; box-shadow: 0 2px 16px #0002; }
+}

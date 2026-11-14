@@ -314,23 +314,4 @@ input[type="number"] { width: 100%; padding: .6rem; border: 1px solid var(--axis
 .result-actions .badge { margin: 0 auto 0 0; }
 .pdf-button { display: inline-flex; align-items: center; gap: .55rem; border: 1px solid var(--accent); border-radius: 999px; padding: .6rem 1rem; color: var(--accent); background: var(--surface); cursor: pointer; font-weight: 600; }
 .pdf-button:hover { background: var(--page); box-shadow: 0 2px 8px var(--border); }
-:root.printing { color-scheme: light; --page: white; --surface: white; --text: #111; --text-2: #444; --muted: #555; --grid: #ddd; --axis: #888; --accent: #1b5e20; --seq-0:#f3f7fd; --seq-1:#cde2fb; --seq-2:#86b6ef; --seq-3:#3987e5; --seq-4:#1c5cab; --seq-5:#0d366b; }
-@media print {
-  * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  body { color: #111; background: white; font-size: 10pt; }
-  .top { padding: 0 0 1rem; }
-  .skip-link, .panel, .foot, .modal, .result-actions, .explain-btn, .scenario, .language-control, #retry-load { display: none !important; }
-  .layout { display: block; padding: 0; }
-  .print-context[hidden] { display: block !important; font-size: 9pt; margin: 0 0 1rem; }
-  .card, .rot { box-shadow: none; border: 1px solid #bbb; break-inside: avoid; background: white; }
-  .rotations { display: block; }
-  .rot { margin-bottom: 1rem; }
-  .scroll-x, .calendar-scroll { overflow: visible; }
-  .cal-table { min-width: 0; }
-  .data { font-size: 7.5pt !important; }
-  .risk td.cell { min-width: 0; }
-  table.data th:first-child, table.data td:first-child { white-space: normal; }
-  #zones-map { height: 320px; }
-  .chart-box { height: 260px; }
-  @page { margin: 12mm; }
-}
+:root.printing { color-scheme: light; --page: white; --surface: white; --text: #111; --text-2: #444; --muted: #555; --grid: #ddd; --axis: #888; --accent: #1b5e20; --border: #ddd; --warning-bg: #fff6e0; --bare: #ecebe6; --series-1: #2a78d6; --series-2: #eb6834; --seq-0:#f3f7fd; --seq-1:#cde2fb; --seq-2:#86b6ef; --seq-3:#3987e5; --seq-4:#1c5cab; --seq-5:#0d366b; }

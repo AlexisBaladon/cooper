@@ -21,3 +21,6 @@ data/cache/
 /web/
 *.tsbuildinfo
 *.egg-info/
+
+# Local PDF layout review renders.
+/tmp/pdfs/
