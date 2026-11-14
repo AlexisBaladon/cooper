@@ -3,6 +3,7 @@
 Fase 1: clima de la zona a partir de 30 años de datos diarios de NASA POWER.
 Fase 2: comparación de rotaciones (balance de agua, puntajes, explicaciones)
         y simulador de clima (menos lluvia, más temperatura).
+Fase 3: relieve SRTM, erosión RUSLE por rotación y zonas dentro del campo.
 
 Ejecutar desde backend/:  python -m uvicorn app.main:app --reload
 """
@@ -15,7 +16,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import climate, engine, power
+from . import climate, engine, power, terrain
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -32,7 +33,7 @@ DEMO_FIELDS = [
      "rotacion": "trigo_soja2", "tiene_ganado": True},
 ]
 
-app = FastAPI(title="Cooper", version="0.2.0")
+app = FastAPI(title="Cooper", version="0.3.0")
 catalog = engine.load_catalog()
 
 
@@ -57,6 +58,7 @@ class AnalyzeRequest(BaseModel):
     escenario: Escenario = Escenario()
     capacidad_suelo_mm: float = Field(120, ge=40, le=250)
     tiene_ganado: bool = True
+    area_ha: float = Field(100, ge=5, le=2000)
 
 
 @app.get("/api/catalog")
@@ -89,10 +91,29 @@ def analyze(req: AnalyzeRequest) -> dict:
     clim = climate.climatology(monthly)
     clim_base = clim if not scenario_active else climate.climatology(climate.monthly_series(base))
 
-    rotations = engine.compare(req.rotacion_actual, req.prioridades.model_dump(), monthly,
-                               req.capacidad_suelo_mm, clim, catalog, req.tiene_ganado)
-
     warnings = []
+
+    # --- Terreno (SRTM) y erosión RUSLE: si falla, se sigue con el proxy de erosión.
+    erosion_maps, erosion, zone_data = {}, None, None
+    try:
+        dem = terrain.fetch_dem(req.lat, req.lon, req.area_ha)
+        terr = terrain.analyze_terrain(dem)
+        r_annual, r_frac = terrain.r_factor(daily)
+        for rid, rot in catalog.rotations.items():
+            c = terrain.c_factor(rot, catalog.crops, r_frac)
+            erosion_maps[rid] = terrain.erosion_map(terr, r_annual, c)
+        erosion = {rid: terrain.erosion_summary(a) for rid, a in erosion_maps.items()}
+    except (httpx.HTTPError, ValueError, KeyError) as exc:
+        warnings.append(f"Could not get SRTM elevation ({exc}); erosion is estimated without the slope.")
+
+    rotations = engine.compare(req.rotacion_actual, req.prioridades.model_dump(), monthly,
+                               req.capacidad_suelo_mm, clim, catalog, req.tiene_ganado,
+                               erosion=erosion)
+    if erosion is not None:
+        zone_data = terrain.zones(dem, terr, {r["id"]: erosion_maps[r["id"]] for r in rotations})
+        zone_data["r_factor"] = round(r_annual)
+        zone_data["k_factor"] = terrain.K_DEFAULT
+        zone_data["area_ha"] = req.area_ha
     lat_min, lat_max, lon_min, lon_max = URUGUAY_BBOX
     if not (lat_min <= req.lat <= lat_max and lon_min <= req.lon <= lon_max):
         warnings.append("This point is outside Uruguay. Cooper's crop calendars are designed "
@@ -109,6 +130,7 @@ def analyze(req: AnalyzeRequest) -> dict:
         "clima": {"mensual": clim, "mensual_base": clim_base,
                   "tendencias": climate.trends(base)},
         "rotaciones": rotations,
+        "zonas": zone_data,
     }
 
 

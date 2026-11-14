@@ -27,6 +27,7 @@ from .climate import AG_MONTHS, month_name
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 KC_BARE = 0.3
+EROSION_TOL = 7.0  # t/ha/año, tolerancia de referencia (igual que terrain.TOLERANCIA_T_HA)
 COVER_CROP = "cover crop"         # valor de "tipo" en data/crops.json
 WINTER_IDX = AG_MONTHS.index(8)   # agosto: representa la zafra de invierno
 SUMMER_IDX = AG_MONTHS.index(1)   # enero: representa la zafra de verano
@@ -193,8 +194,12 @@ def subscores(mt: dict) -> dict:
     """Convierte indicadores en puntajes 0-100. Umbrales heurísticos, revisables."""
     cobertura = 1 - mt["meses_descubiertos"] / 12
     materia_org = _clamp01(mt["residuo_anual"] / 6)
-    # Erosión: proxy de lluvia sobre suelo desnudo (la fase 3 la reemplaza por RUSLE).
-    erosion = 1 - _clamp01(mt["lluvia_suelo_desnudo_mm"] / 700)
+    if "erosion_t_ha" in mt:
+        # RUSLE con terreno real: 0 t/ha → mejor; 2 x tolerancia (14 t/ha) → peor.
+        erosion = 1 - _clamp01(mt["erosion_t_ha"] / (2 * EROSION_TOL))
+    else:
+        # Sin terreno (OpenTopoData no respondió): proxy de lluvia sobre suelo desnudo.
+        erosion = 1 - _clamp01(mt["lluvia_suelo_desnudo_mm"] / 700)
     nitrogeno = _clamp01(mt["aporte_n_anual"] / 3)
     diversidad = 0.6 * _clamp01((mt["familias"] - 1) / 3) + 0.4 * (1 - mt["repeticion"])
     suelo = np.mean([cobertura, materia_org, erosion, nitrogeno, diversidad])
@@ -277,6 +282,8 @@ def explain(rot: dict, ev: dict, cur: dict | None, prio: dict,
             a, b = cs[k], sub[k]
             if k == "suelo":
                 extra = []
+                if "erosion_t_ha" in mt and mt["erosion_t_ha"] < cm["erosion_t_ha"] * 0.9:
+                    extra.append(f"estimated erosion drops from {cm['erosion_t_ha']:.1f} to {mt['erosion_t_ha']:.1f} t/ha a year")
                 if mt["meses_descubiertos"] < cm["meses_descubiertos"] - 0.5:
                     extra.append(f"the field is left without a crop {_months_txt(mt['meses_descubiertos'])} a year instead of {_months_txt(cm['meses_descubiertos'])}")
                 if mt["aporte_n_anual"] > cm["aporte_n_anual"]:
@@ -311,6 +318,10 @@ def explain(rot: dict, ev: dict, cur: dict | None, prio: dict,
             f"The field is left without a crop {mt['meses_descubiertos']:.1f} months a year; {mt['lluvia_suelo_desnudo_mm']:.0f} mm of rain fall on bare soil in those months, with {mt['lluvia_fuerte_suelo_desnudo']:.1f} heavy-rain days (≥40 mm) a year.")
     else:
         evidencia.append("The soil stays covered almost all year.")
+    if "erosion_t_ha" in mt:
+        evidencia.append(
+            f"Estimated erosion (RUSLE with SRTM slope, assuming no-till): {mt['erosion_t_ha']:.1f} t/ha a year on average; "
+            f"{mt['erosion_area_alta_pct']:.0f}% of the field exceeds the reference tolerance of {EROSION_TOL:.0f} t/ha a year.")
     for cid in ids:
         c = crops[cid]
         if not c["meses_criticos"]:
@@ -359,11 +370,17 @@ def explain(rot: dict, ev: dict, cur: dict | None, prio: dict,
         f"Soil: we use a soil water capacity of {ctx['capacidad']:.0f} mm that you chose; we don't read the paddock's actual soil type yet.",
         "Market: the income score only compares crops with each other; it doesn't use prices, costs or yields for your area.",
     ]
+    if "erosion_t_ha" in mt:
+        vacios.append("Erosion: the field is approximated by a square around the point; SRTM (30 m) can't see gullies "
+                      "or micro-relief, and soil erodibility (K) is a typical value, not a measured one.")
     for cid in ids:
         vacios += [v for v in crops[cid]["vacios"] if v not in vacios]
 
     # --- Riesgos a revisar con un agrónomo
     riesgos: list[str] = []
+    if mt.get("erosion_t_ha", 0) > EROSION_TOL:
+        riesgos.append(f"Estimated erosion ({mt['erosion_t_ha']:.1f} t/ha a year) exceeds the reference tolerance: "
+                       "an agronomist should review slope length, terraces or strip cropping.")
     if mt["deficit_critico_seco_mm"] > 60:
         riesgos.append(f"In dry years water runs short during critical stages (about {mt['deficit_critico_seco_mm']:.0f} mm): review sowing dates, varieties or irrigation.")
     if mt["dias_calor_critico"] > 5:
@@ -385,8 +402,9 @@ def explain(rot: dict, ev: dict, cur: dict | None, prio: dict,
 
 # ----------------------------------------------------------------- API
 
-def evaluate(rotation: dict, cat: Catalog, arr: dict, cap: float, prio: dict) -> dict:
-    mt = simulate(rotation, cat.crops, arr, cap) | static_metrics(rotation, cat.crops)
+def evaluate(rotation: dict, cat: Catalog, arr: dict, cap: float, prio: dict,
+             erosion: dict | None = None) -> dict:
+    mt = simulate(rotation, cat.crops, arr, cap) | static_metrics(rotation, cat.crops) | (erosion or {})
     sub = subscores(mt)
     return {
         "id": rotation["id"],
@@ -415,11 +433,13 @@ def calendar(rotation: dict, crops: dict) -> list[list[dict | None]]:
 
 def compare(current_id: str, prio: dict, m: pd.DataFrame, cap: float,
             clim: list[dict], cat: Catalog, tiene_ganado: bool = True,
-            n_alternatives: int = 2) -> list[dict]:
+            n_alternatives: int = 2, erosion: dict[str, dict] | None = None) -> list[dict]:
+    """erosion: {rotación_id: resumen RUSLE} si hay datos de terreno; si no, se usa el proxy."""
     if current_id not in cat.rotations:
         raise KeyError(current_id)
     arr = _month_arrays(m)
-    evals = {rid: evaluate(r, cat, arr, cap, prio) for rid, r in cat.rotations.items()}
+    evals = {rid: evaluate(r, cat, arr, cap, prio, (erosion or {}).get(rid))
+             for rid, r in cat.rotations.items()}
     current = evals[current_id]
     candidates = [e for rid, e in evals.items()
                   if rid != current_id

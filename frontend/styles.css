@@ -212,6 +212,20 @@ table.data th { color: var(--text-2); font-weight: 600; }
 .rot details li { margin-bottom: 0.3rem; }
 .rot details.risks summary { color: #b3541e; }
 
+/* Fase 3: mapa de zonas */
+#zones-map { height: 380px; border-radius: var(--radius); border: 1px solid var(--border); margin-top: 0.7rem; }
+.zone-controls { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center; justify-content: space-between; }
+.seg { display: inline-flex; border: 1px solid var(--axis); border-radius: 8px; overflow: hidden; }
+.seg button {
+  border: 0; background: transparent; color: var(--text-2); padding: 0.4rem 0.8rem; cursor: pointer;
+  border-right: 1px solid var(--axis); font-size: 0.85rem;
+}
+.seg button:last-child { border-right: 0; }
+.seg button.active { background: var(--accent); color: var(--surface); }
+.inline { display: inline-flex; gap: 0.4rem; align-items: center; font-size: 0.85rem; }
+.inline select { width: auto; max-width: 320px; }
+.legend .swatch:empty { min-width: 1.2rem; }
+
 .glossary dt { font-weight: 600; margin-top: 0.7rem; }
 .glossary dd { margin: 0.15rem 0 0; color: var(--text-2); font-size: 0.9rem; }
 .method ul { padding-left: 1.1rem; font-size: 0.9rem; color: var(--text-2); }
