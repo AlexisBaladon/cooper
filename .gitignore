@@ -12,3 +12,6 @@ data/raw/
 data/processed/
 *.parquet
 .DS_Store
+
+# Descargas de NASA POWER (se regeneran solas)
+data/cache/
