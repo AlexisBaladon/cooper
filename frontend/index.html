@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cooper · Crop rotations with NASA data</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
+<a class="skip-link" href="#results-title">Skip to results</a>
 <header class="top">
   <div>
     <h1>Cooper</h1>
@@ -21,10 +22,18 @@
   <aside class="panel" aria-label="Your field">
     <section class="step">
       <h2><span class="num">1</span> Mark your field</h2>
-      <p class="hint">Click on the map or pick a sample field.</p>
+      <p class="hint">Choose a sample to explore, or mark your own field. Crop calendars are designed for Uruguay.</p>
+      <p id="field-context" class="field-context" role="status"></p>
       <div id="map" aria-label="Map to locate the field"></div>
       <div id="demo-fields" class="chips"></div>
       <p class="coords" id="coords"></p>
+      <details class="coordinate-entry"><summary>Enter coordinates instead of using the map</summary>
+        <form id="coordinates-form">
+          <label class="field">Latitude <input id="latitude" type="number" min="-90" max="90" step="any" required inputmode="decimal"></label>
+          <label class="field">Longitude <input id="longitude" type="number" min="-180" max="180" step="any" required inputmode="decimal"></label>
+          <button type="submit" class="ghost">Use these coordinates</button>
+        </form>
+      </details>
       <label class="field">Approximate field size
         <select id="area">
           <option value="25">25 ha</option>
@@ -39,7 +48,7 @@
 
     <section class="step">
       <h2><span class="num">2</span> Which rotation do you use today?</h2>
-      <select id="rotation"></select>
+      <select id="rotation" aria-label="Current crop rotation" aria-describedby="rotation-desc"></select>
       <p class="hint" id="rotation-desc"></p>
     </section>
 
@@ -61,26 +70,42 @@
       <div id="priorities"></div>
     </section>
 
-    <button id="analyze" class="primary">Analyze my field</button>
+    <button id="analyze" class="primary" disabled>Loading crop options…</button>
+    <p class="hint">Start with the comparison, then discuss the trade-offs with your agronomist.</p>
   </aside>
 
   <!-- ====================== Resultados ====================== -->
-  <div class="results" id="results" aria-live="polite">
+  <div class="results" id="results">
+    <h2 id="results-title" tabindex="-1">Your comparison</h2>
+    <div id="stale-results" class="warn" role="status" hidden>Field settings changed. Run the analysis again to update these results. The explanation and report are paused until then.</div>
     <div class="empty" id="empty">
       <p>👈 Mark your field, choose your current rotation and your priorities, then press <strong>Analyze my field</strong>.</p>
     </div>
 
-    <div id="loading" class="loading" hidden>Fetching NASA POWER data and comparing rotations…</div>
-    <div id="error" class="error" hidden></div>
+    <div id="loading" class="loading" role="status" hidden>Comparing rotations with historical NASA data…<br><small>A new location can take up to a few minutes. You can change settings; we will use the latest ones.</small></div>
+    <div id="error" class="error" role="alert" hidden></div>
+    <button id="retry-load" class="ghost" hidden>Reload the application</button>
 
     <div id="content" hidden>
       <div id="warnings"></div>
+      <section class="card decision-summary" aria-labelledby="summary-title">
+        <div class="summary-top"><p class="badge" id="analysis-mode"></p><button id="print-report" class="ghost" type="button">Print / save report as PDF</button></div>
+        <h2 id="summary-title">Start with the trade-offs</h2>
+        <p id="input-summary" class="sub"></p>
+        <p id="decision-summary"></p>
+        <p class="hint">Scores compare the rotations in this prototype. Income is relative potential, not profit: prices, yields, costs and your farm's constraints still need checking.</p>
+        <details><summary>What to check with your agronomist</summary><ul>
+          <li>Confirm soil water storage, the actual field boundary, drainage and crop dates.</li>
+          <li>Check machinery, livestock infrastructure, workload, local costs and sale prices.</li>
+          <li>Climate data represents an area of about 50 km. The square field and terrain model are approximations, not a field survey or an approved soil-use plan.</li>
+        </ul></details>
+      </section>
 
-      <button type="button" class="explain-btn" id="explain">
+      <button type="button" class="explain-btn" id="explain" aria-haspopup="dialog" aria-controls="explain-modal">
         <span class="explain-ic">🎧</span>
-        <span><strong>Explain it simply</strong><br><small>A one-minute narrated summary with a 3D model of your field</small></span>
+        <span><strong>Explain it simply</strong><br><small>A narrated summary of this comparison, with charts or a 3D model</small></span>
       </button>
-      <p class="hint explain-hint">An AI rewrites the narration from your data; the numbers don't change. There's also a <a href="slides.html" target="_blank">version with simple charts</a>.</p>
+      <p class="hint explain-hint">An AI rewrites the narration from your data; the numbers don't change. There's also a <a href="slides.html?analysis=1" id="charts-link">version with simple charts</a>.</p>
 
       <section class="card">
         <h2>Your area in numbers</h2>
@@ -88,11 +113,11 @@
 
         <h3>Rainfall and atmospheric water demand, by month</h3>
         <p class="hint">When the orange line (evapotranspiration) rises above the blue bars (rainfall), crops depend on the water stored in the soil.</p>
-        <div class="chart-box"><canvas id="water-chart" aria-label="Monthly rainfall and evapotranspiration chart"></canvas></div>
-        <details class="table-view"><summary>Show as a table</summary><div id="water-table"></div></details>
+        <p id="chart-notice" class="hint" hidden></p><div class="chart-box"><canvas id="water-chart" role="img" aria-label="Monthly rainfall and evapotranspiration chart"></canvas></div>
+        <details class="table-view"><summary>Show as a table</summary><div id="water-table" class="scroll-x"></div></details>
 
         <h3>Risk calendar</h3>
-        <p class="hint">Average number of days per month. Darker means more days.</p>
+        <p class="hint">Values use the units shown in each row. Colour intensity compares months within a row, not different risks.</p>
         <div id="risk-table" class="scroll-x"></div>
 
         <h3>How is your area changing?</h3>
@@ -103,11 +128,11 @@
         <h2>Zones of your field</h2>
         <p class="sub" id="zones-meta"></p>
         <div class="zone-controls">
-          <div class="seg" id="zone-layers" role="tablist" aria-label="Map layer">
-            <button data-layer="erosion" class="active">Erosion</button>
-            <button data-layer="humedad">Relative wetness</button>
-            <button data-layer="bajos">Low spots</button>
-            <button data-layer="pendiente">Slope</button>
+          <div class="seg" id="zone-layers" role="group" aria-label="Map layer">
+            <button data-layer="erosion" aria-pressed="true" class="active">Erosion</button>
+            <button data-layer="humedad" aria-pressed="false">Relative wetness</button>
+            <button data-layer="bajos" aria-pressed="false">Low spots</button>
+            <button data-layer="pendiente" aria-pressed="false">Slope</button>
           </div>
           <label id="zone-rot-wrap" class="inline">Rotation:
             <select id="zone-rot"></select>
@@ -121,7 +146,7 @@
 
       <section class="card scenario">
         <h2>What if the climate changes?</h2>
-        <p class="hint">Move the sliders to recalculate everything with less rain or more heat, over the same 30-year record.</p>
+        <p class="hint">Move the sliders to recalculate everything with less rain or more heat, over the same 30-year record. These are hypothetical changes, not a prediction of future weather.</p>
         <div class="scenario-controls">
           <label>Rainfall: <strong id="rain-val">0%</strong>
             <input type="range" id="rain" min="-40" max="20" step="5" value="0">
@@ -135,7 +160,7 @@
 
       <section>
         <h2 class="section-title">Three rotations side by side</h2>
-        <p class="hint">Scores go from 0 to 100. The total weights each score by what matters to you. Months marked ⚠ are critical crop stages.</p>
+        <p class="hint">Scores go from 0 to 100. The total weights each score by what matters to you. Months marked ⚠ are critical crop stages. Scroll each crop calendar sideways to see the full year.</p>
         <div id="crop-legend" class="legend"></div>
         <div id="rotations" class="rotations"></div>
       </section>
@@ -190,12 +215,15 @@
 <div class="modal" id="explain-modal" hidden>
   <div class="modal-box" role="dialog" aria-modal="true" aria-label="Explain it simply, 3D">
     <button type="button" class="modal-close" id="explain-close" aria-label="Close">✕</button>
-    <iframe id="explain-frame" title="Explain it simply, 3D"></iframe>
+    <iframe id="explain-frame" title="Explain it simply"></iframe>
+    <span id="modal-end" tabindex="0" class="sr-only"></span>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="app.js?v=5"></script>
+<section id="print-report-content" hidden></section>
+<script src="workflow.js?v=2"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

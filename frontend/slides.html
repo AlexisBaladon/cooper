@@ -48,21 +48,30 @@
   <p class="note">The text comes from templates filled with your analysis data, and the voice is your browser's. Keys: space = pause, ← → = change slide.</p>
 </div>
 
+<script src="workflow.js?v=2"></script>
 <script src="slides-sample.js"></script>
 <script src="slides.js?v=1"></script>
 <script>
   (function () {
-    let data = null, source = "";
-    try {
-      const raw = localStorage.getItem("cooper-analysis");
-      if (raw) { data = JSON.parse(raw); source = "Using the analysis you ran on the main screen."; }
-    } catch (e) { /* datos corruptos: usar el ejemplo */ }
-    if (!data) { data = window.SAMPLE_ANALYSIS; source = "Using the sample field near Young (real NASA POWER and SRTM data)."; }
+let data = CooperWorkflow.explanationData(window);
+    if (!data && new URLSearchParams(location.search).has("analysis")) {
+      document.getElementById("start").innerHTML = '<h2>No analysis is available</h2><p>Return to Cooper and run your field comparison first.</p><a href="index.html">Back to Cooper</a>';
+      return;
+    }
+    const sample = !data;
+    if (!data) data = window.SAMPLE_ANALYSIS;
+    const source = sample ? "DEMONSTRATION ONLY · Sample field near Young, not your field." : CooperWorkflow.sourceNote(data);
     document.getElementById("data-source").textContent = source;
 
     const { buildSlides, Player } = window.CooperSlides;
     const root = document.getElementById("player");
-    const player = new Player(root, buildSlides(data));
+    const player = new Player(root, CooperWorkflow.labelScenario(buildSlides(data), data));
+    if (window.parent !== window) document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") window.parent.postMessage({type: "cooper-close"}, location.origin);
+    });
+    if (window.parent !== window) document.addEventListener("click", (e) => {
+      if (e.target.closest('a[href="index.html"]')) { e.preventDefault(); window.parent.postMessage({type: "cooper-close"}, location.origin); }
+    });
     window.cooperPlayer = player; // útil para depurar desde la consola
 
     // ?slide=N muestra la slide N completa, sin voz (para revisar o capturar pantallas).

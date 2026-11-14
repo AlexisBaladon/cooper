@@ -117,6 +117,24 @@ def test_analyze_rejects_unknown_rotation(client):
     assert client.post("/api/analyze", json={**BODY, "rotacion_actual": "nope"}).status_code == 400
 
 
+def test_zero_priorities_do_not_download_data(client, monkeypatch):
+    def unexpected(*_):
+        raise AssertionError("Invalid priorities must be rejected before a download")
+    monkeypatch.setattr(power, "fetch_daily", unexpected)
+    response = client.post("/api/analyze", json={**BODY, "prioridades": {k: 0 for k in main.Prioridades.model_fields}})
+    assert response.status_code == 400
+    assert "priority" in response.json()["detail"]
+
+
+def test_climate_storage_error_returns_json(client, monkeypatch):
+    def unavailable(*_):
+        raise OSError("No space left on device")
+    monkeypatch.setattr(power, "fetch_daily", unavailable)
+    response = client.post("/api/analyze", json=BODY)
+    assert response.status_code == 503
+    assert "storage" in response.json()["detail"]
+
+
 def test_analyze_warns_outside_uruguay(client):
     data = client.post("/api/analyze", json={**BODY, "lat": 40.4, "lon": -3.7}).json()
     assert any("outside Uruguay" in w for w in data["advertencias"])

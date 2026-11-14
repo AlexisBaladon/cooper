@@ -103,10 +103,14 @@ def get_catalog() -> dict:
 def analyze(req: AnalyzeRequest) -> dict:
     if req.rotacion_actual not in catalog.rotations:
         raise HTTPException(400, f"Unknown rotation: {req.rotacion_actual}")
+    if not any(req.prioridades.model_dump().values()):
+        raise HTTPException(400, "Choose at least one priority above zero.")
     try:
         raw, meta = power.fetch_daily(req.lat, req.lon)
     except (httpx.HTTPError, KeyError, ValueError) as exc:
         raise HTTPException(502, f"Could not fetch NASA POWER data: {exc}") from exc
+    except OSError as exc:
+        raise HTTPException(503, "Climate data storage is temporarily unavailable. Please try again.") from exc
 
     base = climate.derive_daily(raw, req.lat)
     esc = req.escenario
