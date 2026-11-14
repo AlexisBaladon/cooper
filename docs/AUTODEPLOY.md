@@ -16,6 +16,7 @@ El resultado aparece en la pestaña **Actions** y en el resumen del run, con el 
 ## Acceso y costo
 
 - No se guardan claves AWS permanentes ni la clave SSH local en GitHub Secrets.
+- La confianza OIDC coincide con el `sub` observado en GitHub, incluyendo los IDs inmutables de la cuenta/repositorio y la referencia exacta de la rama. No se usa una confianza comodín para otros repositorios o ramas.
 - El rol `nasa2026-github-deploy` puede obtener acceso temporal y abrir/cerrar puertos solo de la instancia `nasa2026-demo`; no puede crear o eliminar instancias ni administrar IAM.
 - El permiso de despliegue permite modificar el código del servidor. Solo personas autorizadas deben poder escribir en la rama de publicación.
 - Las futuras claves Groq/OpenAI siguen en `/etc/nasa2026/ai-keys.env`, fuera de los releases; los despliegues no las sobrescriben. Los datos futuros deben estar fuera de `releases/`, por ejemplo en `/var/lib/nasa2026`.
