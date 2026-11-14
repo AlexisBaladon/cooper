@@ -1,0 +1,31 @@
+:root { font-family: Arial, Helvetica, sans-serif; color: #173026; background: #f6f5ef; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+.wrap { max-width: 1120px; margin: auto; padding-left: 24px; padding-right: 24px; }
+.hero { color: #f9f8ef; background: linear-gradient(130deg, #0d352c, #1a5741); padding: 76px 0 68px; }
+.hero h1 { font-size: clamp(2.4rem, 5vw, 4.4rem); letter-spacing: -.04em; line-height: 1.04; max-width: 780px; margin: 18px 0; }
+.hero p:not(.eyebrow) { max-width: 650px; font-size: 1.2rem; line-height: 1.5; }
+.eyebrow { color: #c5e494; text-transform: uppercase; letter-spacing: .15em; font-size: .77rem; font-weight: 800; }
+.eyebrow.dark { color: #4e7958; }
+.badge { display: inline-block; margin-top: 14px; border: 1px solid #c5e494; padding: 9px 13px; border-radius: 100px; font-size: .9rem; }
+h2 { font-size: 2rem; margin: 9px 0 12px; letter-spacing: -.03em; }
+.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; padding-top: 54px; padding-bottom: 54px; }
+.controls p { line-height: 1.6; max-width: 480px; }
+.inputs { background: white; border: 1px solid #dae1d7; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 8px 24px #1835290b; }
+label { font-weight: 700; }
+select { padding: 12px; border: 1px solid #acc0ad; border-radius: 8px; background: white; font: inherit; }
+input[type=range] { width: 100%; accent-color: #236748; }
+.results { padding-top: 10px; padding-bottom: 70px; }
+.scenario { background: #e8efdf; padding: 14px 18px; border-radius: 10px; line-height: 1.5; }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 22px; }
+.card { background: white; border: 1px solid #d7dfd4; border-radius: 16px; padding: 23px; box-shadow: 0 8px 24px #1835290b; }
+.card h3 { font-size: 1.27rem; margin: 0 0 10px; }
+.crops { color: #336348; min-height: 48px; line-height: 1.4; }
+.score { font-size: 2.1rem; font-weight: 800; margin: 20px 0; }
+.score small { font-size: .8rem; font-weight: 500; }
+dt { font-size: .79rem; text-transform: uppercase; letter-spacing: .07em; font-weight: 800; margin-top: 16px; color: #4e7958; }
+dd { margin: 5px 0 0; line-height: 1.48; }
+.error { color: #9f271c; background: #fff0ec; padding: 14px; border-radius: 8px; }
+footer { border-top: 1px solid #d7dfd4; padding-top: 25px; padding-bottom: 40px; line-height: 1.5; }
+a { color: #13693d; }
+@media (max-width: 760px) { .controls, .cards { grid-template-columns: 1fr; } .controls { gap: 18px; } .hero { padding: 55px 0; } }
