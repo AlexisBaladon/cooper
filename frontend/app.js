@@ -81,7 +81,6 @@ async function init() {
     if (e.origin === location.origin && e.source === $("#explain-frame").contentWindow && e.data?.type === "cooper-close") closeExplain();
   });
   $("#print-report").addEventListener("click", () => { if (resultsCurrent()) window.print(); });
-  $("#charts-link").addEventListener("click", (e) => { e.preventDefault(); openExplain("slides.html?analysis=1"); });
   $("#coordinates-form").addEventListener("submit", (e) => {
     e.preventDefault();
     setPoint(Number($("#latitude").value), Number($("#longitude").value), true);
@@ -235,8 +234,6 @@ function markChanged() {
   $("#stale-results").hidden = !state.result || current;
   $("#explain").disabled = !current;
   $("#print-report").disabled = !current;
-  $("#charts-link").setAttribute("aria-disabled", String(!current));
-  $("#charts-link").tabIndex = current ? 0 : -1;
 }
 async function analyze() {
   if (state.queue.active) { state.queue.queued = true; return; }
@@ -259,10 +256,9 @@ async function analyze() {
     if (!state.queue.isCurrent(run)) return;
     state.result = data; state.resultInput = body; state.context = context;
     render(data, body.prioridades);
-    renderSummary(data, body, context);
+    updateReportContext(data, body, context);
     state.analyzed = true;
     $("#stale-results").hidden = true; $("#explain").disabled = false; $("#print-report").disabled = false;
-    $("#charts-link").setAttribute("aria-disabled", "false"); $("#charts-link").tabIndex = 0;
     // Reach results on a phone without scrolling past the complete input form.
     if (matchMedia("(max-width: 900px)").matches) { $("#results-title").focus(); $("#results-title").scrollIntoView({ block: "start" }); }
   } catch (err) {
@@ -278,32 +274,29 @@ async function analyze() {
     if (state.queue.finish()) setTimeout(analyze, 500);
   }
 }
-function renderSummary(data, body, context) {
-  const mode = data.escenario.activo ? "What-if simulation · not a forecast" : "Historical comparison · not a forecast";
-  const coords = `${body.lat.toFixed(4)}, ${body.lon.toFixed(4)}`;
-  const current = data.rotaciones[0];
-  const best = data.rotaciones.reduce((a, b) => b.total > a.total ? b : a);
-  const gain = best.total - current.total;
-  const decision = gain > 0
-    ? `${best.nombre} scores ${fmt(gain, 1)} points above your current rotation for your chosen priorities. Compare its benefits, risks and practical requirements below.`
-    : "Your current rotation ties or scores highest among the rotations compared for these priorities. Review its weak points before deciding what to change.";
-  const summary = `${context.field} · ${coords} · ${body.area_ha} ha · soil water storage ${body.capacidad_suelo_mm} mm · ${body.tiene_ganado ? "livestock available" : "no livestock"}`;
-  $("#analysis-mode").textContent = mode;
-  $("#input-summary").textContent = summary + ` · Updated ${new Date(context.generatedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
-  $("#decision-summary").textContent = decision;
-  const priorities = Object.entries(body.prioridades).map(([k, v]) => `${PRIORITY_HINTS[k]} ${v}/5`).join(" · ");
-  $("#print-report-content").innerHTML = `<h1>Cooper · Crop rotation comparison</h1>
-    <p><strong>${esc(mode)}</strong></p><p>${esc(summary)}</p>
-    <p>Prepared ${esc(new Date(context.generatedAt).toLocaleString("en-GB"))} · Climate record ${esc(data.meta.periodo)}</p>
-    <p>${esc(priorities)}</p><p>Scenario: rainfall ${body.escenario.lluvia_pct}%, temperature +${body.escenario.temp_delta} °C.</p>
-    <p>${esc(decision)}</p>
-    <table><thead><tr><th>Rotation</th><th>Score /100</th><th>Months without crop /year</th><th>Dry-year water deficit (mm)</th><th>Estimated erosion (t/ha/year)</th></tr></thead>
-    <tbody>${data.rotaciones.map((r) => `<tr><td>${esc(r.nombre)}${r.rol === "actual" ? " (current)" : ""}</td><td>${r.total}</td><td>${fmt(r.indicadores.meses_descubiertos, 1)}</td><td>${fmt(r.indicadores.deficit_seco_mm)}</td><td>${r.indicadores.erosion_t_ha == null ? "Terrain unavailable" : fmt(r.indicadores.erosion_t_ha, 1)}</td></tr>`).join("")}</tbody></table>
-    <h2>Trade-offs to discuss</h2>${data.rotaciones.map((r) => `<h3>${esc(r.nombre)}</h3><ul>${[...r.explicacion.por_que.slice(0, 2), ...r.explicacion.riesgos.slice(0, 2)].map((t) => `<li>${esc(t)}</li>`).join("")}</ul>`).join("")}
-    <h2>Limits and next steps</h2><p>Climate describes an area of about 50 km. The square field, soil storage and erosion factors are approximations. Scores are prototype rules, not probabilities or validated yield forecasts. Income scores are relative potential, not profit; local costs, prices, machinery and crop dates must be checked with an agronomist. This report is not an approved soil-use plan.</p>
-    ${data.advertencias.length ? `<h2>Data warnings</h2><ul>${data.advertencias.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
-    <p>Sources: NASA POWER, NASA SRTM via OpenTopoData · agrocooper.earth</p>`;
+function updateReportContext(data, body, context) {
+  $("#analysis-mode").hidden = !data.escenario.activo;
+  $("#analysis-mode").textContent = "What-if simulation · not a forecast";
+  const priorities = Object.entries(body.prioridades).map(([key, value]) => `${PRIORITY_HINTS[key]} ${value}/5`).join(" · ");
+  $("#input-summary").textContent = `${context.field} · ${body.lat.toFixed(4)}, ${body.lon.toFixed(4)} · ${body.area_ha} ha · Soil water storage ${body.capacidad_suelo_mm} mm · ${body.tiene_ganado ? "Livestock available" : "No livestock"} · ${new Date(context.generatedAt).toLocaleString("en-GB")} · ${priorities} · Rainfall ${body.escenario.lluvia_pct}%, temperature +${body.escenario.temp_delta} °C. ${data.escenario.activo ? "What-if simulation, not a forecast." : "Historical comparison, not a forecast."}`;
 }
+let printTableWasOpen = false;
+window.addEventListener("beforeprint", () => {
+  document.documentElement.classList.add("printing");
+  printTableWasOpen = $(".table-view").open;
+  $(".table-view").open = true;
+  CooperLang.refresh();
+  if (state.result) {
+    renderWaterChart(state.result.clima.mensual, state.result.escenario.activo ? state.result.clima.mensual_base : null);
+    state.chart?.resize(680, 260);
+    state.chart?.update("none");
+  }
+});
+window.addEventListener("afterprint", () => {
+  document.documentElement.classList.remove("printing");
+  $(".table-view").open = printTableWasOpen;
+  if (state.result) renderWaterChart(state.result.clima.mensual, state.result.escenario.activo ? state.result.clima.mensual_base : null);
+});
 
 /* ---------------------------------------------------------------- render */
 function render(data, prio) {
@@ -549,9 +542,9 @@ function renderWaterChart(months, base) {
   }
   if (state.chart) state.chart.destroy();
   state.chart = new Chart($("#water-chart"), {
-    data: { labels: months.map((d) => d.nombre), datasets },
+    data: { labels: months.map((d) => CooperLang.t(d.nombre)), datasets: datasets.map((d) => ({...d, label: CooperLang.t(d.label)})) },
     options: {
-      responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+      responsive: true, maintainAspectRatio: false, animation: document.documentElement.classList.contains("printing") ? false : { duration: 250 },
       interaction: { mode: "index", intersect: false },
       plugins: {
         legend: { position: "top", align: "start", labels: { color: text2, usePointStyle: true, boxWidth: 8 } },
@@ -560,7 +553,7 @@ function renderWaterChart(months, base) {
             label: (c) => ` ${c.dataset.label}: ${fmt(c.parsed.y)} mm`,
             afterBody: (items) => {
               const d = months[items[0].dataIndex];
-              return `Balance (rain − ET0): ${d.balance_mm > 0 ? "+" : ""}${fmt(d.balance_mm)} mm\nDry year (1 in 5): ${fmt(d.lluvia_seca_mm)} mm of rain`;
+              return CooperLang.t(`Balance (rain − ET0): ${d.balance_mm > 0 ? "+" : ""}${fmt(d.balance_mm)} mm\nDry year (1 in 5): ${fmt(d.lluvia_seca_mm)} mm of rain`);
             },
           },
         },
@@ -683,3 +676,11 @@ init().catch((err) => {
   $("#retry-load").hidden = false;
 });
 $("#retry-load").addEventListener("click", () => location.reload());
+
+window.addEventListener("cooper-language", () => {
+  if (state.result) {
+    renderWaterChart(state.result.clima.mensual, state.result.escenario.activo ? state.result.clima.mensual_base : null);
+    updateReportContext(state.result, state.resultInput, state.context);
+  }
+  if (!$("#explain-modal").hidden) $("#explain-frame").src = $("#explain-frame").src;
+});

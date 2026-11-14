@@ -16,7 +16,7 @@ Help a farmer compare their current rotation with two alternatives, understand t
 | High | All-zero priorities generated arbitrary tied recommendations. | Validate in the browser and backend before downloads. |
 | Medium | First clicks were possible before initialization completed; loading failures lacked a recovery action. | Disable Analyze until ready, check catalog responses, add a reload action and bounded request timeouts. |
 | Medium | Sample fields and scenarios were easy to mistake for real field/future predictions. | Explicit sample and historical/what-if labels in results, reports and narration. |
-| Medium | Too much technical output appeared before the decision; indicative income could be mistaken for profit. | Lead with a comparison summary, input context, practical checks and a printable adviser report; clarify the relative income score. |
+| Medium | Too much technical output appeared before the decision; indicative income could be mistaken for profit. | Keep the comparison primary, clarify the relative income score, and provide a compact PDF button exporting the existing visual page. The introductory summary block was removed at the user's request. |
 | Medium | Field selection relied on a pointer-operated map. | Add a labelled coordinate form; keep sample/coordinate analysis available if Leaflet fails. |
 | Medium | Chart/3D dependencies could leave broken interfaces. | Show the climate table if Chart.js is unavailable; offer the same analysis as charts if 3D cannot load. |
 | Medium | Missing rotation label, invalid table/tab semantics, tiny touch controls and modal focus issues. | Label the rotation, use a real calendar table, pressed-state layer controls, larger targets, skip link, status/error announcements and modal focus restoration. |
@@ -38,7 +38,7 @@ The previously reported read-only terrain cache, missing narration route and ifr
 1. Validate crop parameters, scoring thresholds, seasonal calendars and erosion assumptions with Uruguayan agronomists and representative farms. Cite the source for each parameter; a generic soil K factor does not replace soil sampling.
 2. Run usability sessions with actual farmers, including older phones and slow rural connections. The audit improves usability but is not a formal WCAG conformance assessment.
 3. Add real field boundaries and measured soil properties before presenting precise field-zone advice. Display interpolation and vertical exaggeration as visual aids.
-4. Add Spanish after user testing/translation review if the team wants it; keep the current English default.
+4. English / Español is now selectable with English as the default. Review Spanish agronomic terminology with local advisers and users.
 5. Establish monitoring, supplier billing limits and external data-service failure alerts before wider promotion. Request limits and a small fixed VM do not guarantee protection from a network flood or cap all transfer/provider charges.
 6. Historical comparisons and hypothetical perturbations are not forecasts; income scores need local yield, price, cost and operational data before being used as business estimates.
 
@@ -59,7 +59,13 @@ The narration output limit uses Groq's documented `max_completion_tokens` parame
 | Close explanation with Escape | Closed and returned focus to the explanation button. |
 | 390 × 844 phone viewport | No document-wide horizontal overflow; three crop calendars scroll within their cards; results receive focus after analysis. |
 | Form labels | No unlabelled select controls in the reviewed comparison page. |
-| Adviser report | Generated content includes field, area, soil storage, livestock, priorities, scenario, source period, alternatives, risks and limitations. The embedded automation browser did not expose a native print/PDF preview; the system print dialog still needs manual confirmation in a regular browser. |
+| PDF export | The compact button prints the existing charts, maps, climate table and rotation calendars, with input context. It does not generate a separate text-only summary. The embedded automation browser did not expose a native print/PDF preview; the system print dialog still needs manual confirmation in a regular browser. |
 | CI | Backend suite, six Node workflow regression tests, frontend/inline script syntax and release packaging passed. |
 
 Public deployment verification is recorded in the pull request and its Actions run. No test fixture, environment file or private key is included in the release.
+
+## Interface follow-up
+
+At the user's request, removed the introductory summary block and the visible alternate charts-explanation links. Retained automatic charts fallback when a device or terrain data cannot support 3D. Added a visible English / Español selector, remembered per browser, with local interface translations and language-aware narration. English remains the default.
+
+Language verification: English default, persisted Español selection, Spanish comparison headings/crop names/glossary, restoration to English, and preservation of numerical values passed local browser and regression checks. The visible alternate-view controls and introductory report block are absent. Spanish narration is requested explicitly and cached separately from English.

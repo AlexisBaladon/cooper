@@ -79,7 +79,7 @@
 <div class="player" id="player">
   <div class="topbar">
     <a class="brand" href="index.html">← Cooper</a>
-    <span class="styles">Style: <a href="slides.html">Charts</a> · <a class="on" href="slides-3d.html">3D</a></span>
+    <label class="language-control"><span>Language / Idioma</span><select id="language" aria-label="Language / Idioma"><option value="en">English</option><option value="es">Español</option></select></label>
     <span class="counter"></span>
   </div>
 
@@ -119,9 +119,12 @@
   <p class="note">The terrain is vertically exaggerated for readability; shapes are illustrative. Values come from SRTM, NASA POWER and the prototype RUSLE model. <span id="ai-note">AI only rewrites the narration text.</span> Keys: space = pause, ← → = change slide.</p>
 </div>
 
+<script src="translations-es.js?v=3"></script>
+<script src="language.js?v=2"></script>
+<script>if (parent === window) window.addEventListener("cooper-language", () => location.reload());</script>
 <script src="workflow.js?v=2"></script>
 <script src="slides-sample.js"></script>
-<script src="slides.js?v=1"></script>
+<script src="slides.js?v=2"></script>
 <script type="module">
   async function initialize() {
 
@@ -139,7 +142,7 @@ if (window.parent !== window) document.addEventListener("keydown", (e) => {
     document.getElementById("data-source").textContent = source;
 
   if (!data.terreno) { location.replace("slides.html?analysis=1"); return; }
-  const { start3D } = await import("./slides3d.js?v=2");
+  const { start3D } = await import("./slides3d.js?v=3");
   const root = document.getElementById("player");
   const only = new URLSearchParams(location.search).get("slide");
   if (only) document.documentElement.classList.add("static");
@@ -198,7 +201,7 @@ if (window.parent !== window) document.addEventListener("keydown", (e) => {
       const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 45000);
       fetch("/api/narrate", {
         method: "POST", headers: { "Content-Type": "application/json" }, signal: ctrl.signal,
-        body: JSON.stringify({ slides: player.slides.map((s) => ({ key: s.key, headline: s.headline, narration: s.narration })) }),
+        body: JSON.stringify({ language: CooperLang.current, slides: player.slides.map((s) => ({ key: s.key, headline: s.headline, narration: s.narration })) }),
       }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status)))).then((res) => {
         if (res.fuente !== "groq") { setNote("Original explanation text. AI narration is temporarily unavailable; your analysis and numbers are unchanged."); return; }
         res.slides.forEach((t, i) => {

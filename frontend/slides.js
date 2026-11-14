@@ -514,8 +514,8 @@ class Player {
   pickVoice() {
     if (!this.voiceOn) return;
     // Voz en inglés (la UI y la narración están en inglés).
-    const vs = speechSynthesis.getVoices().filter((v) => v.lang && v.lang.toLowerCase().startsWith("en"));
-    const pref = ["en-us", "en-gb", "en-au", "en-ca", "en-ie", "en-in"];
+    const vs = speechSynthesis.getVoices().filter((v) => v.lang && v.lang.toLowerCase().startsWith(window.CooperLang?.current || "en"));
+    const pref = window.CooperLang?.current === "es" ? ["es-uy", "es-ar", "es-es", "es-mx"] : ["en-us", "en-gb", "en-au", "en-ca", "en-ie", "en-in"];
     vs.sort((a, b) => {
       const ia = pref.indexOf(a.lang.toLowerCase()), ib = pref.indexOf(b.lang.toLowerCase());
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || (b.localService - a.localService);
