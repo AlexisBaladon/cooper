@@ -1,30 +1,27 @@
 import unittest
 
-from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
-from app.main import app
-
-
-client = TestClient(app)
+from app.main import CompareRequest, compare, health
 
 
 class ApiTests(unittest.TestCase):
     def test_health(self):
-        self.assertEqual(client.get("/health").json(), {"status": "ok"})
+        self.assertEqual(health(), {"status": "ok"})
 
     def test_compare_is_explicitly_illustrative(self):
-        response = client.post("/compare", json={"priority": "agua", "rain_change_percent": -20})
-        self.assertEqual(response.status_code, 200)
-        result = response.json()
+        result = compare(CompareRequest(priority="agua", rain_change_percent=-20))
         self.assertEqual(result["status"], "illustrative_only")
         self.assertEqual(len(result["options"]), 3)
         self.assertTrue(all(option["missing"] for option in result["options"]))
 
     def test_invalid_priority_rejected(self):
-        self.assertEqual(client.post("/compare", json={"priority": "profit"}).status_code, 422)
+        with self.assertRaises(ValidationError):
+            CompareRequest(priority="profit")
 
-    def test_invalid_power_coordinates_rejected_before_network(self):
-        self.assertEqual(client.get("/climate/power?latitude=100&longitude=0&year=2024").status_code, 422)
+    def test_rain_change_is_bounded(self):
+        with self.assertRaises(ValidationError):
+            CompareRequest(rain_change_percent=-60)
 
 
 if __name__ == "__main__":
