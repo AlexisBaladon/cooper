@@ -52,7 +52,9 @@ def main() -> None:
         assert code == 200, (code, analysis_body[:500])
         result = json.loads(analysis_body)
         assert len(result["rotaciones"]) == 3 and len(result["clima"]["mensual"]) == 12
-        checks["nasa_sample_analysis"] = {"status": code, "period": result["meta"]["periodo"]}
+        checks["nasa_sample_analysis"] = {"status": code, "period": result["meta"]["periodo"],
+                                          "terrain_cells": len((result.get("zonas") or {}).get("celdas", [])),
+                                          "warnings": result["advertencias"]}
     for path in ("/api/docs", "/api/climate/power", "/api/openai", "/api/groq"):
         code, _ = request(path)
         assert code == 404, (path, code)

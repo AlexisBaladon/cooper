@@ -130,7 +130,7 @@ def analyze(req: AnalyzeRequest) -> dict:
             c = terrain.c_factor(rot, catalog.crops, r_frac)
             erosion_maps[rid] = terrain.erosion_map(terr, r_annual, c)
         erosion = {rid: terrain.erosion_summary(a) for rid, a in erosion_maps.items()}
-    except (httpx.HTTPError, ValueError, KeyError) as exc:
+    except (httpx.HTTPError, ValueError, KeyError, OSError) as exc:
         warnings.append(f"Could not get SRTM elevation ({exc}); erosion is estimated without the slope.")
 
     rotations = engine.compare(req.rotacion_actual, req.prioridades.model_dump(), monthly,
