@@ -58,6 +58,20 @@ jobs:
           bash -n deploy/vm/activate-release.sh
           bash -n deploy/vm/enable-https.sh
           python scripts/package_release.py
+      - name: Check deployment identity context
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/work/aws-demo'
+        run: |
+          python - <<'PY'
+          import base64, json, os
+          from urllib.request import Request, urlopen
+          url = os.environ['ACTIONS_ID_TOKEN_REQUEST_URL'] + '&audience=sts.amazonaws.com'
+          request = Request(url, headers={'Authorization': 'Bearer ' + os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']})
+          with urlopen(request, timeout=20) as response:
+              token = json.load(response)['value']
+          payload = token.split('.')[1]
+          claims = json.loads(base64.urlsafe_b64decode(payload + '=' * (-len(payload) % 4)))
+          print(json.dumps({key: claims.get(key) for key in ('iss','aud','sub','repository','ref','event_name')}, indent=2))
+          PY
       - name: Authenticate deployment to AWS
         id: aws
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/work/aws-demo'
