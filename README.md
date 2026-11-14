@@ -64,6 +64,16 @@ requests. Server-side API keys and the NASA cache persist outside application re
    English voice. Optionally, a Groq language model rewrites it in more natural English;
    every rewritten sentence must keep exactly the same numbers, or it's discarded.
 
+## The interface
+
+The app is organised in **Home** (the decision cards: overall analysis, the best option for
+each score with "See more options", and the narrated explanation in a video-style player),
+**Analysis** (new analysis with every chart and map, and the analysis history with PDF,
+Excel, CSV and JSON exports), **My field** (several independent fields, imagery, NDVI,
+erosion and crop maps, soil, climate and crops) and **Settings** (dark mode, language,
+motion). Jarvis, a floating assistant, explains the open analysis. See
+[docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md#the-application-indexhtml).
+
 ## Adapted to Uruguay
 
 The interface is in English, but the agronomy is Uruguayan:

@@ -498,7 +498,10 @@ class Player {
     this.voiceOn = "speechSynthesis" in window;
     this.token = 0;
     this.rate = 1;
+    this.volume = 1;
     this.voice = null;
+    // Reloj tipo video: tiempo estimado por frase, para la barra de progreso y saltos de 10 s.
+    this.clock = { base: 0, startedAt: 0, cap: 0 };
     this.stage = root.querySelector(".stage-inner");
     this.subs = root.querySelector(".subs");
     this.headline = root.querySelector(".headline");
@@ -560,6 +563,7 @@ class Player {
       u.voice = this.voice;
       u.lang = this.voice.lang;
       u.rate = this.rate;
+      u.volume = this.volume;
       let done = false;
       const finish = () => { if (!done) { done = true; clearTimeout(guard); resolve(); } };
       u.onend = finish;
@@ -579,29 +583,106 @@ class Player {
         this.sentence = k;
         this.beat(k);
         this.highlight(k);
+        const seg = this.segmentAt(this.i, k);
+        this.clock = { base: seg.start, startedAt: performance.now(), cap: Math.max(0, seg.dur - 0.05) };
+        this.emit();
         await this.say(s.narration[k]);
       }
       if (!alive()) return;
       this.highlight(s.narration.length);
-      await new Promise((r) => setTimeout(r, 900));
+      const last = this.segmentAt(this.i, s.narration.length - 1);
+      this.clock = { base: last.start + last.dur, startedAt: performance.now(), cap: Player.GAP };
+      await new Promise((r) => setTimeout(r, Player.GAP * 1000));
       if (!alive()) return;
-      if (this.i === this.slides.length - 1) { this.pause(); return; }
+      if (this.i === this.slides.length - 1) {
+        this.pause();
+        this.clock = { base: this.duration(), startedAt: 0, cap: 0 };
+        this.sentence = 0;
+        this.ended = true;
+        this.emit("ended");
+        return;
+      }
       this.show(this.i + 1);
     }
   }
 
   play() {
     if (this.playing) return;
+    if (this.ended) { this.ended = false; this.show(0); }
     this.playing = true;
     this.root.classList.add("is-playing");
     this.run();
   }
 
   pause() {
+    const t = this.currentTime();
     this.playing = false;
     this.token++;
     if (this.voiceOn) speechSynthesis.cancel();
     this.root.classList.remove("is-playing");
+    // Al reanudar se repite la frase actual desde su inicio.
+    const seg = this.segmentAt(this.i, this.sentence);
+    this.clock = { base: seg ? Math.min(t, seg.start) : t, startedAt: 0, cap: 0 };
+    this.emit();
+  }
+
+  /* ---- línea de tiempo (para el reproductor embebido de la página principal) ---- */
+  estimate(text) {
+    const words = text.split(/\s+/).length;
+    return Math.max(2.2, (words / 2.6) / this.rate);
+  }
+
+  timeline() {
+    const sig = this.rate + "|" + this.slides.map((s) => s.narration.join("\u0001")).join("\u0002");
+    if (this._tlSig === sig) return this._tl;
+    let t = 0;
+    const segs = [], chapters = [];
+    this.slides.forEach((s, i) => {
+      chapters.push({ i, start: t, title: s.headline, key: s.key });
+      s.narration.forEach((text, k) => { const dur = this.estimate(text); segs.push({ i, k, start: t, dur }); t += dur; });
+      t += Player.GAP;
+    });
+    this._tlSig = sig;
+    this._tl = { segs, chapters, total: t };
+    return this._tl;
+  }
+
+  duration() { return this.timeline().total; }
+
+  segmentAt(i, k) {
+    const segs = this.timeline().segs;
+    return segs.find((x) => x.i === i && x.k === k) || segs[0];
+  }
+
+  currentTime() {
+    const c = this.clock;
+    if (!this.playing || !c.startedAt) return c.base;
+    return c.base + Math.min(c.cap, (performance.now() - c.startedAt) / 1000);
+  }
+
+  seek(t) {
+    const tl = this.timeline();
+    t = Math.max(0, Math.min(t, tl.total - 0.01));
+    let seg = tl.segs[0];
+    for (const x of tl.segs) { if (x.start <= t + 1e-6) seg = x; else break; }
+    const wasPlaying = this.playing;
+    this.pause();
+    this.ended = false;
+    this.show(seg.i);
+    this.sentence = seg.k;
+    this.beat(seg.k);
+    this.highlight(seg.k);
+    this.clock = { base: seg.start, startedAt: 0, cap: 0 };
+    if (wasPlaying) this.play(); else this.emit();
+  }
+
+  setVolume(v) {
+    this.volume = Math.max(0, Math.min(1, v));
+    this.emit();
+  }
+
+  emit(type = "state") {
+    this.root.dispatchEvent(new CustomEvent("cooper-player", { detail: { type, playing: this.playing, time: this.currentTime(), duration: this.duration(), slide: this.i } }));
   }
 
   toggle() { this.playing ? this.pause() : this.play(); }
@@ -610,8 +691,10 @@ class Player {
     if (i < 0 || i >= this.slides.length) return;
     const wasPlaying = this.playing;
     this.pause();
+    this.ended = false;
     this.show(i);
-    if (wasPlaying) this.play();
+    this.clock = { base: this.segmentAt(i, 0).start, startedAt: 0, cap: 0 };
+    if (wasPlaying) this.play(); else this.emit();
   }
 
   setVoiceEnabled(on) {
@@ -621,5 +704,7 @@ class Player {
     if (wasPlaying) this.play();
   }
 }
+
+Player.GAP = 0.9; // pausa entre slides, en segundos
 
 window.CooperSlides = { buildSlides, Player };

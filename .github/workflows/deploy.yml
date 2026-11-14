@@ -47,6 +47,10 @@ jobs:
           node --check frontend/workflow.js
           node --check frontend/language.js
           node --check frontend/translations-es.js
+          node --check frontend/slides.js
+          for f in frontend/js/*.js; do
+            if [ "$f" = "frontend/js/relief.js" ]; then node --check --input-type=module < "$f"; else node --check "$f"; fi
+          done
           node --test frontend/tests/workflow.test.cjs
           node --test frontend/tests/language.test.cjs
           python scripts/check_frontend_scripts.py
