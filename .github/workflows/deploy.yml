@@ -42,7 +42,11 @@ jobs:
           python -m pip install -r backend/requirements.txt
           (cd backend && python -m pytest -q)
       - name: Check frontend JavaScript
-        run: node --check frontend/app.js
+        run: |
+          node --check frontend/app.js
+          node --check frontend/workflow.js
+          node --test frontend/tests/workflow.test.cjs
+          python scripts/check_frontend_scripts.py
       - name: Validate deployment scripts and package release
         run: |
           bash -n deploy/vm/install.sh

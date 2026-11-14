@@ -30,6 +30,24 @@ def test_without_key_uses_template(monkeypatch):
     assert "GROQ_API_KEY" in out["motivo"]
 
 
+def test_narration_cache_is_bounded_and_reuses_recent_entries(monkeypatch):
+    monkeypatch.setattr(narrator, "MAX_CACHE_ENTRIES", 2)
+    calls = []
+    def rewrite(slides, *_):
+        calls.append(slides)
+        return slides
+    monkeypatch.setattr(narrator, "_call_groq", rewrite)
+    def slides(label):
+        return [{"key": label, "headline": label, "narration": ["Compare your rotations."]}]
+    for label in ("a", "b", "c"):
+        assert narrator.rewrite(slides(label))["fuente"] == "groq"
+    assert len(narrator._cache) == 2
+    narrator.rewrite(slides("c"))
+    assert len(calls) == 3
+    narrator.rewrite(slides("a"))
+    assert len(calls) == 4
+
+
 def test_good_rewrite_is_accepted(monkeypatch):
     fake(monkeypatch, [
         {"key": "hoy", "headline": "Your soil sits bare 6 months",

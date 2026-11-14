@@ -24,6 +24,8 @@ import hashlib
 import json
 import os
 import re
+from collections import OrderedDict
+from threading import Lock
 from pathlib import Path
 
 import httpx
@@ -62,7 +64,9 @@ Reply with JSON only: {"slides": [{"key": "...", "headline": "...", "narration":
 
 _NUM = re.compile(r"\d+(?:\.\d+)?")
 _THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}\b)")
-_cache: dict[str, dict] = {}
+MAX_CACHE_ENTRIES = 64
+_cache: OrderedDict[str, dict] = OrderedDict()
+_cache_lock = Lock()
 
 
 def _numbers(text: str) -> list[str]:
@@ -96,6 +100,7 @@ def _call_groq(slides: list[dict], api_key: str, model: str) -> list[dict]:
     payload = {
         "model": model,
         "temperature": 0.4,
+        "max_completion_tokens": 4096,
         "response_format": {"type": "json_object"},
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -137,8 +142,11 @@ def rewrite(slides: list[dict]) -> dict:
     model = os.environ.get("GROQ_MODEL", "").strip() or DEFAULT_MODEL
 
     key = hashlib.sha256(json.dumps([model, slides], ensure_ascii=False, sort_keys=True).encode()).hexdigest()
-    if key in _cache:
-        return _cache[key]
+    with _cache_lock:
+        cached = _cache.get(key)
+        if cached is not None:
+            _cache.move_to_end(key)
+            return cached
 
     try:
         generated = _call_with_retry(slides, api_key, model)
@@ -166,5 +174,9 @@ def rewrite(slides: list[dict]) -> dict:
     result = {"fuente": "groq" if ok else "plantilla", "modelo": model if ok else None,
               "slides": final, "reescritas": ok, "rechazadas": rejected}
     if ok:
-        _cache[key] = result
+        with _cache_lock:
+            _cache[key] = result
+            _cache.move_to_end(key)
+            while len(_cache) > MAX_CACHE_ENTRIES:
+                _cache.popitem(last=False)
     return result

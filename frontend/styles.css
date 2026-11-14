@@ -4,7 +4,7 @@
   --surface: #fcfcfb;
   --text: #0b0b0b;
   --text-2: #52514e;
-  --muted: #898781;
+  --muted: #6b6963;
   --grid: #e1e0d9;
   --axis: #c3c2b7;
   --border: rgba(11, 11, 11, 0.10);
@@ -28,6 +28,7 @@
     --surface: #1a1a19;
     --text: #f0efec;
     --text-2: #c3c2b7;
+    --muted: #a9a69f;
     --grid: #2c2c2a;
     --axis: #383835;
     --border: rgba(255, 255, 255, 0.10);
@@ -255,3 +256,55 @@ button.explain-btn { font: inherit; border: 0; cursor: pointer; text-align: left
 .rot .diag-list { list-style: none; padding-left: 0; }
 .rot .diag-list .idea { color: var(--accent); }
 .explain-hint { margin-top: -0.8rem; margin-bottom: 1.2rem; }
+
+/* Field workflow, accessible controls and a report to discuss with an adviser. */
+.skip-link { position: fixed; top: -5rem; left: 1rem; z-index: 3000; padding: .8rem; background: var(--surface); color: var(--text); }
+.skip-link:focus { top: .5rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+button:disabled { cursor: not-allowed; opacity: .6; }
+button, summary, select { min-height: 44px; }
+input[type="number"] { width: 100%; padding: .6rem; border: 1px solid var(--axis); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; }
+.coordinate-entry { margin-top: .7rem; }
+.coordinate-entry summary, .decision-summary summary { cursor: pointer; color: var(--accent); padding: .6rem 0; }
+.coordinate-entry button { margin-top: .7rem; width: 100%; }
+.field-context { padding: .5rem .7rem; border-left: 3px solid var(--accent); font-size: .85rem; background: var(--page); }
+#results-title { margin: 0 0 1rem; scroll-margin-top: 1rem; }
+.summary-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .8rem; margin-bottom: .8rem; }
+.summary-top .badge { margin: 0; }
+.decision-summary li { margin-bottom: .5rem; font-size: .9rem; }
+#stale-results { position: sticky; top: .4rem; z-index: 500; border: 1px solid var(--axis); }
+[aria-disabled="true"] { opacity: .6; cursor: not-allowed; }
+.seg { flex-wrap: wrap; }
+.layout > *, .rotations > * { min-width: 0; }
+.cal { overflow-x: auto; min-width: 0; }
+.cal .c { min-height: 1.55rem; }
+.calendar-scroll { overflow-x: auto; }
+.cal-table { width: 100%; min-width: 490px; border-spacing: 2px; table-layout: fixed; font-size: .7rem; }
+.cal-table th { color: var(--text-2); font-weight: 500; padding: .3rem 0; }
+.cal-table td { border-radius: 4px; text-align: center; height: 1.8rem; font-weight: 600; white-space: nowrap; }
+.cal-table td.bare { background: var(--bare); color: var(--muted); }
+@media (max-width: 600px) {
+  .layout { padding: .8rem; gap: 1rem; }
+  .top { padding: 1rem; }
+  .panel, .card { padding: 1rem; }
+  .chip { padding: .55rem .7rem; }
+  .scenario-controls label { min-width: 0; width: 100%; }
+  .bar-row { grid-template-columns: minmax(0, 8rem) minmax(30px, 1fr) 2rem; gap: .3rem; }
+  .modal { padding: .25rem; }
+  .modal-box { height: 97dvh; border-radius: 8px; }
+  input, select { font-size: 16px; }
+  .explain-btn { padding: .8rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+@media print {
+  body > * { display: none !important; }
+  #print-report-content { display: block !important; color: #111; background: white; font: 11pt/1.5 sans-serif; }
+  #print-report-content h1, #print-report-content h2 { color: #111; margin: 1rem 0 .5rem; }
+  #print-report-content table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  #print-report-content th, #print-report-content td { border: 1px solid #aaa; padding: .4rem; text-align: left; }
+  #print-report-content tr, #print-report-content li { break-inside: avoid; }
+  @page { margin: 15mm; }
+}

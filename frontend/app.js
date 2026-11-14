@@ -6,7 +6,7 @@ const AG_MONTHS = ["May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan"
 const PRIORITY_HINTS = {
   agua: "Save water",
   suelo: "Look after the soil",
-  ingreso: "Earn more (income)",
+  ingreso: "Income potential (relative)",
   forraje: "Have forage for livestock",
   clima: "Less climate risk",
 };
@@ -15,6 +15,7 @@ const DEFAULT_PRIORITIES = { agua: 3, suelo: 4, ingreso: 4, forraje: 1, clima: 3
 const state = {
   catalog: null, lat: -32.62, lon: -57.75, map: null, marker: null, fieldRect: null, chart: null, analyzed: false,
   zonesMap: null, zonesLayer: null, zones: null, rotations: null, zoneLayer: "erosion", zoneRot: null, lastCurrent: null,
+  queue: new CooperWorkflow.AnalysisQueue(), result: null, resultInput: null, sampleId: null,
 };
 
 /* Rampas ordinales validadas con validate_palette.js --ordinal (modo claro). */
@@ -37,32 +38,58 @@ function needsDarkText(hex) {
 
 /* ------------------------------------------------------------------ init */
 async function init() {
-  state.catalog = await fetch("/api/catalog").then((r) => r.json());
+  state.catalog = await fetch("/api/catalog", { signal: AbortSignal.timeout(20000) }).then(CooperWorkflow.readResponse);
   buildForm();
   buildMap();
   applyDemo(state.catalog.campos_demo[0]);
   $("#analyze").addEventListener("click", analyze);
   $("#rotation").addEventListener("change", updateRotationDesc);
 
-  // "Explain it simply" en 3D, dentro del programa (ventana superpuesta).
-  const closeExplain = () => { $("#explain-modal").hidden = true; $("#explain-frame").src = "about:blank"; };
-  $("#explain").addEventListener("click", () => {
-    $("#explain-frame").src = "slides-3d.html";
+  // Keep modal focus inside the dialog and return it to its opener.
+  const closeExplain = () => {
+    $("#explain-modal").hidden = true;
+    $("#explain-frame").src = "about:blank";
+    $("main").inert = false;
+    document.body.style.overflow = "";
+    $("#explain").focus();
+  };
+  const openExplain = (url) => {
+    if (!resultsCurrent()) return;
+    $("#explain-frame").title = url.startsWith("slides-3d") ? "Explain it simply, 3D" : "Explain it simply, charts";
+    $(".modal-box").setAttribute("aria-label", $("#explain-frame").title);
+    $("#explain-frame").src = url;
     $("#explain-modal").hidden = false;
+    $("main").inert = true;
+    document.body.style.overflow = "hidden";
     $("#explain-close").focus();
-  });
+  };
+  $("#explain").addEventListener("click", () => openExplain(state.result.zonas ? "slides-3d.html?analysis=1" : "slides.html?analysis=1"));
   $("#explain-close").addEventListener("click", closeExplain);
+  $("#modal-end").addEventListener("focus", () => $("#explain-close").focus());
   $("#explain-modal").addEventListener("click", (e) => { if (e.target.id === "explain-modal") closeExplain(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#explain-modal").hidden) closeExplain(); });
-  window.addEventListener("message", (e) => {
-    if (e.origin === location.origin && e.data && e.data.type === "cooper-close") closeExplain();
+  document.addEventListener("keydown", (e) => {
+    if ($("#explain-modal").hidden) return;
+    if (e.key === "Escape") closeExplain();
+    if (e.key === "Tab" && e.target === $("#explain-close") && e.shiftKey) {
+      e.preventDefault(); $("#explain-frame").focus();
+    }
   });
+  window.addEventListener("message", (e) => {
+    if (e.origin === location.origin && e.source === $("#explain-frame").contentWindow && e.data?.type === "cooper-close") closeExplain();
+  });
+  $("#print-report").addEventListener("click", () => { if (resultsCurrent()) window.print(); });
+  $("#charts-link").addEventListener("click", (e) => { e.preventDefault(); openExplain("slides.html?analysis=1"); });
+  $("#coordinates-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    setPoint(Number($("#latitude").value), Number($("#longitude").value), true);
+  });
+  for (const id of ["rotation", "livestock", "soil", "area"]) $("#" + id).addEventListener("change", markChanged);
   $("#area").addEventListener("change", updateFieldRect);
   $("#zone-layers").addEventListener("click", (e) => {
     const b = e.target.closest("button");
     if (!b) return;
     state.zoneLayer = b.dataset.layer;
-    document.querySelectorAll("#zone-layers button").forEach((x) => x.classList.toggle("active", x === b));
+    document.querySelectorAll("#zone-layers button").forEach((x) => { x.classList.toggle("active", x === b); x.setAttribute("aria-pressed", String(x === b)); });
     drawZones();
   });
   $("#zone-rot").addEventListener("change", (e) => { state.zoneRot = e.target.value; drawZones(); });
@@ -73,6 +100,7 @@ async function init() {
     $("#rain-val").textContent = `${Number($("#rain").value) > 0 ? "+" : ""}${$("#rain").value}%`;
     $("#temp-val").textContent = `+${Number($("#temp").value).toFixed(1)} °C`;
     clearTimeout(t);
+    markChanged();
     if (state.analyzed) t = setTimeout(analyze, 350);
   };
   $("#rain").addEventListener("input", onScenario);
@@ -80,6 +108,8 @@ async function init() {
   $("#reset-scenario").addEventListener("click", () => {
     $("#rain").value = 0; $("#temp").value = 0; onScenario();
   });
+  $("#analyze").disabled = false;
+  $("#analyze").textContent = "Analyze my field";
 }
 
 function buildForm() {
@@ -93,7 +123,7 @@ function buildForm() {
       <input type="range" id="p-${k}" min="0" max="5" step="1" value="${DEFAULT_PRIORITIES[k]}">
     </div>`).join("");
   for (const k of Object.keys(PRIORITY_HINTS)) {
-    $(`#p-${k}`).addEventListener("input", (e) => { $(`#o-${k}`).textContent = e.target.value; });
+    $(`#p-${k}`).addEventListener("input", (e) => {  $(`#o-${k}`).textContent = e.target.value; markChanged(); });
   }
 
   $("#demo-fields").innerHTML = state.catalog.campos_demo
@@ -113,8 +143,11 @@ function applyDemo(f) {
   setPoint(f.lat, f.lon, true);
   $("#rotation").value = f.rotacion;
   $("#livestock").checked = f.tiene_ganado;
+  state.sampleId = f.id;
   updateRotationDesc();
-  document.querySelectorAll(".chip").forEach((c) => c.classList.toggle("active", c.dataset.id === f.id));
+  document.querySelectorAll(".chip").forEach((c) => { c.classList.toggle("active", c.dataset.id === f.id); c.setAttribute("aria-pressed", String(c.dataset.id === f.id)); });
+  updateFieldContext();
+  markChanged();
 }
 
 function baseLayers() {
@@ -128,6 +161,10 @@ function baseLayers() {
 }
 
 function buildMap() {
+  if (typeof L === "undefined") {
+    $("#map").innerHTML = '<p class="hint">The map could not load. Enter coordinates below or use a sample field.</p>';
+    return;
+  }
   state.map = L.map("map").setView([-32.8, -56.0], 6);
   const base = baseLayers();
   base["Map"].addTo(state.map);
@@ -138,12 +175,15 @@ function buildMap() {
 }
 
 function setPoint(lat, lon, recenter = false) {
-  state.lat = lat; state.lon = lon;
-  state.marker.setLatLng([lat, lon]);
-  if (recenter) state.map.setView([lat, lon], 8);
+  state.lat = lat; state.lon = lon; state.sampleId = null;
+  if (state.marker) state.marker.setLatLng([lat, lon]);
+  if (recenter && state.map) state.map.setView([lat, lon], 8);
+  $("#latitude").value = lat.toFixed(5); $("#longitude").value = lon.toFixed(5);
   $("#coords").textContent = `Lat ${lat.toFixed(3)} · Lon ${lon.toFixed(3)}`;
-  document.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
+  document.querySelectorAll(".chip").forEach((c) => { c.classList.remove("active"); c.setAttribute("aria-pressed", "false"); });
   updateFieldRect();
+  updateFieldContext();
+  markChanged();
 }
 
 /* Mismo cuadrado que usa el backend (terrain.field_grid). */
@@ -166,41 +206,100 @@ function readPriorities() {
   return Object.fromEntries(Object.keys(PRIORITY_HINTS).map((k) => [k, Number($(`#p-${k}`).value)]));
 }
 
-async function analyze() {
-  const body = {
-    lat: state.lat,
-    lon: state.lon,
-    rotacion_actual: $("#rotation").value,
+function readRequest() {
+  return {
+    lat: state.lat, lon: state.lon, rotacion_actual: $("#rotation").value,
     prioridades: readPriorities(),
     escenario: { lluvia_pct: Number($("#rain").value), temp_delta: Number($("#temp").value) },
-    capacidad_suelo_mm: Number($("#soil").value),
-    tiene_ganado: $("#livestock").checked,
+    capacidad_suelo_mm: Number($("#soil").value), tiene_ganado: $("#livestock").checked,
     area_ha: Number($("#area").value),
   };
-  $("#empty").hidden = true;
-  $("#error").hidden = true;
-  $("#loading").hidden = false;
-  $("#analyze").disabled = true;
+}
+function resultsCurrent() {
+  return !!state.resultInput && JSON.stringify(readRequest()) === JSON.stringify(state.resultInput);
+}
+function fieldLabel() {
+  const sample = state.catalog?.campos_demo.find((f) => f.id === state.sampleId);
+  return sample ? `Sample field: ${sample.nombre}` : "Your selected field";
+}
+function updateFieldContext() {
+  const outside = state.lat < -35.1 || state.lat > -30 || state.lon < -58.6 || state.lon > -53;
+  $("#field-context").textContent = fieldLabel() + (outside ? " · Outside Uruguay: crop calendars may not apply." : "");
+}
+function markChanged() {
+  state.queue.invalidate();
+  const current = resultsCurrent();
+  $("#stale-results").hidden = !state.result || current;
+  $("#explain").disabled = !current;
+  $("#print-report").disabled = !current;
+  $("#charts-link").setAttribute("aria-disabled", String(!current));
+  $("#charts-link").tabIndex = current ? 0 : -1;
+}
+async function analyze() {
+  if (state.queue.active) { state.queue.queued = true; return; }
+  const body = readRequest();
+  try { CooperWorkflow.validate(body); } catch (err) {
+    $("#error").textContent = err.message; $("#error").hidden = false; return;
+  }
+  const run = state.queue.begin();
+  const context = { field: fieldLabel(), generatedAt: new Date().toISOString() };
+  $("#empty").hidden = true; $("#error").hidden = true;
+  $("#loading").hidden = false; $("#analyze").disabled = true;
+  $("#results").setAttribute("aria-busy", "true");
+  $("#analyze").textContent = "Comparing rotations…";
   try {
     const resp = await fetch("/api/analyze", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      signal: AbortSignal.timeout(185000),
     });
-    let data;
-    try {
-      data = await resp.json();
-    } catch {
-      throw new Error(`The server returned an unexpected response (HTTP ${resp.status}). Please try again.`);
-    }
-    if (!resp.ok) throw new Error(data.detail ? JSON.stringify(data.detail) : resp.statusText);
+    const data = await CooperWorkflow.readResponse(resp);
+    if (!state.queue.isCurrent(run)) return;
+    state.result = data; state.resultInput = body; state.context = context;
     render(data, body.prioridades);
+    renderSummary(data, body, context);
     state.analyzed = true;
+    $("#stale-results").hidden = true; $("#explain").disabled = false; $("#print-report").disabled = false;
+    $("#charts-link").setAttribute("aria-disabled", "false"); $("#charts-link").tabIndex = 0;
+    // Reach results on a phone without scrolling past the complete input form.
+    if (matchMedia("(max-width: 900px)").matches) $("#results-title").focus();
   } catch (err) {
-    $("#error").textContent = `Could not run the analysis: ${err.message}`;
+    if (!state.queue.isCurrent(run)) return;
+    $("#error").textContent = err.name === "TimeoutError"
+      ? "This analysis took too long. Please try again; downloaded data may already be cached."
+      : `Could not run the analysis: ${err.message}`;
     $("#error").hidden = false;
   } finally {
-    $("#loading").hidden = true;
-    $("#analyze").disabled = false;
+    $("#loading").hidden = true; $("#analyze").disabled = false;
+    $("#results").setAttribute("aria-busy", "false");
+    $("#analyze").textContent = "Analyze my field";
+    if (state.queue.finish()) setTimeout(analyze, 500);
   }
+}
+function renderSummary(data, body, context) {
+  const mode = data.escenario.activo ? "What-if simulation · not a forecast" : "Historical comparison · not a forecast";
+  const coords = `${body.lat.toFixed(4)}, ${body.lon.toFixed(4)}`;
+  const current = data.rotaciones[0];
+  const best = data.rotaciones.reduce((a, b) => b.total > a.total ? b : a);
+  const gain = best.total - current.total;
+  const decision = gain > 0
+    ? `${best.nombre} scores ${fmt(gain, 1)} points above your current rotation for your chosen priorities. Compare its benefits, risks and practical requirements below.`
+    : "Your current rotation ties or scores highest among the rotations compared for these priorities. Review its weak points before deciding what to change.";
+  const summary = `${context.field} · ${coords} · ${body.area_ha} ha · soil water storage ${body.capacidad_suelo_mm} mm · ${body.tiene_ganado ? "livestock available" : "no livestock"}`;
+  $("#analysis-mode").textContent = mode;
+  $("#input-summary").textContent = summary + ` · Updated ${new Date(context.generatedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+  $("#decision-summary").textContent = decision;
+  const priorities = Object.entries(body.prioridades).map(([k, v]) => `${PRIORITY_HINTS[k]} ${v}/5`).join(" · ");
+  $("#print-report-content").innerHTML = `<h1>Cooper · Crop rotation comparison</h1>
+    <p><strong>${esc(mode)}</strong></p><p>${esc(summary)}</p>
+    <p>Prepared ${esc(new Date(context.generatedAt).toLocaleString("en-GB"))} · Climate record ${esc(data.meta.periodo)}</p>
+    <p>${esc(priorities)}</p><p>Scenario: rainfall ${body.escenario.lluvia_pct}%, temperature +${body.escenario.temp_delta} °C.</p>
+    <p>${esc(decision)}</p>
+    <table><thead><tr><th>Rotation</th><th>Score /100</th><th>Months without crop /year</th><th>Dry-year water deficit (mm)</th><th>Estimated erosion (t/ha/year)</th></tr></thead>
+    <tbody>${data.rotaciones.map((r) => `<tr><td>${esc(r.nombre)}${r.rol === "actual" ? " (current)" : ""}</td><td>${r.total}</td><td>${fmt(r.indicadores.meses_descubiertos, 1)}</td><td>${fmt(r.indicadores.deficit_seco_mm)}</td><td>${r.indicadores.erosion_t_ha == null ? "Terrain unavailable" : fmt(r.indicadores.erosion_t_ha, 1)}</td></tr>`).join("")}</tbody></table>
+    <h2>Trade-offs to discuss</h2>${data.rotaciones.map((r) => `<h3>${esc(r.nombre)}</h3><ul>${[...r.explicacion.por_que.slice(0, 2), ...r.explicacion.riesgos.slice(0, 2)].map((t) => `<li>${esc(t)}</li>`).join("")}</ul>`).join("")}
+    <h2>Limits and next steps</h2><p>Climate describes an area of about 50 km. The square field, soil storage and erosion factors are approximations. Scores are prototype rules, not probabilities or validated yield forecasts. Income scores are relative potential, not profit; local costs, prices, machinery and crop dates must be checked with an agronomist. This report is not an approved soil-use plan.</p>
+    ${data.advertencias.length ? `<h2>Data warnings</h2><ul>${data.advertencias.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
+    <p>Sources: NASA POWER, NASA SRTM via OpenTopoData · agrocooper.earth</p>`;
 }
 
 /* ---------------------------------------------------------------- render */
@@ -221,9 +320,10 @@ function render(data, prio) {
 
 /* Guarda una versión liviana del análisis para "Explain it simply" (slides*.html). */
 function saveForSlides(data) {
-  const chip = document.querySelector(".chip.active");
   const slim = {
-    campo: chip ? chip.textContent : "",
+    campo: state.context?.field || "Your selected field",
+    context: state.context,
+    escenario: data.escenario,
     meta: data.meta,
     clima: { mensual: data.clima.mensual, tendencias: data.clima.tendencias.indicadores },
     rotaciones: data.rotaciones.map(({ id, nombre, rol, total, puntajes, indicadores, calendario, explicacion, diagnostico }) =>
@@ -236,7 +336,8 @@ function saveForSlides(data) {
       eros: Object.fromEntries(data.rotaciones.map((r) => [r.id, data.zonas.celdas.map((c) => c.eros[r.id])])),
     } : null,
   };
-  try { localStorage.setItem("cooper-analysis", JSON.stringify(slim)); } catch (e) { /* sin almacenamiento: las slides usan el ejemplo */ }
+  window.CooperAnalysis = slim;
+  try { localStorage.setItem("cooper-analysis", JSON.stringify(slim)); } catch (e) { /* iframe uses the current in-memory result */ }
 }
 
 /* ------------------------------------------------------------- zonas */
@@ -358,6 +459,7 @@ function renderZones(z, rots) {
   state.rotations = rots;
   $("#zones-card").hidden = !z;
   if (!z) return;
+  if (typeof L === "undefined") { $("#zones-meta").textContent = "The map is unavailable. Terrain and erosion estimates remain in the comparison below."; return; }
   // Al cambiar la rotación actual, el mapa vuelve a mostrarla; si no, se respeta la elección.
   if (state.lastCurrent !== rots[0].id || !rots.some((r) => r.id === state.zoneRot)) state.zoneRot = rots[0].id;
   state.lastCurrent = rots[0].id;
@@ -416,6 +518,12 @@ function drawZones() {
 }
 
 function renderWaterChart(months, base) {
+  if (typeof Chart === "undefined") {
+    $("#chart-notice").textContent = "The chart could not load. All climate values are available in the table below.";
+    $("#chart-notice").hidden = false; $(".table-view").open = true;
+    return;
+  }
+  $("#chart-notice").hidden = true;
   const text2 = cssVar("--text-2"), muted = cssVar("--muted");
   const datasets = [
     {
@@ -467,7 +575,7 @@ function renderWaterChart(months, base) {
 
 function renderWaterTable(months) {
   $("#water-table").innerHTML = `<table class="data">
-    <thead><tr><th>Month</th><th>Rain</th><th>Rain, dry year</th><th>ET0</th><th>Balance</th><th>Tmax</th><th>Tmin</th><th>Root-zone moisture</th></tr></thead>
+    <thead><tr><th>Month</th><th>Rain (mm)</th><th>Rain, dry year (mm)</th><th>ET0 (mm)</th><th>Balance (mm)</th><th>Tmax (°C)</th><th>Tmin (°C)</th><th>Root-zone moisture</th></tr></thead>
     <tbody>${months.map((d) => `<tr><td>${d.nombre}</td><td>${fmt(d.lluvia_mm)}</td><td>${fmt(d.lluvia_seca_mm)}</td>
       <td>${fmt(d.et0_mm)}</td><td>${fmt(d.balance_mm)}</td><td>${fmt(d.tmax, 1)}</td><td>${fmt(d.tmin, 1)}</td>
       <td>${d.humedad_raiz ?? "–"}</td></tr>`).join("")}</tbody></table>`;
@@ -487,7 +595,7 @@ function renderRiskTable(months) {
     const max = Math.max(...vals) || 1;
     const cells = vals.map((v, i) => {
       const lvl = v <= 0 ? 0 : Math.min(5, 1 + Math.floor((v / max) * 4.999));
-      const color = lvl >= 3 ? "#fff" : "inherit";
+      const color = needsDarkText(steps[lvl]) ? "#0b0b0b" : "#fff";
       return `<td class="cell" style="background:${steps[lvl]};color:${color}" title="${months[i].nombre}: ${fmt(v, r.d)}">${v > 0 ? fmt(v, r.d) : "·"}</td>`;
     }).join("");
     return `<tr><td>${esc(r.label)}<span class="row-note">${esc(r.note)}</span></td>${cells}</tr>`;
@@ -524,12 +632,12 @@ function renderRotations(rots, prio) {
         <span class="bar-track"><span class="bar-fill" style="width:${r.puntajes[k]}%"></span></span>
         <span class="val">${r.puntajes[k]}</span>
       </div>`).join("");
-    const cal = `<div class="cal" role="table" aria-label="Rotation calendar">
-      <span></span>${AG_MONTHS.map((m) => `<span class="mh">${m}</span>`).join("")}
-      ${r.calendario.map((year, i) => `<span class="yl">Year ${i + 1}</span>` + year.map((c, mi) => c
-        ? `<span class="c ${needsDarkText(c.color) ? "dark-text" : ""}" style="background:${c.color}" title="${esc(c.nombre)} · ${AG_MONTHS[mi]}${c.critico ? " · critical stage" : ""}">${esc(c.abrev)}${c.critico ? "⚠" : ""}</span>`
-        : `<span class="c bare" title="No crop · ${AG_MONTHS[mi]}">—</span>`).join("")).join("")}
-    </div>`;
+    const cal = `<div class="calendar-scroll"><table class="cal-table" aria-label="Rotation calendar">
+      <thead><tr><th scope="col">Year</th>${AG_MONTHS.map((m) => `<th scope="col">${m}</th>`).join("")}</tr></thead>
+      <tbody>${r.calendario.map((year, i) => `<tr><th scope="row">${i + 1}</th>` + year.map((c, mi) => c
+        ? `<td style="background:${c.color};color:${needsDarkText(c.color) ? "#0b0b0b" : "#fff"}" aria-label="${esc(c.nombre)} · ${AG_MONTHS[mi]}${c.critico ? " · critical stage" : ""}" title="${esc(c.nombre)} · ${AG_MONTHS[mi]}${c.critico ? " · critical stage" : ""}">${esc(c.abrev)}${c.critico ? "⚠" : ""}</td>`
+        : `<td class="bare" aria-label="No crop · ${AG_MONTHS[mi]}">—</td>`).join("") + "</tr>").join("")}</tbody>
+    </table></div>`;
     const ind = r.indicadores;
     const kpis = `<div class="kpis">
       <div class="kpi"><div class="v">${fmt(ind.meses_descubiertos, 1)}</div><div class="l">months without a crop per year</div></div>
@@ -569,4 +677,6 @@ init().catch((err) => {
   $("#empty").hidden = true;
   $("#error").textContent = `Could not load the app: ${err.message}`;
   $("#error").hidden = false;
+  $("#retry-load").hidden = false;
 });
+$("#retry-load").addEventListener("click", () => location.reload());

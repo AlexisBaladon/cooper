@@ -111,22 +111,27 @@
       <label class="opt" id="voice-pick-wrap">Voice <select id="voice-pick"></select></label>
     </div>
   </div>
-  <p class="note">The 3D model and every number come from the data (SRTM terrain, NASA POWER climate, RUSLE erosion). <span id="ai-note">AI only rewrites the narration text.</span> Keys: space = pause, ← → = change slide.</p>
+  <p class="note">The terrain is vertically exaggerated for readability; shapes are illustrative. Values come from SRTM, NASA POWER and the prototype RUSLE model. <span id="ai-note">AI only rewrites the narration text.</span> Keys: space = pause, ← → = change slide.</p>
 </div>
 
+<script src="workflow.js?v=1"></script>
 <script src="slides-sample.js"></script>
 <script src="slides.js?v=1"></script>
 <script type="module">
-  import { start3D } from "./slides3d.js?v=1";
+  async function initialize() {
 
-  let data = null, source = "";
-  try {
-    const raw = localStorage.getItem("cooper-analysis");
-    if (raw) { data = JSON.parse(raw); source = "Using the analysis you ran on the main screen."; }
-  } catch (e) { /* datos corruptos: usar el ejemplo */ }
-  if (!data || !data.terreno) { data = window.SAMPLE_ANALYSIS; source = "Using the sample field near Young (real NASA POWER and SRTM data)."; }
-  document.getElementById("data-source").textContent = source;
+let data = CooperWorkflow.explanationData(window);
+    if (!data && new URLSearchParams(location.search).has("analysis")) {
+      document.getElementById("start").innerHTML = '<h2>No analysis is available</h2><p>Return to Cooper and run your field comparison first.</p><a href="index.html">Back to Cooper</a>';
+      return;
+    }
+    const sample = !data;
+    if (!data) data = window.SAMPLE_ANALYSIS;
+    const source = sample ? "DEMONSTRATION ONLY · Sample field near Young, not your field." : CooperWorkflow.sourceNote(data);
+    document.getElementById("data-source").textContent = source;
 
+  if (!data.terreno) { location.replace("slides.html?analysis=1"); return; }
+  const { start3D } = await import("./slides3d.js?v=1");
   const root = document.getElementById("player");
   const only = new URLSearchParams(location.search).get("slide");
   if (only) document.documentElement.classList.add("static");
@@ -166,6 +171,7 @@
 
     // Dentro del programa principal (iframe): "volver" cierra la ventana en vez de navegar.
     if (window.parent !== window) {
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") window.parent.postMessage({type: "cooper-close"}, location.origin); });
       document.addEventListener("click", (e) => {
         if (e.target.closest('a[href="index.html"]')) {
           e.preventDefault();
@@ -199,6 +205,10 @@
     }
 
   }
+  }
+  initialize().catch(() => {
+    document.getElementById("start").innerHTML = '<h2>Use the charts explanation</h2><p>The 3D view could not load on this connection or device. Your analysis is still available.</p><a href="slides.html?analysis=1">Open charts for this analysis</a>';
+  });
 </script>
 </body>
 </html>
