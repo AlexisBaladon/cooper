@@ -29,6 +29,8 @@ El dominio del equipo es `agrocooper.earth`. En el proveedor DNS autoritativo (a
 
 `configure-proxy.sh` instala las rutas comunes, valida Nginx y restaura la configuración anterior si falla. Se ejecuta también en cada despliegue. `/etc/nasa2026/domain` y `/etc/nasa2026/public-ip` conservan los nombres fuera de los releases. La URL HTTPS de la IP sigue disponible para los controles de CI. Las claves y los certificados nunca se incluyen en el release.
 
+La ventana “Explain it simply” usa un iframe. Solo `/slides-3d.html` y `/slides.html` permiten embedding desde el mismo origen (`X-Frame-Options: SAMEORIGIN`); el resto conserva `DENY`. La comprobación pública verifica ambos comportamientos y los demás encabezados de protección.
+
 ## HTTPS directo sobre la IP
 
 No hace falta comprar un dominio: Let's Encrypt admite certificados para IP públicas. Usar **Certbot 5.4 o superior**, instalado según sus instrucciones oficiales, y revisar/aceptar personalmente sus términos antes de solicitar el certificado.

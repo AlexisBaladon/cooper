@@ -32,6 +32,12 @@ def main() -> None:
     code, page = request("/")
     assert code == 200 and b"Cooper" in page, (code, "homepage")
     checks["homepage_https"] = code
+    for path, policy in (("/", "DENY"), ("/slides-3d.html", "SAMEORIGIN"), ("/slides.html", "SAMEORIGIN")):
+        with urlopen(base + path, timeout=20) as response:
+            assert response.status == 200
+            assert response.headers.get("X-Frame-Options") == policy, (path, response.headers)
+            assert response.headers.get("X-Content-Type-Options") == "nosniff"
+        checks[f"frame_policy:{path}"] = policy
     code, health = request("/api/health")
     assert code == 200 and json.loads(health)["status"] == "ok"
     checks["backend_health"] = code
