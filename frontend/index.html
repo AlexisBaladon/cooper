@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cooper · Rotaciones con datos de la NASA</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="styles.css?v=1">
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Cooper</h1>
+    <p class="tagline">Explora el clima de tu zona con 30 años de datos de la NASA.</p>
+  </div>
+  <p class="notice" role="note">🤝 Esta herramienta <strong>ayuda a pensar, no decide</strong>. Revisa cada resultado con tu agrónomo.</p>
+</header>
+
+<main class="layout">
+  <!-- ====================== Panel de entrada ====================== -->
+  <aside class="panel" aria-label="Datos de tu campo">
+    <section class="step">
+      <h2><span class="num">1</span> Marca tu campo</h2>
+      <p class="hint">Haz clic en el mapa o elige un campo de ejemplo.</p>
+      <div id="map" aria-label="Mapa para ubicar el campo"></div>
+      <div id="demo-fields" class="chips"></div>
+      <p class="coords" id="coords"></p>
+    </section>
+
+    <button id="analyze" class="primary">Analizar mi zona</button>
+  </aside>
+
+  <!-- ====================== Resultados ====================== -->
+  <div class="results" id="results" aria-live="polite">
+    <div class="empty" id="empty">
+      <p>👈 Marca tu campo en el mapa y presiona <strong>Analizar mi zona</strong>.</p>
+    </div>
+
+    <div id="loading" class="loading" hidden>Consultando NASA POWER…</div>
+    <div id="error" class="error" hidden></div>
+
+    <div id="content" hidden>
+      <div id="warnings"></div>
+
+      <section class="card">
+        <h2>Tu zona en datos</h2>
+        <p class="sub" id="meta-line"></p>
+
+        <h3>Lluvia y demanda de agua de la atmósfera, por mes</h3>
+        <p class="hint">Cuando la línea naranja (evapotranspiración) supera las barras azules (lluvia), los cultivos dependen del agua guardada en el suelo.</p>
+        <div class="chart-box"><canvas id="water-chart" aria-label="Gráfico de lluvia y evapotranspiración por mes"></canvas></div>
+        <details class="table-view"><summary>Ver como tabla</summary><div id="water-table"></div></details>
+
+        <h3>Calendario de riesgos</h3>
+        <p class="hint">Promedio de días por mes. Más oscuro = más días.</p>
+        <div id="risk-table" class="scroll-x"></div>
+
+        <h3>¿Cómo viene cambiando tu zona?</h3>
+        <div id="trends" class="tiles"></div>
+      </section>
+
+      <section class="card">
+        <h2>Glosario</h2>
+        <dl class="glossary">
+          <dt>Evapotranspiración (ET)</dt>
+          <dd>El agua que se va del campo a la atmósfera: la que evapora el suelo más la que transpiran las plantas. La <em>ET de referencia</em> (ET0) es la de un pasto bien regado; cada cultivo usa una fracción.</dd>
+          <dt>Humedad del suelo en la zona de raíces</dt>
+          <dd>Qué tan lleno está el suelo de agua, de 0 (seco) a 1 (saturado). Viene de un modelo de la NASA (MERRA-2) que combina satélites y estaciones.</dd>
+          <dt>Riesgo de helada</dt>
+          <dd>Días con temperatura mínima del aire ≤ 2 °C. Usamos 2 °C y no 0 °C porque el suelo y las hojas se enfrían más que el aire a 2 m de altura.</dd>
+          <dt>Año seco</dt>
+          <dd>La lluvia de un mes en un año seco es la que se supera 4 de cada 5 años: describe un mes malo, pero no extremo.</dd>
+          <dt>Satélite vs. medición en el campo</dt>
+          <dd>El satélite mide toda una zona desde arriba (aquí ~50 km); un pluviómetro o un sensor miden un punto exacto. Combinar ambos da más precisión: tus registros de lluvia pueden corregir los de la NASA.</dd>
+        </dl>
+      </section>
+
+      <section class="card method">
+        <h2>Cómo funciona y de dónde salen los datos</h2>
+        <ul>
+          <li><strong>Clima:</strong> NASA POWER, datos diarios 1996–2025 (temperatura, lluvia corregida con GPM-IMERG, humedad de suelo MERRA-2).</li>
+          <li><strong>Evapotranspiración:</strong> método Hargreaves (FAO-56) con temperaturas máximas y mínimas.</li>
+          <li><strong>Año agrícola:</strong> de mayo a abril, para que el invierno y el verano de una misma campaña queden juntos.</li>
+          <li><strong>Tendencias:</strong> promedio de 1996–2010 comparado con 2011–2025.</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  Datos: NASA POWER (power.larc.nasa.gov) · Mapa: © OpenStreetMap · Prototipo para NASA Space Apps 2026 — no reemplaza el criterio del productor ni del técnico.
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>
