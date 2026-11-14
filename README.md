@@ -43,6 +43,8 @@ Abrir <http://localhost:3000>. El frontend usa `NEXT_PUBLIC_API_URL`; por defect
 - `web/`: interfaz inicial en español para comparar tres rotaciones.
 - `docs/`: desafío, propuesta, decisiones y plan de datos.
 - `docs/propuesta-original.pdf`: copia del documento compartido por el equipo.
+- [Guía del participante Uruguay 2026](docs/resources/SpaceApps2026_GuiaDelParticipante.pptx.pdf): documento original de Space Uruguay, con agenda y Global Offers (p. 14).
+- [Comparación de despliegue y costos](docs/DESPLIEGUE.md): opciones gratuitas, ofertas y alternativa con VM.
 
 ## Próximos pasos del equipo
 
