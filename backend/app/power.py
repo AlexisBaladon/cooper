@@ -7,6 +7,7 @@ de la zona, no diferencias dentro de un campo.
 from __future__ import annotations
 
 import json
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -19,7 +20,7 @@ PARAMETERS = ["T2M_MAX", "T2M_MIN", "PRECTOTCORR", "GWETROOT"]
 START_YEAR = 1996
 END_YEAR = 2025  # 30 años completos
 
-CACHE_DIR = Path(__file__).resolve().parents[2] / "data" / "cache"
+CACHE_DIR = Path(os.environ.get("NASA_CACHE_DIR", Path(__file__).resolve().parents[2] / "data" / "cache"))
 
 
 def _cache_path(lat: float, lon: float) -> Path:

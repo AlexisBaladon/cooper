@@ -15,3 +15,9 @@ data/processed/
 
 # Descargas de NASA POWER (se regeneran solas)
 data/cache/
+
+# Deployment artifacts and local leftovers from the original scaffold.
+/dist/
+/web/
+*.tsbuildinfo
+*.egg-info/

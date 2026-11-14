@@ -24,6 +24,14 @@ The project is being brought into this repository in five phases. This is **phas
 The team's earlier scaffold (FastAPI API, Next.js web app and first documents) is in
 [`legacy/`](legacy/).
 
+## Live deployment
+
+The public app is [https://52.71.101.193](https://52.71.101.193). Pushes and merges to
+**`main`** run the backend tests, check the frontend and automatically deploy to the
+existing AWS Lightsail server. See [GitHub Actions](https://github.com/AlexisBaladon/nasa2026/actions)
+and the [deployment guide](docs/AUTODEPLOY.md). Other branches run checks through pull
+requests. Server-side API keys and the NASA cache persist outside application releases.
+
 ## What it does
 
 1. The farmer marks a point on a map of Uruguay, or picks one of three sample fields,

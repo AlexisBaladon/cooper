@@ -1,0 +1,33 @@
+[Unit]
+# Shared by Debian/Ubuntu VMs on AWS or Google Cloud.
+Description=NASA Space Apps demo API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+WorkingDirectory=/opt/nasa2026/current/runtime
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=NASA_CACHE_DIR=/var/lib/nasa2026/power-cache
+# Optional server-only keys; this file is never copied from the repository.
+EnvironmentFile=-/etc/nasa2026/ai-keys.env
+ExecStart=/opt/nasa2026/current/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 --limit-concurrency 20 --timeout-keep-alive 5 --no-access-log
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+StateDirectory=nasa2026
+UMask=0077
+MemoryHigh=160M
+MemoryMax=256M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

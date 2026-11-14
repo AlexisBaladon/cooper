@@ -59,6 +59,12 @@ class AnalyzeRequest(BaseModel):
     tiene_ganado: bool = True
 
 
+@app.get("/health")
+@app.get("/api/health")
+def health() -> dict:
+    return {"status": "ok"}
+
+
 @app.get("/api/catalog")
 def get_catalog() -> dict:
     return {
