@@ -1,0 +1,59 @@
+{
+  "_note": "Rotation library. 'anios' is the sequence of farming years (May to April); each year lists the crops it holds. Any rotation can be chosen as the current one. User-facing text is in English.",
+  "rotaciones": [
+    {
+      "id": "soja_continua", "nombre": "Continuous soybean",
+      "descripcion": "First-crop soybean every year; the field stays fallow (bare) in winter.",
+      "anios": [["soja"]],
+      "requiere_ganado": false
+    },
+    {
+      "id": "trigo_soja2", "nombre": "Wheat / second-crop soybean",
+      "descripcion": "Double cropping every year: wheat in winter and second-crop soybean in summer.",
+      "anios": [["trigo", "soja2"]],
+      "requiere_ganado": false
+    },
+    {
+      "id": "soja_cobertura", "nombre": "Soybean with a black oat cover crop",
+      "descripcion": "Like continuous soybean, but winter is covered with black oat instead of leaving the soil bare.",
+      "anios": [["avena_negra", "soja"]],
+      "requiere_ganado": false
+    },
+    {
+      "id": "trigo_soja2_vicia_maiz", "nombre": "Wheat/2nd soybean → vetch/maize",
+      "descripcion": "Two years: wheat and second-crop soybean, then vetch as a nitrogen-supplying cover crop before first-crop maize.",
+      "anios": [["trigo", "soja2"], ["vicia", "maiz"]],
+      "requiere_ganado": false
+    },
+    {
+      "id": "colza_maiz_cebada", "nombre": "Canola/2nd soybean → oat/maize → barley/2nd soybean",
+      "descripcion": "Three years with three plant families (brassica, grass and legume) to break disease cycles.",
+      "anios": [["colza", "soja2"], ["avena_negra", "maiz"], ["cebada", "soja2"]],
+      "requiere_ganado": false
+    },
+    {
+      "id": "cebada_sorgo", "nombre": "Barley/sorghum → oat/soybean",
+      "descripcion": "Two years with sorghum, which handles drought better, and a black oat cover before soybean.",
+      "anios": [["cebada", "sorgo"], ["avena_negra", "soja"]],
+      "requiere_ganado": false
+    },
+    {
+      "id": "agricola_pastoril", "nombre": "Crops and pasture: 2 years of crops + 3 of pasture",
+      "descripcion": "Uruguay's classic crop-livestock rotation: two cropping years followed by three years of mixed pasture to rebuild the soil.",
+      "anios": [["trigo", "soja2"], ["avena_negra", "maiz"], ["pradera"], ["pradera"], ["pradera"]],
+      "requiere_ganado": true
+    },
+    {
+      "id": "verdeo_sorgo", "nombre": "Ryegrass + forage sorghum",
+      "descripcion": "Dairy forage system: annual ryegrass in winter and sorghum in summer every year.",
+      "anios": [["raigras", "sorgo"]],
+      "requiere_ganado": true
+    },
+    {
+      "id": "pradera_verdeos", "nombre": "3-year pasture + annual forage",
+      "descripcion": "Forage system with a three-year mixed pasture and one year of annual forage crops (ryegrass and sorghum).",
+      "anios": [["pradera"], ["pradera"], ["pradera"], ["raigras", "sorgo"]],
+      "requiere_ganado": true
+    }
+  ]
+}

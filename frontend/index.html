@@ -1,87 +1,141 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cooper · Rotaciones con datos de la NASA</title>
+  <title>Cooper · Crop rotations with NASA data</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=1">
+  <link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
 <header class="top">
   <div>
     <h1>Cooper</h1>
-    <p class="tagline">Explora el clima de tu zona con 30 años de datos de la NASA.</p>
+    <p class="tagline">Compare crop rotations using 30 years of NASA data for your area.</p>
   </div>
-  <p class="notice" role="note">🤝 Esta herramienta <strong>ayuda a pensar, no decide</strong>. Revisa cada resultado con tu agrónomo.</p>
+  <p class="notice" role="note">🤝 This tool <strong>helps you think, it doesn't decide</strong>. Review every result with your agronomist.</p>
 </header>
 
 <main class="layout">
   <!-- ====================== Panel de entrada ====================== -->
-  <aside class="panel" aria-label="Datos de tu campo">
+  <aside class="panel" aria-label="Your field">
     <section class="step">
-      <h2><span class="num">1</span> Marca tu campo</h2>
-      <p class="hint">Haz clic en el mapa o elige un campo de ejemplo.</p>
-      <div id="map" aria-label="Mapa para ubicar el campo"></div>
+      <h2><span class="num">1</span> Mark your field</h2>
+      <p class="hint">Click on the map or pick a sample field.</p>
+      <div id="map" aria-label="Map to locate the field"></div>
       <div id="demo-fields" class="chips"></div>
       <p class="coords" id="coords"></p>
     </section>
 
-    <button id="analyze" class="primary">Analizar mi zona</button>
+    <section class="step">
+      <h2><span class="num">2</span> Which rotation do you use today?</h2>
+      <select id="rotation"></select>
+      <p class="hint" id="rotation-desc"></p>
+    </section>
+
+    <section class="step">
+      <h2><span class="num">3</span> Your farm</h2>
+      <label class="check"><input type="checkbox" id="livestock"> I have livestock (fences and water points)</label>
+      <label class="field">How much water does your soil hold?
+        <select id="soil">
+          <option value="80">Little: shallow or sandy soil (~80 mm)</option>
+          <option value="120" selected>Medium (~120 mm)</option>
+          <option value="170">A lot: deep, clayey soil (~170 mm)</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="step">
+      <h2><span class="num">4</span> What matters most to you?</h2>
+      <p class="hint">0 = not important · 5 = very important</p>
+      <div id="priorities"></div>
+    </section>
+
+    <button id="analyze" class="primary">Analyze my field</button>
   </aside>
 
   <!-- ====================== Resultados ====================== -->
   <div class="results" id="results" aria-live="polite">
     <div class="empty" id="empty">
-      <p>👈 Marca tu campo en el mapa y presiona <strong>Analizar mi zona</strong>.</p>
+      <p>👈 Mark your field, choose your current rotation and your priorities, then press <strong>Analyze my field</strong>.</p>
     </div>
 
-    <div id="loading" class="loading" hidden>Consultando NASA POWER…</div>
+    <div id="loading" class="loading" hidden>Fetching NASA POWER data and comparing rotations…</div>
     <div id="error" class="error" hidden></div>
 
     <div id="content" hidden>
       <div id="warnings"></div>
 
       <section class="card">
-        <h2>Tu zona en datos</h2>
+        <h2>Your area in numbers</h2>
         <p class="sub" id="meta-line"></p>
 
-        <h3>Lluvia y demanda de agua de la atmósfera, por mes</h3>
-        <p class="hint">Cuando la línea naranja (evapotranspiración) supera las barras azules (lluvia), los cultivos dependen del agua guardada en el suelo.</p>
-        <div class="chart-box"><canvas id="water-chart" aria-label="Gráfico de lluvia y evapotranspiración por mes"></canvas></div>
-        <details class="table-view"><summary>Ver como tabla</summary><div id="water-table"></div></details>
+        <h3>Rainfall and atmospheric water demand, by month</h3>
+        <p class="hint">When the orange line (evapotranspiration) rises above the blue bars (rainfall), crops depend on the water stored in the soil.</p>
+        <div class="chart-box"><canvas id="water-chart" aria-label="Monthly rainfall and evapotranspiration chart"></canvas></div>
+        <details class="table-view"><summary>Show as a table</summary><div id="water-table"></div></details>
 
-        <h3>Calendario de riesgos</h3>
-        <p class="hint">Promedio de días por mes. Más oscuro = más días.</p>
+        <h3>Risk calendar</h3>
+        <p class="hint">Average number of days per month. Darker means more days.</p>
         <div id="risk-table" class="scroll-x"></div>
 
-        <h3>¿Cómo viene cambiando tu zona?</h3>
+        <h3>How is your area changing?</h3>
         <div id="trends" class="tiles"></div>
       </section>
 
+      <section class="card scenario">
+        <h2>What if the climate changes?</h2>
+        <p class="hint">Move the sliders to recalculate everything with less rain or more heat, over the same 30-year record.</p>
+        <div class="scenario-controls">
+          <label>Rainfall: <strong id="rain-val">0%</strong>
+            <input type="range" id="rain" min="-40" max="20" step="5" value="0">
+          </label>
+          <label>Temperature: <strong id="temp-val">+0.0 °C</strong>
+            <input type="range" id="temp" min="0" max="3" step="0.5" value="0">
+          </label>
+          <button id="reset-scenario" class="ghost">Back to the historical climate</button>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="section-title">Three rotations side by side</h2>
+        <p class="hint">Scores go from 0 to 100. The total weights each score by what matters to you. Months marked ⚠ are critical crop stages.</p>
+        <div id="crop-legend" class="legend"></div>
+        <div id="rotations" class="rotations"></div>
+      </section>
+
       <section class="card">
-        <h2>Glosario</h2>
+        <h2>Glossary</h2>
         <dl class="glossary">
-          <dt>Evapotranspiración (ET)</dt>
-          <dd>El agua que se va del campo a la atmósfera: la que evapora el suelo más la que transpiran las plantas. La <em>ET de referencia</em> (ET0) es la de un pasto bien regado; cada cultivo usa una fracción.</dd>
-          <dt>Humedad del suelo en la zona de raíces</dt>
-          <dd>Qué tan lleno está el suelo de agua, de 0 (seco) a 1 (saturado). Viene de un modelo de la NASA (MERRA-2) que combina satélites y estaciones.</dd>
-          <dt>Riesgo de helada</dt>
-          <dd>Días con temperatura mínima del aire ≤ 2 °C. Usamos 2 °C y no 0 °C porque el suelo y las hojas se enfrían más que el aire a 2 m de altura.</dd>
-          <dt>Año seco</dt>
-          <dd>La lluvia de un mes en un año seco es la que se supera 4 de cada 5 años: describe un mes malo, pero no extremo.</dd>
-          <dt>Satélite vs. medición en el campo</dt>
-          <dd>El satélite mide toda una zona desde arriba (aquí ~50 km); un pluviómetro o un sensor miden un punto exacto. Combinar ambos da más precisión: tus registros de lluvia pueden corregir los de la NASA.</dd>
+          <dt>Evapotranspiration (ET)</dt>
+          <dd>The water that leaves the field for the atmosphere: what evaporates from the soil plus what plants transpire. <em>Reference ET</em> (ET0) is the value for well-watered grass; each crop uses a fraction of it.</dd>
+          <dt>Water deficit</dt>
+          <dd>The water a crop would need but can't find, either in the rain or in the soil.</dd>
+          <dt>Cover crop</dt>
+          <dd>A crop sown to protect and improve the soil rather than to sell, such as black oat or vetch.</dd>
+          <dt>First-crop and second-crop</dt>
+          <dd>A first crop is sown on its normal date; a second crop (for example second-crop soybean) is sown later, right after harvesting a winter crop, so one paddock gives two harvests in a year.</dd>
+          <dt>Root-zone soil moisture</dt>
+          <dd>How full of water the soil is, from 0 (dry) to 1 (saturated). It comes from a NASA model (MERRA-2) that combines satellites and weather stations.</dd>
+          <dt>Frost risk</dt>
+          <dd>Days when the minimum air temperature is 2 °C or lower. We use 2 °C instead of 0 °C because the ground and leaves get colder than the air 2 m above them.</dd>
+          <dt>Dry year</dt>
+          <dd>A bad year that comes about once every five. For rainfall, it's the amount exceeded in 4 out of 5 years; for the crops' water deficit, the amount exceeded in only 1 out of 5 years.</dd>
+          <dt>Satellite vs. field measurements</dt>
+          <dd>A satellite sees a whole area from above (about 50 km here); a rain gauge or sensor measures one exact spot. Combining both is more accurate: your own rainfall records can correct NASA's.</dd>
         </dl>
       </section>
 
       <section class="card method">
-        <h2>Cómo funciona y de dónde salen los datos</h2>
+        <h2>How it works and where the data comes from</h2>
         <ul>
-          <li><strong>Clima:</strong> NASA POWER, datos diarios 1996–2025 (temperatura, lluvia corregida con GPM-IMERG, humedad de suelo MERRA-2).</li>
-          <li><strong>Evapotranspiración:</strong> método Hargreaves (FAO-56) con temperaturas máximas y mínimas.</li>
-          <li><strong>Año agrícola:</strong> de mayo a abril, para que el invierno y el verano de una misma campaña queden juntos.</li>
-          <li><strong>Tendencias:</strong> promedio de 1996–2010 comparado con 2011–2025.</li>
+          <li><strong>Climate:</strong> NASA POWER daily data, 1996–2025 (temperature, rainfall corrected with GPM-IMERG, MERRA-2 soil moisture).</li>
+          <li><strong>Evapotranspiration:</strong> Hargreaves method (FAO-56), using daily maximum and minimum temperatures.</li>
+          <li><strong>Farming year:</strong> May to April, so the winter and summer crops of one season stay together.</li>
+          <li><strong>Trends:</strong> the 1996–2010 average compared with 2011–2025.</li>
+          <li><strong>Water balance:</strong> month by month, over every real year in the record: effective rainfall (USDA-SCS method) minus crop water use (ET0 × crop coefficient), with the soil acting as a "bucket" of the size you chose.</li>
+          <li><strong>Scores:</strong> written, reviewable agronomic rules and thresholds, with no black boxes. No AI makes the decisions.</li>
+          <li><strong>Crop table:</strong> built from general literature for Uruguay. A local agronomist should validate it.</li>
         </ul>
       </section>
     </div>
@@ -89,11 +143,11 @@
 </main>
 
 <footer class="foot">
-  Datos: NASA POWER (power.larc.nasa.gov) · Mapa: © OpenStreetMap · Prototipo para NASA Space Apps 2026 — no reemplaza el criterio del productor ni del técnico.
+  Data: NASA POWER (power.larc.nasa.gov) · Map: © OpenStreetMap · Prototype for NASA Space Apps 2026. It does not replace the judgment of farmers or agronomists.
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="app.js?v=1"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

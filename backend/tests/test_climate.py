@@ -76,21 +76,41 @@ def client(monkeypatch):
 
 
 def test_catalog_lists_demo_fields(client):
-    fields = client.get("/api/catalog").json()["campos_demo"]
-    assert len(fields) == 3 and all({"id", "nombre", "lat", "lon"} <= set(f) for f in fields)
+    cat = client.get("/api/catalog").json()
+    fields = cat["campos_demo"]
+    assert len(fields) == 3 and all({"id", "nombre", "lat", "lon", "rotacion"} <= set(f) for f in fields)
+    rotation_ids = {r["id"] for r in cat["rotaciones"]}
+    assert all(f["rotacion"] in rotation_ids for f in fields)
 
 
-def test_analyze_returns_climate(client):
-    data = client.post("/api/analyze", json={"lat": -32.62, "lon": -57.75}).json()
+BODY = {"lat": -32.62, "lon": -57.75, "rotacion_actual": "soja_continua", "tiene_ganado": False}
+
+
+def test_analyze_returns_climate_and_rotations(client):
+    data = client.post("/api/analyze", json=BODY).json()
     assert len(data["clima"]["mensual"]) == 12
     assert data["clima"]["tendencias"]["indicadores"]
     assert data["advertencias"] == []
+    assert [r["rol"] for r in data["rotaciones"]] == ["actual", "alternativa_1", "alternativa_2"]
+
+
+def test_analyze_scenario_adds_warning_and_baseline(client):
+    data = client.post("/api/analyze", json={**BODY, "escenario": {"lluvia_pct": -20, "temp_delta": 1}}).json()
+    assert data["escenario"]["activo"]
+    assert any("Scenario on" in w for w in data["advertencias"])
+    dry = sum(m["lluvia_mm"] for m in data["clima"]["mensual"])
+    base = sum(m["lluvia_mm"] for m in data["clima"]["mensual_base"])
+    assert dry < base
+
+
+def test_analyze_rejects_unknown_rotation(client):
+    assert client.post("/api/analyze", json={**BODY, "rotacion_actual": "nope"}).status_code == 400
 
 
 def test_analyze_warns_outside_uruguay(client):
-    data = client.post("/api/analyze", json={"lat": 40.4, "lon": -3.7}).json()
-    assert any("fuera de Uruguay" in w for w in data["advertencias"])
+    data = client.post("/api/analyze", json={**BODY, "lat": 40.4, "lon": -3.7}).json()
+    assert any("outside Uruguay" in w for w in data["advertencias"])
 
 
 def test_analyze_validates_coordinates(client):
-    assert client.post("/api/analyze", json={"lat": 120, "lon": 0}).status_code == 422
+    assert client.post("/api/analyze", json={**BODY, "lat": 120, "lon": 0}).status_code == 422

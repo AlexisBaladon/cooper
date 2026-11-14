@@ -1,86 +1,130 @@
 # Cooper · NASA Space Apps 2026
 
-Herramienta web de apoyo a la decisión para que un productor uruguayo compare
-rotaciones de cultivos usando datos de la NASA. Responde al desafío
-[Field Shift: Adapting Farms with NASA Data](https://www.spaceappschallenge.org/2026/challenges/field-shift-adapting-farms-with-nasa-data/).
+Cooper is a decision-support web tool that helps Uruguayan farmers compare crop
+rotations using NASA Earth observation data. It answers the
+[Field Shift: Adapting Farms with NASA Data](https://www.spaceappschallenge.org/2026/challenges/field-shift-adapting-farms-with-nasa-data/)
+challenge.
 
-Cooper ayuda a pensar, no decide: muestra datos, razones y riesgos para revisar con un
-agrónomo local. No hay inteligencia artificial tomando decisiones; todo sale de reglas y
-fórmulas que se pueden revisar.
+Cooper helps farmers think; it doesn't decide for them. It shows data, reasons and risks
+to review with a local agronomist. No AI makes the decisions: every result comes from
+written rules and published formulas that anyone can check.
 
-## Estado
+## Status
 
-El proyecto se incorpora al repositorio en cinco fases. Esta es la **fase 1**.
+The project is being brought into this repository in five phases. This is **phase 2**.
 
-| Fase | Contenido | Estado |
+| Phase | Content | Status |
 |---|---|---|
-| 1. Base y clima | Servidor, datos diarios de NASA POWER, clima de la zona y tendencias | ✅ |
-| 2. Motor de rotaciones | Tabla de cultivos, balance de agua, puntajes, explicaciones y simulador de clima | ⏳ |
-| 3. Terreno y erosión | Relieve SRTM, erosión RUSLE por rotación y mapa de zonas del campo | ⏳ |
-| 4. Diagnóstico y "Explícamelo fácil" | Lo bueno y lo flojo, recomendaciones y resumen con voz en 3D | ⏳ |
-| 5. IA y documentación | Redacción de la voz con Groq y documentación completa | ⏳ |
+| 1. Base and climate | Server, daily NASA POWER data, local climate and trends | ✅ |
+| 2. Rotation engine | Crop table, water balance, scores, explanations and climate scenarios | ✅ |
+| 3. Terrain and erosion | SRTM elevation, RUSLE erosion per rotation and a map of zones within the field | ⏳ |
+| 4. Diagnosis and "Explain it simply" | Strengths and weaknesses, recommendations and a narrated 3D summary | ⏳ |
+| 5. AI and documentation | Narration text written with Groq, and full documentation | ⏳ |
 
-El esqueleto anterior del equipo (API FastAPI, web Next.js y documentos iniciales) está
-en [`legacy/`](legacy/).
+The team's earlier scaffold (FastAPI API, Next.js web app and first documents) is in
+[`legacy/`](legacy/).
 
-## Qué hace la fase 1
+## What it does
 
-1. El usuario marca un punto en el mapa de Uruguay o elige uno de tres campos de ejemplo.
-2. El servidor descarga 30 años de datos diarios de NASA POWER (1996–2025) para ese punto.
-3. La página muestra:
-   - lluvia y evapotranspiración de referencia por mes, para ver cuándo los cultivos pasan sed;
-   - un calendario de riesgos: días de calor, de helada, de lluvia fuerte y déficit de agua;
-   - cómo cambió el clima entre 1996–2010 y 2011–2025.
+1. The farmer marks a point on a map of Uruguay, or picks one of three sample fields,
+   and tells Cooper which rotation they use today, whether they have livestock, roughly how
+   much water their soil holds and what matters most to them (saving water, soil health,
+   income, forage, climate resilience).
+2. The server downloads 30 years of daily NASA POWER data (1996–2025) for that point.
+3. The page shows:
+   - monthly rainfall against reference evapotranspiration, to see when crops go thirsty;
+   - a risk calendar: hot days, frost-risk days, heavy-rain days and water deficit;
+   - how the climate changed between 1996–2010 and 2011–2025;
+   - **three rotations side by side**: the current one and the two alternatives that best
+     fit the farmer's priorities, each with five scores, a month-by-month calendar and an
+     explanation of why it's suggested, the supporting data, possible benefits, what we
+     don't know yet, and risks to review with an agronomist;
+   - a scenario slider to recalculate everything with less rain or more heat.
 
-## Cómo correrlo
+## Adapted to Uruguay
 
-Requisitos: Python 3.11 o superior.
+The interface is in English, but the agronomy is Uruguayan:
+
+- **Farming year from May to April**, so a season's winter crop (wheat, barley, canola,
+  oats) and summer crop (soybean, maize, sorghum) stay together.
+- **Local crops and systems:** first-crop and second-crop soybean, winter forage crops
+  (*verdeos*) such as annual ryegrass, mixed pastures (*praderas*) of tall fescue, white
+  clover and birdsfoot trefoil, and the classic crop-pasture rotation.
+- **Livestock filter:** pasture and forage rotations are only suggested to farmers who
+  have livestock.
+- **No-till is assumed** where it matters, as it's the norm in Uruguay.
+- Points outside Uruguay get a warning that results may not apply.
+
+## Running it
+
+Requirements: Python 3.11 or newer.
 
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate          # en macOS/Linux: source .venv/bin/activate
+.venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-Abrir <http://127.0.0.1:8000>. El mismo servidor entrega la API y la página.
+Open <http://127.0.0.1:8000>. The same server provides the API and the web page.
 
-Tests (no usan internet): `cd backend && python -m pytest -q`
+If PowerShell refuses to activate the virtual environment ("running scripts is disabled"),
+run this once and try again:
 
-La primera consulta de un punto nuevo tarda unos 10 segundos: descarga la serie de NASA
-POWER y la guarda en `data/cache/`, que no se sube al repositorio. Las siguientes
-consultas del mismo punto son instantáneas. El mapa y las librerías de la página se
-cargan desde internet.
-
-## Estructura
-
-```
-backend/app/power.py     cliente de NASA POWER con caché en disco
-backend/app/climate.py   evapotranspiración, calor, heladas, lluvia fuerte y tendencias
-backend/app/main.py      API (/api/catalog, /api/analyze) y servidor de la página
-backend/tests/           tests con datos sintéticos
-frontend/                página en HTML y JavaScript (Leaflet y Chart.js)
-legacy/                  esqueleto inicial del equipo
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 ```
 
-## Datos y supuestos
+Tests (no internet needed): `cd backend && python -m pytest -q`
 
-| Dato | Fuente | Resolución |
+The first query for a new point takes about 15 seconds while it downloads the NASA POWER
+series into `data/cache/`, which is not committed. Later queries for the same point are
+instant. The map and the page's libraries load from the internet.
+
+## Project layout
+
+```
+backend/app/power.py     NASA POWER client with an on-disk cache
+backend/app/climate.py   evapotranspiration, heat, frost, heavy rain and trends
+backend/app/engine.py    water balance, indicators, scores and explanations
+backend/app/main.py      API (/api/catalog, /api/analyze) and web server
+backend/tests/           tests with synthetic data
+data/crops.json          crop table (editable by an agronomist)
+data/rotations.json      rotation library
+frontend/                web page in HTML and JavaScript (Leaflet and Chart.js)
+legacy/                  the team's earlier scaffold
+```
+
+## Data and assumptions
+
+| Data | Source | Resolution |
 |---|---|---|
-| Temperatura máxima y mínima, lluvia, humedad del suelo en la zona de raíces | [NASA POWER](https://power.larc.nasa.gov/) (MERRA-2 y GPM-IMERG), diario | ~50 km |
+| Max and min temperature, rainfall, root-zone soil moisture | [NASA POWER](https://power.larc.nasa.gov/) (MERRA-2 and GPM-IMERG), daily | ~50 km |
+| Crops and rotations | `data/crops.json`, `data/rotations.json` (general literature for Uruguay) | — |
 
-- **Evapotranspiración de referencia (ET0):** Hargreaves-Samani (FAO-56), con temperatura
-  máxima, mínima y latitud.
-- **Día de calor:** máxima ≥ 32 °C. **Riesgo de helada:** mínima del aire ≤ 2 °C, porque
-  el suelo y las hojas se enfrían más que el aire a 2 m y la grilla suaviza los extremos.
-  **Lluvia fuerte:** ≥ 40 mm en un día.
-- **Año agrícola:** de mayo a abril. Solo se usan años agrícolas completos.
-- **Año seco:** el percentil 20 de la lluvia de cada mes (un mes malo de cada cinco).
-- **Escala:** el clima es de la zona, no del campo. Dos campos vecinos reciben los mismos datos.
-- **Fuera de Uruguay** la página avisa que los resultados pueden no aplicar.
+- **Reference evapotranspiration (ET0):** Hargreaves-Samani (FAO-56), from daily maximum
+  and minimum temperature and latitude.
+- **Hot day:** maximum ≥ 32 °C. **Frost risk:** minimum air temperature ≤ 2 °C, because
+  the ground and leaves get colder than the air 2 m up and the grid smooths extremes.
+  **Heavy rain:** ≥ 40 mm in a day.
+- **Water balance:** month by month over every real year in the record. Effective rainfall
+  uses the USDA-SCS method, crop water use is ET0 × crop coefficient (Kc, FAO-56), bare
+  soil uses Kc = 0.3, and the soil is a "bucket" of the capacity the farmer chooses.
+  Multi-year rotations are run in every phase and averaged.
+- **Dry year:** for rainfall, the 20th percentile of each month; for the crops' water
+  deficit, the 80th percentile (the worst year in five).
+- **Scores (0–100):** water saving, soil health, indicative income, forage and climate
+  resilience. The total is a weighted average using the farmer's priorities. Thresholds
+  are heuristic and documented in `engine.subscores()`.
+- **Income is relative:** it compares crops with each other; there are no prices, costs or
+  yields yet.
+- **Scale:** the climate describes the area, not the field. Neighboring fields get the
+  same data.
+- **The crop table and thresholds come from general literature** and need review by a local
+  agronomist.
 
-## Colaboración
+## Collaboration
 
-Una rama por tarea y pull requests hacia la rama de trabajo del equipo. No subir claves,
-credenciales, datos privados de productores ni descargas satelitales voluminosas.
+One branch per task and pull requests into the team's working branch. Don't commit keys,
+credentials, private farmer data or large satellite downloads.

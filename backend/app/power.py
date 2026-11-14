@@ -58,7 +58,7 @@ def _load(lat: float, lon: float) -> tuple[pd.DataFrame, dict]:
 
     coords = raw.get("geometry", {}).get("coordinates", [lon, lat, None])
     meta = {
-        "fuente": "NASA POWER (MERRA-2 / GPM-IMERG), comunidad AG",
+        "fuente": "NASA POWER (MERRA-2 / GPM-IMERG), AG community",
         "periodo": f"{START_YEAR}-{END_YEAR}",
         "lat": lat,
         "lon": lon,

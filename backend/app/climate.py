@@ -16,8 +16,8 @@ import numpy as np
 import pandas as pd
 
 AG_MONTHS = [5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3, 4]
-MONTH_NAMES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
-               "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 HEAT_T = 32.0
 FROST_T = 2.0
@@ -115,10 +115,10 @@ def trends(d: pd.DataFrame) -> dict:
     first, second = annual.iloc[:half], annual.iloc[half:]
 
     labels = {
-        "lluvia_mm": ("Lluvia anual", "mm"),
-        "dias_calor": ("Días de calor (≥32 °C) por año", "días"),
-        "dias_helada": ("Días con riesgo de helada por año", "días"),
-        "et0_mm": ("Evapotranspiración de referencia anual", "mm"),
+        "lluvia_mm": ("Annual rainfall", "mm"),
+        "dias_calor": ("Hot days (≥32 °C) per year", "days"),
+        "dias_helada": ("Frost-risk days per year", "days"),
+        "et0_mm": ("Annual reference evapotranspiration", "mm"),
     }
     indicators = []
     for col, (label, unit) in labels.items():
