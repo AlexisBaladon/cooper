@@ -1,4 +1,4 @@
-# VM inicial sin dominio propio
+# VM de Cooper
 
 Objetivo: una VM pequeña Debian/Ubuntu con IP pública y sin escalado automático. El frontend actual es HTML/JavaScript estático, sin build de Next.js. Confirmar tamaño, precio y facturación antes de crear recursos. Para la selección actual del equipo ver [AWS Lightsail](../aws-lightsail/README.md).
 
@@ -21,13 +21,19 @@ sudo bash /opt/nasa2026/deploy/vm/install.sh
 
 El servicio Python escucha solo en loopback, con un proceso y límites de memoria. Nginx expone salud, catálogo y análisis, con límites de solicitudes y de análisis simultáneos. La caché NASA se guarda en el estado persistente del servicio. Los límites ayudan frente al abuso de aplicación, pero no garantizan disponibilidad ni un tope de transferencia facturada.
 
-Para futuras integraciones Groq/OpenAI, el servicio lee opcionalmente `/etc/nasa2026/ai-keys.env`, creado vacío con permisos 600 y directorio 700. Editarlo con `sudoedit` en el servidor y reiniciar `nasa2026-api` cuando se implemente una integración. No escribir claves en el chat, en Git ni en `NEXT_PUBLIC_*`. La demo no realiza llamadas a modelos ni necesita claves para funcionar. No se agregan endpoints de IA genéricos sin autenticación, límites y un presupuesto para el proveedor.
+El servicio lee `/etc/nasa2026/ai-keys.env`, con permisos 600 y directorio 700. Editarlo con `sudoedit` en el servidor y reiniciar `nasa2026-api`. No escribir claves en el chat, en Git ni en el frontend. `GROQ_API_KEY` habilita la narración de “Explain it simply” en `/api/narrate`; ante un error se conservan los textos de plantilla. El proxy admite solo POST, cuerpos de hasta 16 KiB, una solicitud simultánea por IP, dos en total, 5 solicitudes por minuto por IP y 10 por minuto en total (ráfaga de 2). Estos límites reducen abuso; no son un tope monetario del proveedor.
+
+## Dominio y configuración persistente
+
+El dominio del equipo es `agrocooper.earth`. En GoDaddy, configurar `A @ → 52.71.101.193` y `CNAME www → agrocooper.earth`; conservar registros de correo. Con ambos nombres apuntando a la VM, ejecutar `sudo bash /opt/nasa2026/current/deploy/vm/enable-domain.sh agrocooper.earth`. El script reutiliza la cuenta ACME existente y solicita un certificado gratuito para ambos nombres. El temporizador de Certbot renueva los certificados de dominio y de IP.
+
+`configure-proxy.sh` instala las rutas comunes, valida Nginx y restaura la configuración anterior si falla. Se ejecuta también en cada despliegue. `/etc/nasa2026/domain` y `/etc/nasa2026/public-ip` conservan los nombres fuera de los releases. La URL HTTPS de la IP sigue disponible para los controles de CI. Las claves y los certificados nunca se incluyen en el release.
 
 ## HTTPS directo sobre la IP
 
 No hace falta comprar un dominio: Let's Encrypt admite certificados para IP públicas. Usar **Certbot 5.4 o superior**, instalado según sus instrucciones oficiales, y revisar/aceptar personalmente sus términos antes de solicitar el certificado.
 
-Después de autorizar esa solicitud y con el puerto 80 accesible, usar el modo `certonly --webroot`, raíz `/var/www/acme`, `--ip-address IP_PUBLICA` y `--preferred-profile shortlived`. El certificado no configura Nginx automáticamente: sustituir `PUBLIC_IP` en `nginx-https.conf.template`, instalar como `/etc/nginx/sites-available/default`, ejecutar `nginx -t` y recargar.
+Después de autorizar esa solicitud y con el puerto 80 accesible, usar el modo `certonly --webroot`, raíz `/var/www/acme`, `--ip-address IP_PUBLICA` y `--preferred-profile shortlived`. Después ejecutar `configure-proxy.sh IP_PUBLICA`, que instala las rutas compartidas y los hosts HTTPS y valida Nginx antes de recargarlo.
 
 Configurar renovación automática y un deploy hook `systemctl reload nginx`, y verificarla con `certbot renew --dry-run`. Estos certificados duran aproximadamente seis días: no publicar sin haber comprobado el temporizador de renovación. Un cambio de IP requiere otro certificado. No usar certificados de staging para la URL final ni omitir las advertencias del navegador.
 

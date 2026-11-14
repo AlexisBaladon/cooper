@@ -48,6 +48,8 @@ jobs:
           bash -n deploy/vm/install.sh
           bash -n deploy/vm/activate-release.sh
           bash -n deploy/vm/enable-https.sh
+          bash -n deploy/vm/configure-proxy.sh
+          bash -n deploy/vm/enable-domain.sh
           python scripts/package_release.py
       - name: Verify deployment identity context
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

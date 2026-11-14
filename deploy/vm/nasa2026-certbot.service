@@ -1,5 +1,5 @@
 [Unit]
-Description=Renew NASA demo IP certificate
+Description=Renew Cooper IP and domain certificates
 After=network-online.target nginx.service
 Wants=network-online.target
 

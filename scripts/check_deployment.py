@@ -42,6 +42,9 @@ def main() -> None:
     code, _ = request("/api/analyze", b"{}")
     assert code == 422, code
     checks["request_validation"] = code
+    code, _ = request("/api/narrate", b"{}")
+    assert code == 422, (code, "narration route")
+    checks["narration_request_validation"] = code
     if args.analyze_sample:
         field = catalog["campos_demo"][0]
         body = json.dumps({"lat": field["lat"], "lon": field["lon"], "rotacion_actual": field["rotacion"], "tiene_ganado": field["tiene_ganado"]}).encode()
