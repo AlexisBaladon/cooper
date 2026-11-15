@@ -7,7 +7,7 @@
     "Condition": {
       "StringEquals": {
         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-        "token.actions.githubusercontent.com:sub": "repo:AlexisBaladon@93690531/nasa2026@1457777955:ref:refs/heads/main"
+        "token.actions.githubusercontent.com:sub": "repo:AlexisBaladon@93690531/cooper@1457777955:ref:refs/heads/main"
       }
     }
   }]

@@ -1,6 +1,6 @@
 # Actualización automática desde GitHub
 
-La rama de publicación es **`main`**. Cada `git push` a esa rama ejecuta [Check and deploy demo](https://github.com/AlexisBaladon/nasa2026/actions). Los pull requests ejecutan las verificaciones sin publicar. Para compartir una función, integrar el trabajo en esa rama y esperar que el run termine en verde.
+La rama de publicación es **`main`**. Cada `git push` a esa rama ejecuta [Check and deploy demo](https://github.com/AlexisBaladon/cooper/actions). Los pull requests ejecutan las verificaciones sin publicar. Para compartir una función, integrar el trabajo en esa rama y esperar que el run termine en verde.
 
 ## Flujo
 
@@ -17,6 +17,7 @@ El resultado aparece en la pestaña **Actions** y en el resumen del run, con el 
 
 - No se guardan claves AWS permanentes ni la clave SSH local en GitHub Secrets.
 - La confianza OIDC coincide con el `sub` observado en GitHub, incluyendo los IDs inmutables de la cuenta/repositorio y la referencia exacta de la rama. No se usa una confianza comodín para otros repositorios o ramas.
+- Tras el cambio de nombre a `cooper`, el sujeto esperado es `repo:AlexisBaladon@93690531/cooper@1457777955:ref:refs/heads/main`. El workflow y la política IAM deben coincidir; los IDs inmutables por sí solos no evitan que un cambio de nombre altere este sujeto. Los nombres de recursos AWS y rutas del servidor conservan `nasa2026` y no requieren renombrarse.
 - El rol `nasa2026-github-deploy` puede obtener acceso temporal y abrir/cerrar puertos solo de la instancia `nasa2026-demo`; no puede crear o eliminar instancias ni administrar IAM.
 - El permiso de despliegue permite modificar el código del servidor. Solo personas autorizadas deben poder escribir en la rama de publicación.
 - Las futuras claves Groq/OpenAI siguen en `/etc/nasa2026/ai-keys.env`, fuera de los releases; los despliegues no las sobrescriben. Los datos futuros deben estar fuera de `releases/`, por ejemplo en `/var/lib/nasa2026`.
