@@ -261,16 +261,17 @@
       const h0 = old.offsetHeight;
       stage.style.height = h0 + "px";
       stage.classList.add("sliding");
-      g.set(nu, { position: "absolute", top: 0, left: 0, right: 0, xPercent: 104 * dir, opacity: 0.35, force3D: true });
-      g.set(old, { force3D: true });
+      g.set(nu, { position: "absolute", top: 0, left: 0, right: 0, opacity: 0 });
       requestAnimationFrame(() => {
         const h1 = nu.offsetHeight;
-        busy = g.timeline({ defaults: { duration: 0.72, ease: "power3.inOut" },
-          onComplete: () => { old.remove(); g.set(nu, { clearProps: "all" }); stage.style.height = ""; stage.classList.remove("sliding"); busy = null; } })
-          .to(old, { xPercent: -104 * dir, opacity: 0.25, scale: 0.94 }, 0)
-          .fromTo(nu, { scale: 0.94 }, { xPercent: 0, opacity: 1, scale: 1 }, 0)
-          .to(stage, { height: h1 }, 0)
-          .add(() => C.fx.liven(nu), 0.3);
+        /* The current option steps back and fades where it is; the next one comes in from
+           the side it was asked from and settles into place. */
+        busy = g.timeline({ onComplete: () => { old.remove(); g.set(nu, { clearProps: "all" }); stage.style.height = ""; stage.classList.remove("sliding"); busy = null; } })
+          .to(old, { opacity: 0, scale: 0.96, duration: 0.28, ease: "power2.in" }, 0)
+          .fromTo(nu, { x: 140 * dir, opacity: 0, rotationY: 10 * dir, scale: 0.97, transformPerspective: 1400 },
+            { x: 0, opacity: 1, rotationY: 0, scale: 1, duration: 0.8, ease: "back.out(1.15)" }, 0.12)
+          .to(stage, { height: h1, duration: 0.6, ease: "power3.inOut" }, 0)
+          .add(() => C.fx.liven(nu), 0.35);
       });
     };
     body.addEventListener("click", (e) => {

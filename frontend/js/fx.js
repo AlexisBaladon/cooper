@@ -46,7 +46,9 @@
   function hide(el, fromAbove = false) {
     const g = G();
     if (!g) return;
-    g.set(el, { opacity: 0, y: fromAbove ? -36 : 46, scale: 0.965, rotationX: fromAbove ? -6 : 7, transformPerspective: 1100, transformOrigin: "50% 0%" });
+    // Option cards come in from the side and settle in their place; the rest rise softly.
+    if (el.matches(".opt-card")) g.set(el, { opacity: 0, x: fromAbove ? 90 : -90, y: 0, scale: 0.94, rotationY: fromAbove ? 14 : -14, transformPerspective: 1200, transformOrigin: "50% 50%" });
+    else g.set(el, { opacity: 0, y: fromAbove ? -36 : 46, scale: 0.965, rotationX: fromAbove ? -6 : 7, transformPerspective: 1100, transformOrigin: "50% 0%" });
     state.set(el, "hidden");
   }
   function onIntersect(entries) {
@@ -73,7 +75,8 @@
     batch.forEach((el, i) => {
       state.set(el, "shown");
       if (!g) return;
-      g.to(el, { opacity: 1, y: 0, scale: 1, rotationX: 0, duration: 1.05, ease: "expo.out", delay: i * 0.075,
+      const side = el.matches(".opt-card");
+      g.to(el, { opacity: 1, x: 0, y: 0, scale: 1, rotationX: 0, rotationY: 0, duration: side ? 0.95 : 1.05, ease: side ? "back.out(1.25)" : "expo.out", delay: i * (side ? 0.11 : 0.075),
         onStart: () => liven(el), clearProps: "transform,opacity,transformPerspective" });
     });
   }
@@ -111,7 +114,8 @@
     const g = G();
     const strong = el.matches(".opt-card, .card.overall") ? 1 : el.matches(".rot.card") ? 0.6 : 0.35;
     const big = r.width > 700 ? 0.35 : 1;
-    if (g && !el.classList.contains("flipping")) {
+    // Option cards only catch the light; they never move under the pointer.
+    if (g && !el.classList.contains("flipping") && !el.matches(".opt-card")) {
       g.to(el, { rotationY: (px - 0.5) * 9 * strong * big, rotationX: -(py - 0.5) * 7 * strong * big, y: -4 * strong, transformPerspective: 1000,
         duration: 0.6, ease: "power3.out", overwrite: "auto" });
     }
@@ -198,8 +202,23 @@
     const clone = card.cloneNode(true);
     clone.removeAttribute("style");
     clone.classList.add("is-focus");
-    clone.querySelectorAll("details").forEach((d) => { d.open = true; });
+    // Large view: the rotation's facts fill the left column; on the right, the month-by-month
+    // guide and the explanations, which always start closed.
+    clone.querySelectorAll("details").forEach((d) => { d.open = false; });
     clone.querySelectorAll("[data-ring]").forEach((c) => c.setAttribute("stroke-dashoffset", c.getAttribute("stroke-dasharray")));
-    openFocus(card, clone, { cls: "wide rot-focus", label: card.querySelector("h3")?.textContent || "Rotation" });
+    const left = document.createElement("div"), right = document.createElement("div");
+    left.className = "rf-left"; right.className = "rf-right";
+    [...clone.children].forEach((ch) => (ch.tagName === "DETAILS" ? right : left).appendChild(ch));
+    const acc = document.createElement("div"); acc.className = "rf-more";
+    acc.innerHTML = `<p class="rf-label">${C.t("More about this rotation")}</p>`;
+    [...right.children].forEach((d) => acc.appendChild(d));
+    right.appendChild(acc);
+    const fk = C.results?.focusKpis?.(card.dataset.guide);
+    if (fk) left.querySelector(".kpis")?.insertAdjacentHTML("afterend", fk), left.querySelector(".kpis:not(.fk)")?.remove();
+    const guide = C.results?.guideHTML?.(card.dataset.guide);
+    if (guide) right.insertAdjacentHTML("afterbegin", guide);
+    clone.append(left, right);
+    openFocus(card, clone, { cls: "wide rot-focus", label: card.querySelector("h3")?.textContent || "Rotation",
+      onOpen: (b) => setTimeout(() => C.results?.bindGuide?.(b.querySelector(".rg")), 120) });
   }
 })();
