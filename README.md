@@ -7,8 +7,9 @@ challenge.
 
 Cooper helps farmers think; it doesn't decide for them. It shows data, reasons and risks
 to review with a local agronomist. No AI makes the decisions: every result comes from
-written rules and published formulas that anyone can check. The only AI in Cooper is
-optional and only rewrites the narration text of "Explain it simply".
+written rules and published formulas that anyone can check. AI is optional and limited to
+language: it rewrites the narration of "Explain it simply" and powers "Ask Cooper", a chat
+that answers short questions using only the analysis on screen.
 
 For a full explanation of the system, see [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
 
@@ -31,7 +32,7 @@ The team's earlier scaffold (FastAPI API, Next.js web app and first documents) i
 
 The public app is [https://52.71.101.193](https://52.71.101.193). Pushes and merges to
 **`main`** run the backend tests, check the frontend and automatically deploy to the
-existing AWS Lightsail server. See [GitHub Actions](https://github.com/AlexisBaladon/nasa2026/actions)
+existing AWS Lightsail server. See [GitHub Actions](https://github.com/AlexisBaladon/cooper/actions)
 and the [deployment guide](docs/AUTODEPLOY.md). Other branches run checks through pull
 requests. Server-side API keys and the NASA cache persist outside application releases.
 
@@ -56,13 +57,16 @@ requests. Server-side API keys and the NASA cache persist outside application re
    - **strengths and weaknesses** of each rotation: every score rated good, fair or weak,
      the reason behind it, and up to two ideas to improve each weak point;
    - a scenario slider to recalculate everything with less rain or more heat.
-4. **Explain it simply** opens a one-minute narrated summary over a 3D model of the field:
+4. **Explain it simply** opens a narrated summary over a 3D model of the field, built from templates chosen by the field's data:
    its real SRTM terrain, crops changing month by month, soil colored by erosion and soil
    washing downhill, followed by the climate, the diagnosis, a better option and what to
    check with an agronomist. There's also a version with simple 2D charts. The narration is
    built from templates filled with the analysis data and read aloud by the browser's
    English voice. Optionally, a Groq language model rewrites it in more natural English;
    every rewritten sentence must keep exactly the same numbers, or it's discarded.
+5. **Ask Cooper**, a button in the corner, opens a chat about the current analysis. The farmer
+   can type or record a voice note (transcribed by Groq Whisper) and gets a short answer that
+   uses only the analysis data, in the language they asked in (English or Spanish).
 
 ## The interface
 
@@ -111,13 +115,27 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 Tests (no internet needed): `cd backend && python -m pytest -q`
 
-### Optional: AI-written narration (Groq)
+### Optional: AI features (Groq)
 
 Copy `backend/.env.example` to `backend/.env`, paste a key from
-<https://console.groq.com/keys> into `GROQ_API_KEY` and restart the server. Without a key,
-or if Groq fails, Cooper uses the template narration and says so on screen.
-`backend/.env` is ignored by git; never commit it. Only the slides' text is sent to Groq,
-never coordinates.
+<https://console.groq.com/keys> into `GROQ_API_KEY` and restart the server. That enables the
+rewritten narration and the "Ask Cooper" chat with voice notes. Without a key, the narration
+falls back to templates and the chat explains that it isn't set up.
+`backend/.env` is ignored by git; never commit it. Groq receives the slides' text, the chat
+questions, voice notes and a summary of the analysis, never coordinates.
+
+### Optional: spoken voice (ElevenLabs)
+
+"Explain it simply" and full-screen Jarvis speak with an ElevenLabs voice when
+`ELEVENLABS_API_KEY` is set in `backend/.env` (a key with the *Text to Speech* permission is
+enough). The server asks for one sentence at a time (`POST /api/voice`) and keeps every
+sentence it has already generated in `data/cache/voice`, so replaying an explanation spends
+no credit. Without the key, without credit or without a connection, the browser's own voice
+is used instead. ElevenLabs receives only the sentences to be spoken.
+
+Groq's free tier allows about 8,000 tokens per minute; each chat question uses roughly 2,500.
+If several questions arrive at once, Cooper waits a few seconds and retries before showing a
+"busy" message.
 
 The first query for a new point takes about 15 to 20 seconds while it downloads the NASA
 POWER series and the SRTM elevation into `data/cache/`, which is not committed. Later queries for the same point are
@@ -147,13 +165,16 @@ backend/app/climate.py   evapotranspiration, heat, frost, heavy rain and trends
 backend/app/engine.py    water balance, indicators, scores and explanations
 backend/app/terrain.py   SRTM elevation, slope, water flow, RUSLE erosion and field zones
 backend/app/narrator.py  narration rewriting with Groq, with number checks
-backend/app/main.py      API (/api/catalog, /api/analyze, /api/narrate) and web server
+backend/app/assistant.py "Ask Cooper" chat and voice-note transcription (Groq)
+backend/app/voice.py     spoken voice with ElevenLabs, saved per sentence
+backend/app/main.py      API (/api/catalog, /api/analyze, /api/narrate, /api/chat, /api/transcribe) and web server
 backend/tests/           tests with synthetic data and a simulated Groq
 backend/.env.example     template for the Groq key
 data/crops.json          crop table (editable by an agronomist)
 data/rotations.json      rotation library
 data/recommendations.json ideas to improve each weak point (editable by an agronomist)
 frontend/                web page in HTML and JavaScript (Leaflet and Chart.js)
+frontend/assistant.js    the "Ask Cooper" chat button
 frontend/slides*.{html,js,css}  "Explain it simply" (2D charts and Three.js 3D model)
 scripts/make_slides_sample.py   rebuilds the sample analysis the slides use when there is none
 docs/HOW-IT-WORKS.md     full explanation of the system

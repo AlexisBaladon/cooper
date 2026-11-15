@@ -32,7 +32,7 @@ def main() -> None:
     code, page = request("/")
     assert code == 200 and b"Cooper" in page, (code, "homepage")
     checks["homepage_https"] = code
-    for path, policy in (("/", "DENY"), ("/slides-3d.html", "SAMEORIGIN"), ("/slides.html", "SAMEORIGIN")):
+    for path, policy in (("/", "DENY"), ("/slides-3d.html", "SAMEORIGIN"), ("/slides.html", "SAMEORIGIN"), ("/jarvis/", "SAMEORIGIN")):
         with urlopen(base + path, timeout=20) as response:
             assert response.status == 200
             assert response.headers.get("X-Frame-Options") == policy, (path, response.headers)
@@ -51,6 +51,23 @@ def main() -> None:
     code, _ = request("/api/narrate", b"{}")
     assert code == 422, (code, "narration route")
     checks["narration_request_validation"] = code
+    # "Ask Cooper": both routes reach the backend, which rejects these without calling Groq.
+    code, _ = request("/api/chat", b"{}")
+    assert code == 422, (code, "chat route")
+    checks["chat_request_validation"] = code
+    code, _ = request("/api/transcribe", b"{}")  # JSON is not an audio format
+    assert code == 415, (code, "voice route")
+    checks["voice_request_validation"] = code
+    # Jarvis a pantalla completa: las tres rutas llegan al backend sin llamar a Groq.
+    for path, body, expected in (("/api/jarvis/chat", b"{}", 400), ("/api/jarvis/translate", b"{}", 400),
+                                 ("/api/jarvis/transcribe", b"{}", 415)):
+        code, _ = request(path, body)
+        assert code == expected, (code, path)
+        checks[f"{path}_validation"] = code
+    # Voz: la ruta llega al backend, que rechaza un texto vacío sin llamar a ElevenLabs.
+    code, _ = request("/api/voice", b'{"text": ""}')
+    assert code == 422, (code, "voice route")
+    checks["speech_request_validation"] = code
     if args.analyze_sample:
         field = catalog["campos_demo"][0]
         body = json.dumps({"lat": field["lat"], "lon": field["lon"], "rotacion_actual": field["rotacion"], "tiene_ganado": field["tiene_ganado"]}).encode()

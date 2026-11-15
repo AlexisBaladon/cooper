@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#1b5e20">
   <script>if (new URLSearchParams(location.search).has("embed")) document.documentElement.classList.add("embed");</script>
 
-  <link rel="stylesheet" href="slides.css?v=40">
+  <link rel="stylesheet" href="slides.css?v=41">
   <style>
     /* ---- capa 3D detrás del texto ---- */
     .stage.s3d { padding: 0; }
@@ -66,6 +66,17 @@
     .hud-closing { left: 50%; bottom: 1.5rem; transform: translateX(-50%); }
     .hud-closing .closing { gap: .8rem; }
     .hud-closing .hand { font-size: 3.5rem; }
+    /* Plantillas opcionales. */
+    .cmp-nums .step { transform: none; }
+    .hud-split { left: 0; right: 0; top: 7.2rem; display: flex; justify-content: space-around; pointer-events: none; }
+    .hud-split span { background: rgba(255,253,248,.94); border-radius: 999px; padding: .4rem 1rem; font-weight: 700; color: #8a5a34; box-shadow: 0 4px 14px rgba(0,0,0,.1); }
+    .hud-split .cov { color: var(--accent); }
+    .hud-roots { left: 1.2rem; right: 1.2rem; bottom: 1.1rem; display: flex; gap: .8rem; justify-content: center; }
+    .hud-roots > div { flex: 1 1 0; max-width: 340px; background: rgba(255,253,248,.95); border-radius: 14px; padding: .6rem .9rem; box-shadow: 0 4px 14px rgba(0,0,0,.1); display: flex; flex-direction: column; gap: .2rem; font-size: clamp(.8rem, 1.3vw, .95rem); }
+    .hud-roots strong { color: var(--accent); font-size: 1.02em; }
+    .hud-roots span { color: var(--text-2); line-height: 1.3; }
+    .hud-panel .stats { grid-template-columns: 1fr; gap: .7rem; }
+    .hud-panel .stat { background: rgba(255,253,248,.95); box-shadow: 0 4px 14px rgba(0,0,0,.08); padding: .8rem 1rem; }
     .no3d { padding: 6rem 2rem; text-align: center; pointer-events: auto; }
     @media (max-width: 720px) { .hud-trucks, .hud-panel { width: 92%; left: 4%; right: auto; } }
   </style>
@@ -120,12 +131,13 @@
   <p class="note">The terrain is vertically exaggerated for readability; shapes are illustrative. Values come from SRTM, NASA POWER and the prototype RUSLE model. <span id="ai-note">AI only rewrites the narration text.</span> Keys: space = pause, ← → = change slide.</p>
 </div>
 
-<script src="translations-es.js?v=40"></script>
-<script src="language.js?v=40"></script>
+<script src="translations-es.js?v=41"></script>
+<script src="language.js?v=41"></script>
 <script>if (parent === window) window.addEventListener("cooper-language", () => location.reload());</script>
-<script src="workflow.js?v=40"></script>
+<script src="workflow.js?v=41"></script>
 <script src="slides-sample.js"></script>
-<script src="slides.js?v=40"></script>
+<script src="voice.js?v=41"></script>
+<script src="slides.js?v=41"></script>
 <script type="module">
   async function initialize() {
 
@@ -144,7 +156,7 @@ if (window.parent !== window) document.addEventListener("keydown", (e) => {
 
   const embed = document.documentElement.classList.contains("embed");
   if (!data.terreno) { location.replace("slides.html?analysis=1" + (embed ? "&embed=1" : "")); return; }
-  const { start3D } = await import("./slides3d.js?v=40");
+  const { start3D } = await import("./slides3d.js?v=41");
   const root = document.getElementById("player");
   const only = new URLSearchParams(location.search).get("slide");
   if (only) document.documentElement.classList.add("static");

@@ -17,11 +17,12 @@ from pathlib import Path
 from typing import Literal
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import assistant, climate, engine, narrator, power, soil, terrain, weather
+from . import assistant, climate, engine, jarvis, narrator, power, soil, terrain, voice, weather
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -127,6 +128,102 @@ def get_soil(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(..., min_length=1, max_length=1500)
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage] = Field(..., min_length=1, max_length=20)
+    contexto: dict | None = None
+
+
+@app.post("/api/chat")
+def chat(req: ChatRequest) -> dict:
+    """"Ask Cooper": respuesta breve sobre el análisis que manda la página."""
+    if req.messages[-1].role != "user":
+        raise HTTPException(400, "The last message must come from the user")
+    try:
+        answer = assistant.chat([m.model_dump() for m in req.messages], req.contexto)
+    except assistant.AssistantError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+    return {"respuesta": answer}
+
+
+@app.post("/api/transcribe")
+async def transcribe(request: Request) -> dict:
+    """Nota de voz (cuerpo crudo, Content-Type audio/*) → texto con Whisper de Groq."""
+    size = int(request.headers.get("content-length") or 0)
+    if size > assistant.MAX_AUDIO_BYTES:
+        raise HTTPException(413, "The recording is too long. Please keep it under a minute.")
+    audio = await request.body()
+    try:
+        text = assistant.transcribe(audio, request.headers.get("content-type", ""))
+    except assistant.AssistantError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+    return {"texto": text}
+
+
+async def _json_body(request: Request) -> dict:
+    try:
+        data = await request.json()
+    except ValueError:
+        raise HTTPException(400, "Invalid JSON") from None
+    if not isinstance(data, dict):
+        raise HTTPException(400, "Invalid request")
+    return data
+
+
+@app.post("/api/jarvis/chat")
+async def jarvis_chat(request: Request) -> dict:
+    """Jarvis a pantalla completa: frases + vista a mostrar, datos de la ficha y acción."""
+    data = await _json_body(request)
+    try:
+        return await run_in_threadpool(jarvis.chat, data)
+    except assistant.AssistantError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+
+
+@app.post("/api/jarvis/transcribe")
+async def jarvis_transcribe(request: Request) -> dict:
+    """Nota de voz de Jarvis → {text, lang}."""
+    if int(request.headers.get("content-length") or 0) > assistant.MAX_AUDIO_BYTES:
+        raise HTTPException(413, "The recording is too long. Please keep it under a minute.")
+    audio = await request.body()
+    try:
+        return await run_in_threadpool(jarvis.transcribe, audio, request.headers.get("content-type", ""))
+    except assistant.AssistantError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+
+
+@app.post("/api/jarvis/translate")
+async def jarvis_translate(request: Request) -> dict:
+    """Traducción del reporte de Jarvis, verificando que cada texto conserve sus números."""
+    data = await _json_body(request)
+    try:
+        return await run_in_threadpool(jarvis.translate, data)
+    except assistant.AssistantError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+
+
+class VoiceRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=voice.MAX_CHARS)
+    lang: Literal["en", "es", "pt"] = "en"
+    speaker: Literal["narrator", "jarvis"] = "narrator"
+
+
+@app.post("/api/voice")
+def speak(req: VoiceRequest) -> Response:
+    """Texto → audio MP3 (ElevenLabs). 503 si no está disponible: la página usa la voz del navegador."""
+    try:
+        audio = voice.speak(req.text, req.lang, req.speaker)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except voice.VoiceError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return Response(audio, media_type="audio/mpeg", headers={"Cache-Control": "private, max-age=86400"})
 
 
 @app.get("/api/catalog")

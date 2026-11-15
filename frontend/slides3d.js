@@ -7,6 +7,10 @@
  *  - Cantidad de partículas de tierra que corren ladera abajo = toneladas perdidas.
  *  - Columnas del anillo del año = mm de lluvia y de evapotranspiración de cada mes.
  *  - Tamaño de nubes y soles = lluvia anual y días de calor de cada período.
+ *  - Nivel del tanque = humedad de la zona de raíces de cada mes (NASA POWER); las plantas se
+ *    marchitan en los meses en que la evapotranspiración supera a la lluvia.
+ *  - Campo partido: tierra que corre en cada mitad = erosión de la rotación actual y de la opción.
+ *  - Corte con raíces: solo aparecen los aportes que el motor encontró en la opción.
  *
  * Reutiliza el reproductor (voz + subtítulos) y los textos de slides.js.
  */
@@ -152,6 +156,9 @@ class FieldScene {
     this.buildPeople();
     this.buildRing();
     this.buildCompare();
+    this.buildTank();
+    this.buildRoots();
+    this.buildExtremes();
 
     this.clock = new THREE.Clock();
     this.cycle = null;          // ciclo de meses en el campo
@@ -273,8 +280,15 @@ class FieldScene {
       this.down.push([-dx / len, -dz / len, Math.hypot(dx, dz)]);
     }
 
+    const mid = [];
+    for (let s = -S / 2; s <= S / 2 + 1e-6; s += 0.25) mid.push(new THREE.Vector3(0, this.groundH(0, s) + 0.07, s));
+    this.divider = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(mid), 80, 0.035, 6),
+      new THREE.MeshBasicMaterial({ color: "#fffdf8" }));
+    this.divider.visible = false;
+    this.split = false;
+
     const g = new THREE.Group();
-    g.add(this.terrain, fence);
+    g.add(this.terrain, fence, this.divider);
     this.scene.add(g);
     this.groups.field = g;
     this.setGroundCover(C("#7d9b4c"));
@@ -324,10 +338,17 @@ class FieldScene {
   }
 
   setGroundCover(color) {
-    for (let k = 0; k < this.n * this.n; k++) {
-      const f = this.noise[k];
-      this.colTarget[k * 3] = color.r * f; this.colTarget[k * 3 + 1] = color.g * f; this.colTarget[k * 3 + 2] = color.b * f;
+    const bare = C("#9a7651"), n = this.n;
+    for (let k = 0; k < n * n; k++) {
+      const f = this.noise[k], c = this.split && k % n < n / 2 ? bare : color;   // campo partido: mitad oeste desnuda
+      this.colTarget[k * 3] = c.r * f; this.colTarget[k * 3 + 1] = c.g * f; this.colTarget[k * 3 + 2] = c.b * f;
     }
+  }
+
+  /* Campo partido en dos (suelo desnudo al oeste, cubierto al este), con una línea que marca el límite. */
+  setSplit(on) {
+    this.split = on;
+    this.divider.visible = on;
   }
 
   /* Color por erosión de cada celda: verde sano → naranja (tolerancia) → marrón oscuro (2× tolerancia). */
@@ -388,12 +409,12 @@ class FieldScene {
       if (p.scale < 0.01 && p.target === 0) { p.mesh.visible = false; if (p.top) p.top.visible = false; continue; }
       p.mesh.visible = true;
       if (p.top) p.top.visible = p.scale > 0.6;
-      if (Math.abs(before - p.scale) < 0.0005 && p.drawn) continue;
-      p.drawn = true;
+      if (Math.abs(before - p.scale) < 0.0005 && p.drawn === this.split) continue;
+      p.drawn = this.split;
       this.plantPos.forEach((q, k) => {
         this.dummy.position.set(q.x, q.y, q.z);
         this.dummy.rotation.set(0, q.yaw, 0);
-        const s = p.scale * q.j;
+        const s = this.split && q.x < 0 ? 0 : p.scale * q.j;   // campo partido: la mitad oeste queda sin cultivo
         this.dummy.scale.set(s, s, s);
         this.dummy.updateMatrix();
         p.mesh.setMatrixAt(k, this.dummy.matrix);
@@ -421,9 +442,10 @@ class FieldScene {
       const ripe = len > 2 && idx === e && kind !== "pasture";
       // Verde natural del follaje, teñido con el color de leyenda del cultivo; dorado al madurar.
       p.mesh.material.color.copy(C(FOLIAGE[kind] || "#5f9a3a")).lerp(C(cell.color), kind === "colza" ? 0.6 : 0.22)
-        .lerp(C("#c9a54a"), ripe ? 0.6 : 0);
+        .lerp(C("#c9a54a"), ripe ? 0.6 : 0)
+        .lerp(C(this.frosty ? "#dbe9ea" : "#c8a04a"), this.frosty ? 0.5 : this.hot ? 0.45 : 0);   // helada o golpe de calor
     }
-    if (!this.erosionOn) this.setGroundCover(cell ? C("#6f8f45") : C("#9a7651"));
+    if (!this.erosionOn) this.setGroundCover(cell ? C(this.frosty ? "#b9cdd2" : "#6f8f45") : C("#9a7651"));
     return cell;
   }
 
@@ -810,6 +832,265 @@ class FieldScene {
     });
   }
 
+  /* ---------------- corte del suelo: el tanque de agua ---------------- */
+  /* El nivel es la humedad de la zona de raíces de cada mes (NASA POWER, 0 a 1). */
+  buildTank() {
+    const g = new THREE.Group();
+    const W = 9, H = 3.2, D = 3.4, mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 1, ...o });
+    const soil = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), mat("#a9825b", { map: soilTexture() }));
+    soil.position.y = H / 2;
+    soil.receiveShadow = true;
+    const grass = new THREE.Mesh(new THREE.BoxGeometry(W + 0.1, 0.16, D + 0.1), mat("#7d9b4c"));
+    grass.position.y = H + 0.08;
+    grass.receiveShadow = true;
+    // El agua se ve en la cara del corte: sube y baja con el mes.
+    this.tankWater = new THREE.Mesh(new THREE.BoxGeometry(W - 0.2, 1, 0.12),
+      new THREE.MeshStandardMaterial({ color: "#4a9cf0", emissive: "#1c5cab", emissiveIntensity: 0.35, transparent: true, opacity: 0.74, roughness: 0.25 }));
+    this.tankWater.position.z = D / 2 + 0.04;
+    this.tankH = H;
+    this.tankLevel = { cur: 0.001, target: 0.001 };
+    g.add(soil, grass, this.tankWater);
+    for (const f of [0.25, 0.5, 0.75]) {       // marcas de nivel
+      const tick = new THREE.Mesh(new THREE.BoxGeometry(W - 0.2, 0.025, 0.02), new THREE.MeshBasicMaterial({ color: "#fffdf8", transparent: true, opacity: 0.75 }));
+      tick.position.set(0, H * f, D / 2 + 0.12);
+      const lab = textSprite(`${f * 100}%`, "#fffdf8", 0.7);
+      lab.position.set(-W / 2 + 0.75, H * f + 0.22, D / 2 + 0.14);
+      g.add(tick, lab);
+    }
+    // Plantas sobre el corte, con sus raíces a la vista.
+    const geos = plantGeometries(), rnd = seeded(77), N = 16;
+    this.tankPlants = new THREE.InstancedMesh(geos.cereal, new THREE.MeshStandardMaterial({ color: "#5f9a3a", roughness: 0.85 }), N);
+    this.tankPlants.castShadow = true;
+    const rootMat = new THREE.MeshBasicMaterial({ color: "#efe3c8" }), d = new THREE.Object3D();
+    this.tankSpots = [];
+    for (let k = 0; k < N; k++) {
+      const x = ((k + 0.5) / N - 0.5) * (W - 0.8), z = D / 2 - 0.35 - rnd() * 0.5, len = 0.9 + rnd() * 0.7;
+      this.tankSpots.push({ x, z, yaw: rnd() * 6.28 });
+      for (let r = 0; r < 3; r++) {
+        const root = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.03, len * (1 - r * 0.22), 4), rootMat);
+        root.position.set(x + (r - 1) * 0.1, H - (len * (1 - r * 0.22)) / 2, D / 2 + 0.07);
+        root.rotation.z = (r - 1) * 0.28;
+        g.add(root);
+      }
+    }
+    g.add(this.tankPlants);
+    this.tankVigor = { cur: 1, target: 1 };
+    // Lluvia que entra y sol que saca agua: su intensidad sigue los datos del mes.
+    const R = 220, rain = new Float32Array(R * 6);
+    for (let k = 0; k < R; k++) {
+      const x = (Math.random() - 0.5) * W, z = (Math.random() - 0.5) * D, y = H + Math.random() * 4;
+      rain.set([x, y, z, x, y + 0.28, z], k * 6);
+    }
+    const rg = new THREE.BufferGeometry();
+    rg.setAttribute("position", new THREE.BufferAttribute(rain, 3));
+    this.tankRain = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ color: "#4a8fe0", transparent: true, opacity: 0.75 }));
+    this.tankRainData = rain;
+    this.tankRainN = 0;
+    this.tankSun = new THREE.Mesh(new THREE.IcosahedronGeometry(0.8, 2),
+      new THREE.MeshStandardMaterial({ color: "#f6c445", emissive: "#f08a24", emissiveIntensity: 0.9, flatShading: true }));
+    this.tankSun.position.set(5.2, H + 2.3, -1.5);
+    this.tankSunScale = { cur: 0.4, target: 0.4 };
+    g.add(this.tankRain, this.tankSun);
+    g.visible = false;
+    this.scene.add(g);
+    this.groups.tank = g;
+  }
+
+  /* Mes `i` (0 = mayo) del tanque: nivel = humedad de raíces; lluvia y sol según lluvia y evapotranspiración. */
+  setTankMonth(i) {
+    const months = this.data.clima.mensual, m = months[i];
+    const maxV = Math.max(...months.map((x) => Math.max(x.lluvia_mm, x.et0_mm)));
+    this.tankLevel.target = clamp(m.humedad_raiz ?? 0.5, 0.02, 1);
+    this.tankRainN = Math.round((this.tankRainData.length / 6) * clamp(m.lluvia_mm / maxV, 0.05, 1));
+    this.tankSunScale.target = 0.35 + 1.05 * (m.et0_mm / maxV);
+    this.tankVigor.target = m.et0_mm - m.lluvia_mm > 10 ? 0.55 : 1;      // mes de sed: las plantas se marchitan
+  }
+
+  updateTank(dt) {
+    if (!this.groups.tank.visible) return;
+    const k = staticMode() ? 1 : 1 - Math.exp(-3 * dt);
+    for (const v of [this.tankLevel, this.tankVigor, this.tankSunScale]) v.cur += (v.target - v.cur) * k;
+    const h = this.tankH * this.tankLevel.cur;
+    this.tankWater.scale.y = Math.max(0.001, h);
+    this.tankWater.position.y = h / 2;
+    this.tankSun.scale.setScalar(this.tankSunScale.cur);
+    this.tankSun.rotation.y += dt * 0.4;
+    const v = this.tankVigor.cur;
+    this.tankPlants.material.color.copy(C("#c2a63f")).lerp(C("#5f9a3a"), clamp((v - 0.55) / 0.45, 0, 1));
+    this.tankSpots.forEach((q, i) => {
+      this.dummy.position.set(q.x, this.tankH + 0.16, q.z);
+      this.dummy.rotation.set((1 - v) * 0.5, q.yaw, 0);
+      this.dummy.scale.set(2.4, 2.4 * (0.6 + 0.4 * v), 2.4);
+      this.dummy.updateMatrix();
+      this.tankPlants.setMatrixAt(i, this.dummy.matrix);
+    });
+    this.tankPlants.instanceMatrix.needsUpdate = true;
+    const d = this.tankRainData;
+    this.tankRain.geometry.setDrawRange(0, this.tankRainN * 2);
+    if (!staticMode()) {
+      for (let o = 0; o < this.tankRainN * 6; o += 6) {
+        d[o + 1] -= 7 * dt; d[o + 4] -= 7 * dt;
+        if (d[o + 1] < this.tankH + 0.2) { d[o + 1] += 4; d[o + 4] += 4; }
+      }
+      this.tankRain.geometry.attributes.position.needsUpdate = true;
+    }
+  }
+
+  /* ---------------- corte del suelo: lo que hacen las raíces ---------------- */
+  /* items: [{ k: "n" | "deep" | "stub" }] — solo los aportes que el motor encontró en la opción. */
+  buildRoots() {
+    const g = new THREE.Group();
+    const W = 10, H = 3.6, D = 3;
+    const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 1, ...o });
+    const sub = new THREE.Mesh(new THREE.BoxGeometry(W, H * 0.62, D), mat("#b08a62", { map: soilTexture() }));
+    sub.position.y = (H * 0.62) / 2;
+    const top = new THREE.Mesh(new THREE.BoxGeometry(W, H * 0.38, D), mat("#7a5a3c", { map: soilTexture() }));
+    top.position.y = H * 0.62 + (H * 0.38) / 2;
+    const grass = new THREE.Mesh(new THREE.BoxGeometry(W + 0.1, 0.14, D + 0.1), mat("#7d9b4c"));
+    grass.position.y = H + 0.07;
+    [sub, top, grass].forEach((m) => { m.receiveShadow = true; });
+    g.add(sub, top, grass);
+    g.visible = false;
+    this.scene.add(g);
+    this.groups.roots = g;
+    this.rootsDim = { W, H, D };
+    this.rootItems = [];
+    this.rootParts = new THREE.Group();
+    g.add(this.rootParts);
+  }
+
+  setRoots(items) {
+    const { W, H, D } = this.rootsDim, geos = plantGeometries(), front = D / 2 + 0.05;
+    this.rootParts.clear();
+    this.rootItems = [];
+    const rootMat = new THREE.MeshBasicMaterial({ color: "#f1e6cd" });
+    const tube = (pts, r) => new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map((q) => new THREE.Vector3(...q))), 24, r, 5), rootMat);
+    items.forEach((it, i) => {
+      const x = ((i + 0.5) / items.length - 0.5) * W * 0.86, part = new THREE.Group(), rnd = seeded(90 + i);
+      const item = { k: it.k, on: false, dots: [], extra: null };
+      if (it.k === "n") {
+        // Leguminosa: raíces con nódulos; el nitrógeno baja del aire a las raíces.
+        const legMat = new THREE.MeshStandardMaterial({ color: "#5f9a3a", roughness: 0.85 });
+        for (const [dx, dz, sc] of [[0, 0.5, 6], [-0.95, 1.1, 4.4], [0.9, 1.3, 4.8], [0.2, 2, 4]]) {
+          const plant = new THREE.Mesh(geos.leg, legMat);
+          plant.scale.setScalar(sc); plant.position.set(x + dx, H + 0.14, front - dz); plant.rotation.y = dx * 3; plant.castShadow = true;
+          part.add(plant);
+        }
+        const nod = new THREE.MeshStandardMaterial({ color: "#e9a3a0", emissive: "#c8605c", emissiveIntensity: 0.35 });
+        for (let r = 0; r < 5; r++) {
+          const dx = (r - 2) * 0.32, len = 0.7 + rnd() * 0.5;
+          part.add(tube([[x, H, front], [x + dx * 0.5, H - len * 0.5, front], [x + dx, H - len, front]], 0.022));
+          for (let n = 0; n < 2; n++) {
+            const f = 0.45 + n * 0.4, b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.06, 1), nod);
+            b.position.set(x + dx * f, H - len * f, front + 0.03);
+            part.add(b);
+          }
+        }
+        for (let n = 0; n < 9; n++) {
+          const dot = new THREE.Mesh(new THREE.IcosahedronGeometry(0.07, 1), new THREE.MeshBasicMaterial({ color: "#3ddc84", transparent: true }));
+          dot.userData = { x: x + (rnd() - 0.5) * 1.6, t: rnd(), top: H + 2.6, bottom: H - 0.7 - rnd() * 0.4, speed: 0.22 + rnd() * 0.12 };
+          dot.visible = false;
+          part.add(dot); item.dots.push(dot);
+        }
+      } else if (it.k === "deep") {
+        // Raíz profunda: llega al subsuelo y el agua baja por el canal que abre.
+        const stalkMat = new THREE.MeshStandardMaterial({ color: "#5f9440", roughness: 0.85 });
+        for (const [dx, dz, sc] of [[0, 0.5, 3.4], [-0.9, 1.2, 2.7], [0.85, 1.4, 2.9], [0.1, 2.1, 2.5]]) {
+          const plant = new THREE.Mesh(geos.sorgo, stalkMat);
+          plant.scale.setScalar(sc); plant.position.set(x + dx, H + 0.14, front - dz); plant.rotation.y = dx * 2 + 1; plant.castShadow = true;
+          part.add(plant);
+          const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.075, 1).scale(1, 1.5, 1), new THREE.MeshStandardMaterial({ color: "#9c3b1e", roughness: 0.9 }));
+          head.scale.multiplyScalar(sc); head.position.set(x + dx, H + 0.14 + 0.7 * sc, front - dz);
+          part.add(head);
+        }
+        const depth = H * 0.86, tap = [[x, H, front], [x + 0.08, H - depth * 0.35, front], [x - 0.06, H - depth * 0.7, front], [x + 0.03, H - depth, front]];
+        part.add(tube(tap, 0.04));
+        for (let r = 0; r < 6; r++) {
+          const y = H - depth * (0.15 + r * 0.13), dir = r % 2 ? 1 : -1;
+          part.add(tube([[x, y, front], [x + dir * 0.35, y - 0.12, front], [x + dir * 0.7, y - 0.3, front]], 0.016));
+        }
+        for (let n = 0; n < 7; n++) {
+          const dot = new THREE.Mesh(new THREE.IcosahedronGeometry(0.065, 1), new THREE.MeshBasicMaterial({ color: "#4a8fe0", transparent: true }));
+          dot.userData = { x: x + (rnd() - 0.5) * 0.25, t: rnd(), top: H + 0.1, bottom: H - depth, speed: 0.2 + rnd() * 0.1 };
+          dot.visible = false;
+          part.add(dot); item.dots.push(dot);
+        }
+      } else {
+        // Rastrojo: tallos cortados y una capa que cubre el suelo; debajo crece la materia orgánica.
+        const stalks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.03, 0.04, 0.5, 5).translate(0, 0.25, 0),
+          new THREE.MeshStandardMaterial({ color: "#d6c08a", roughness: 1 }), 60);
+        const d = new THREE.Object3D();
+        for (let s = 0; s < 60; s++) {
+          d.position.set(x + (rnd() - 0.5) * 2.8, H + 0.14, front - 0.15 - rnd() * 2.3);
+          d.rotation.set((rnd() - 0.5) * 0.9, rnd() * 6.28, (rnd() - 0.5) * 0.9);
+          d.scale.setScalar(0.7 + rnd() * 0.8);
+          d.updateMatrix(); stalks.setMatrixAt(s, d.matrix);
+        }
+        stalks.castShadow = true;
+        const mulch = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.07, 2.6), new THREE.MeshStandardMaterial({ color: "#c9b37c", roughness: 1 }));
+        mulch.position.set(x, H + 0.17, front - 1.35);
+        const humus = new THREE.Mesh(new THREE.BoxGeometry(3.1, 1, 0.1), new THREE.MeshBasicMaterial({ color: "#4a3120" }));
+        humus.position.set(x, H, front);
+        humus.userData = { cur: 0.02, target: 0.02, top: H };
+        part.add(stalks, mulch, humus);
+        item.extra = humus;
+      }
+      this.rootParts.add(part);
+      this.rootItems.push(item);
+    });
+  }
+
+  updateRoots(dt) {
+    if (!this.groups.roots.visible) return;
+    for (const it of this.rootItems) {
+      for (const dot of it.dots) {
+        const u = dot.userData;
+        dot.visible = it.on;
+        if (!it.on) continue;
+        if (!staticMode()) u.t = (u.t + dt * u.speed) % 1;
+        dot.position.set(u.x, u.top + (u.bottom - u.top) * u.t, this.rootsDim.D / 2 + 0.12);
+        dot.material.opacity = Math.sin(u.t * Math.PI);
+      }
+      if (it.extra) {
+        const u = it.extra.userData;
+        u.target = it.on ? 0.42 : 0.02;
+        u.cur = staticMode() ? u.target : damp(u.cur, u.target, 1.2, dt);
+        it.extra.scale.y = u.cur;
+        it.extra.position.y = u.top - u.cur / 2;
+      }
+    }
+  }
+
+  /* ---------------- calor y helada ---------------- */
+  buildExtremes() {
+    this.heatSun = new THREE.Mesh(new THREE.IcosahedronGeometry(2.2, 3),
+      new THREE.MeshBasicMaterial({ color: "#ffd37a", transparent: true, opacity: 0.95, fog: false }));
+    this.heatSun.position.set(-7.5, 7.2, -20);
+    this.heatSun.visible = false;
+    const N = 500, pos = new Float32Array(N * 3);
+    for (let k = 0; k < N; k++) pos.set([(Math.random() - 0.5) * S * 1.1, 0.2 + Math.random() * 2.4, (Math.random() - 0.5) * S * 1.1], k * 3);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    this.frost = new THREE.Points(geo, new THREE.PointsMaterial({ color: "#ffffff", size: 0.07, transparent: true, opacity: 0.9, depthWrite: false }));
+    this.frost.visible = false;
+    this.frosty = false;
+    this.hot = false;
+    this.scene.add(this.heatSun, this.frost);
+  }
+
+  updateExtremes(dt, t) {
+    if (this.heatSun.visible) this.heatSun.scale.setScalar(1 + 0.05 * Math.sin(t * 2.2));
+    if (this.frost.visible && !staticMode()) {
+      const a = this.frost.geometry.attributes.position;
+      for (let k = 0; k < a.count; k++) {
+        let y = a.getY(k) - dt * 0.18;
+        if (y < 0.15) y = 2.6;
+        a.setY(k, y);
+      }
+      a.needsUpdate = true;
+    }
+  }
+
   /* ---------------- modos, cámara y clima ---------------- */
   setMode(mode) {
     const show = {
@@ -818,6 +1099,8 @@ class FieldScene {
       people: ["island", "field", "props", "people"],
       ring: ["ring"],
       compare: ["compare"],
+      tank: ["tank"],
+      roots: ["roots"],
     }[mode];
     for (const [k, g] of Object.entries(this.groups)) g.visible = show.includes(k);
     this.sat.visible = mode === "diorama";
@@ -826,6 +1109,12 @@ class FieldScene {
     this.raining = false;
     this.erosionOn = false;
     this.ringDry = false;
+    this.setSplit(false);
+    this.heatSun.visible = false;
+    this.frost.visible = false;
+    this.frosty = false;
+    this.hot = false;
+    this.rootItems.forEach((it) => { it.on = false; });
     this.stopCycle();
   }
 
@@ -836,9 +1125,15 @@ class FieldScene {
   }
 
   setMood(name) {
-    this.mood = name === "sunset"
-      ? { sky: this.skySunset.clone(), sun: C("#ffb070"), zenith: C("#6f6aa8") }
-      : { sky: this.skyDay.clone(), sun: C("#fff1d6"), zenith: C("#5b9bd5") };
+    this.mood = {
+      sunset: { sky: this.skySunset.clone(), sun: C("#ffb070"), zenith: C("#6f6aa8") },
+      heat: { sky: C("#f6dcae"), sun: C("#ffd9a0"), zenith: C("#e9a35a") },      // cielo pesado de un día de mucho calor
+      frost: { sky: C("#dfe8ee"), sun: C("#e8f1ff"), zenith: C("#8fa9c4") },     // amanecer frío y despejado
+    }[name] || { sky: this.skyDay.clone(), sun: C("#fff1d6"), zenith: C("#5b9bd5") };
+    this.heatSun.visible = name === "heat";
+    this.frost.visible = name === "frost";
+    this.frosty = name === "frost";
+    this.hot = name === "heat";
   }
 
   tick() {
@@ -882,6 +1177,9 @@ class FieldScene {
     this.updateErosion(dt);
     this.updateRing(dt);
     this.updateCompare(dt);
+    this.updateTank(dt);
+    this.updateRoots(dt);
+    this.updateExtremes(dt, t);
     this.renderer.render(this.scene, this.camera);
   }
 }
@@ -943,7 +1241,7 @@ function build3DSlides(d, scene) {
       <div class="t-num"><strong>${nf(n)}</strong> truckloads of soil a year <small>(${nf(t, 1)} t/ha × ${nf(area)} ha)</small></div>`);
   };
 
-  return [
+  const core = [
     { ...by.intro, render(stage) {
         scene.setMode("diorama");
         scene.setMood("day");
@@ -1104,6 +1402,144 @@ function build3DSlides(d, scene) {
         return by.cierre.render(panel);
       } },
   ];
+
+  /* ---- plantillas opcionales (slides.js: OPTIONAL): solo se arman las que el análisis eligió ---- */
+  const alt2 = d.rotaciones[2];
+  const nums = (stage, rows) => hud(stage, "hud-bottom", `<div class="cmp-nums">${rows.map(([k, html]) => `<div class="step" data-k="${k}">${html}</div>`).join("")}</div>`);
+  const show = (el, k) => el.querySelector(`[data-k="${k}"]`)?.classList.add("on");
+  const optional = {
+    /* El tanque: el nivel es la humedad de la zona de raíces de cada mes. */
+    agua: (s) => ({ ...s, render(stage) {
+      scene.setMode("tank");
+      scene.setMood("day");
+      scene.setView([0, 5.6, 15], [0, 1.5, 0], 0);
+      const ci2 = cur.indicadores, ai2 = alt.indicadores;
+      const mh = hud(stage, "hud-month", `<span class="m">May</span><span class="c">—</span>`);
+      const facts = nums(stage, [
+        ["avg", `Average year: <strong>${nf(ci2.deficit_mm)} mm</strong> short`],
+        ["dry", `Dry year: <strong>${nf(ci2.deficit_seco_mm)} mm</strong> short`],
+        ...(ci2.deficit_critico_seco_mm != null && ai2.deficit_critico_seco_mm != null
+          ? [["crit", `Critical stages, dry year: <s>${nf(ci2.deficit_critico_seco_mm)}</s> → <strong>${nf(ai2.deficit_critico_seco_mm)} mm</strong>`]] : []),
+      ]);
+      const wet = months.map((m) => m.humedad_raiz);
+      const set = (i) => {
+        scene.setTankMonth(i);
+        mh.querySelector(".m").textContent = AGM[i];
+        mh.querySelector(".c").textContent = `${Math.round(wet[i] * 100)}% full`;
+        mh.classList.toggle("bare", thirsty[i]);
+      };
+      let i = 0;
+      if (staticMode()) set(wet.indexOf(Math.min(...wet)));
+      else {
+        set(0);
+        const loop = setInterval(() => { if (!mh.isConnected) { clearInterval(loop); return; } i = (i + 1) % 12; set(i); }, 950);
+      }
+      return (b) => {
+        if (b >= 1) { show(facts, "avg"); show(facts, "dry"); }
+        if (b >= 2) show(facts, "crit");
+      };
+    } }),
+
+    /* Calor o helada sobre el campo, en un mes de etapa crítica de la rotación actual. */
+    extremos: (s) => ({ ...s, render(stage) {
+      scene.setMode("field");
+      scene.setMood(s.mood);
+      scene.setView([-1.2, 3.6, 14.2], [2.6, 2.1, 0], 0);          // cámara baja: se ve el cielo de calor o de helada
+      // El mes de etapa crítica con más días de calor (o de helada), en cualquier año de la rotación.
+      const key = s.mood === "heat" ? "dias_calor" : "dias_helada";
+      let row = cur.calendario[0], crit = -1, top = -1;
+      cur.calendario.forEach((r) => r.forEach((c, i) => {
+        if (c && c.critico && months[i][key] > top) { top = months[i][key]; row = r; crit = i; }
+      }));
+      const mh = monthHud(stage);
+      scene.startCycle(row, (i, c) => setMonthHud(mh, i, c), 900, crit >= 0 ? crit : null);
+      const panel = hud(stage, "hud-panel", "");
+      return s.render(panel);
+    } }),
+
+    /* Cámara baja para que se note el relieve; después, dónde se pierde el suelo. */
+    terreno: (s) => ({ ...s, render(stage) {
+      scene.setMode("field");
+      scene.setMood("day");
+      scene.setView([10.5, 5.8, 10.8], [0, 0.4, 0], 0.1);
+      const z = d.zonas.resumen, bare = cur.calendario[0].findIndex((c) => !c);
+      scene.startCycle(cur.calendario[0], null, 1000, bare >= 0 ? bare : null);
+      const facts = nums(stage, [
+        ["h", `⛰️ Height difference: <strong>${nf(z.desnivel_m)} m</strong> · slopes up to <strong>${nf(z.pendiente_max_pct, 1)}%</strong>`],
+        ["low", `💧 Low spots: <strong>${nf(z.area_baja_pct)}%</strong> of the field`],
+        ["ero", `⚠️ Above the tolerable loss: <strong>${nf(ci.erosion_area_alta_pct)}%</strong> of the field`],
+      ]);
+      return (b) => {
+        if (b >= 0) show(facts, "h");
+        if (b >= 1) { show(facts, "low"); scene.rain.visible = true; }
+        if (b >= 2 && !scene.erosionOn) {
+          show(facts, "ero");
+          scene.erosionOn = true;
+          scene.setErosionColors(eroCur);
+          scene.setErosion(eroCur);
+          scene.ero.visible = true;
+        }
+      };
+    } }),
+
+    /* El mismo campo partido en dos: al oeste, desnudo (erosión de hoy); al este, cubierto (erosión de la opción). */
+    cobertura: (s) => ({ ...s, render(stage) {
+      scene.setMode("field");
+      scene.setMood("day");
+      scene.setSplit(true);
+      scene.setView([0, 9.2, 13.4], [0, 0.3, 0.6], 0);
+      const row = alt.calendario[0];
+      const covered = row.findIndex((c, i) => c && !cur.calendario[0][i]);
+      scene.startCycle(row, null, 800, covered >= 0 ? covered : Math.max(0, row.findIndex((c) => c)));
+      hud(stage, "hud-split", `<span>Bare soil</span><span class="cov">Covered soil</span>`);
+      const facts = nums(stage, [
+        ["bare", `🌧️ On bare soil today: <strong>${nf(ci.lluvia_suelo_desnudo_mm)} mm</strong> of rain a year`],
+        ["cov", `🌱 With the option: <strong>${nf(ai.lluvia_suelo_desnudo_mm)} mm</strong>`],
+      ]);
+      const n = scene.n, mix = eroCur.map((v, k) => (k % n < n / 2 ? v : eroAlt[k]));
+      return (b) => {
+        if (b >= 1 && !scene.ero.visible) {
+          show(facts, "bare");
+          scene.rain.visible = true;
+          scene.setErosion(mix);
+          scene.ero.visible = true;
+          scene.setView([0, 7.4, 11.6], [0, 0.3, 0.4], 0);
+        }
+        if (b >= 2) show(facts, "cov");
+      };
+    } }),
+
+    /* Corte del suelo con los aportes que el motor encontró en la opción. */
+    raices: (s) => ({ ...s, render(stage) {
+      scene.setMode("roots");
+      scene.setMood("day");
+      scene.setRoots(s.items);
+      scene.setView([0, 5.6, 15.4], [0, 2.2, 0], 0);
+      const row = hud(stage, "hud-roots", s.items.map((it) =>
+        `<div class="step"><strong>${it.icon} ${escH(it.title)}</strong><span>${escH(it.text)}</span></div>`).join(""));
+      return (b) => s.items.forEach((_, i) => {
+        if (b >= i + 1) { scene.rootItems[i].on = true; row.children[i].classList.add("on"); }
+      });
+    } }),
+
+    /* El campo con la segunda opción. */
+    otra: (s) => ({ ...s, render(stage) {
+      scene.setMode("field");
+      scene.setMood("day");
+      scene.setView([-3.5, 10, 12.5], [0, 0.4, 0], -0.03);
+      const mh = monthHud(stage);
+      hud(stage, "hud-tag", `Second option: <strong>${escH(alt2.nombre)}</strong>`);
+      const chipEl = hud(stage, "hud-chips", s.chips.map((c, i) => `<span class="chip step" style="--d:${i * 160}ms">${escH(c)}</span>`).join(""));
+      const ero2 = d.terreno && d.terreno.eros[alt2.id];
+      if (ero2) { scene.erosionOn = true; scene.setErosionColors(ero2); scene.colCur.set(scene.colTarget); }
+      scene.startCycle(alt2.calendario[0], (i, c) => setMonthHud(mh, i, c), 800);
+      return (b) => { if (b >= 1) chipEl.querySelectorAll(".chip").forEach((c) => c.classList.add("on")); };
+    } }),
+  };
+
+  // El orden y la selección son los de slides.js (plan()); acá solo se cambia cómo se ve cada una.
+  const made = Object.fromEntries(core.map((s) => [s.key, s]));
+  return base.map((s) => made[s.key] || (optional[s.key] ? optional[s.key](s) : s));
 }
 
 /* ---------------------------------------------------------------- arranque */

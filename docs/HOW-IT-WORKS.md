@@ -21,9 +21,10 @@ review.
 and thresholds written in the code, which anyone can review. Cooper helps farmers think;
 the decision belongs to the farmer and their agronomist.
 
-The only use of AI is optional and narrow: a Groq language model can rewrite the text the
-voice reads in "Explain it simply". It doesn't calculate anything, doesn't pick
-rotations and can't change any number (see below).
+AI is optional and limited to language. A Groq language model can rewrite the text the
+voice reads in "Explain it simply", and it powers "Ask Cooper", a chat that answers short
+questions about the analysis on screen. In both cases it doesn't calculate anything, doesn't
+pick rotations and works only from numbers Cooper already computed (see below).
 
 ## Minimal vocabulary
 
@@ -279,23 +280,46 @@ there are no user accounts on the server yet.
 
 ### "Explain it simply" (`slides.html` and `slides-3d.html`)
 
-An eight-slide narrated presentation for someone with no technical background:
-introduction, climate, how it changed, the current rotation, strengths and weaknesses, a
-better option, what to check, and closing.
+A narrated presentation for someone with no technical background. It is built from a
+**library of templates** (`slides.js`): the fixed ones always tell the same story, and the
+optional ones are added only when the field's data call for them, so two fields get
+different explanations.
+
+**Fixed:** introduction, climate, how it changed, the current rotation, strengths and
+weaknesses, a better option, what to check, and closing.
+
+**Optional** (each computes a relevance from 0 to 1 with written rules; the three most
+relevant ones above 0.3 are shown, placed where they fit the story):
+
+| Template | It appears when | What it shows (all from the analysis) |
+|---|---|---|
+| The soil as a water tank | Crops run short of water in a dry year | NASA POWER root-zone moisture month by month, and the crops' deficit in an average and a dry year |
+| Heat or frost at the worst moment | Critical crop stages meet very hot days or frost | Hot and frost-risk days in the critical stages, today and with the option |
+| Where the field loses soil | The field has relief and part of it exceeds the tolerable loss | Height difference, slopes, low spots, and the share of the field above tolerance |
+| Why covered soil matters | The option leaves the soil bare at least two months less | The same field split in two under the same rain: bare (today's erosion) and covered (the option's) |
+| The work roots do underground | The engine found nitrogen-fixing or deep-rooted crops in the option | A soil cutaway with only the contributions the engine listed |
+| A second option | The second alternative scores close to the first | Its calendar and the scores where it does better and worse |
+
+No AI chooses the templates or computes anything: `plan()` in `slides.js` returns each
+one's relevance and whether it is shown (`?templates=terreno,otra` forces a list, to review
+them). The story has at most 11 slides.
 
 - On Home it plays in a video-style player: it expands over a blurred interface, has a
   progress bar with chapters, ±10 seconds, volume, captions and full screen, and it can
   keep playing in a small window while the farmer uses the rest of the app. The player
   drives the same narration engine (`slides.js`) through its timeline API.
-- The base texts come from templates (`slides.js`). The voice is the browser's English
-  voice.
+- The base texts come from templates (`slides.js`). The voice comes from ElevenLabs
+  (`/api/voice`, `voice.py`, one sentence per request, saved on the server once generated);
+  without a key or a connection, the browser's own voice is used.
 - It uses the last analysis run on the main screen, which is saved in the browser. If
   there is none, it uses a real example from the field near Young (`slides-sample.js`,
   built with `scripts/make_slides_sample.py`).
 - The 3D version (`slides3d.js`, with Three.js) shows a model of the field: the terrain is
   the SRTM terrain, the soil color is each zone's erosion, plants change month by month
   with the calendar, and the amount of soil washing downhill is proportional to the tonnes
-  lost. The landscape beyond the fence is decorative.
+  lost. The landscape beyond the fence is decorative. The optional templates add a soil
+  cutaway whose water level is the month's root-zone moisture, the split field, a cutaway
+  with roots, and hot or frosty skies.
 
 ### Narration rewritten with Groq
 
@@ -321,6 +345,31 @@ whole presentation uses the templates and the screen says so.
 - **What Groq doesn't do:** it doesn't write code, calculate indicators, choose or rank
   rotations, or touch the 3D model.
 
+### "Ask Cooper": chat and voice notes
+
+A button in the bottom-right corner opens a chat panel. The farmer can type a question or
+record a voice note of up to a minute.
+
+- **Voice notes** are recorded in the browser and sent to `/api/transcribe`, which passes them
+  to Groq Whisper (`whisper-large-v3-turbo`). The text appears in the chat as the farmer's
+  question. The language is detected automatically.
+- **Questions** go to `/api/chat` with the short conversation history and a compact summary of
+  the current analysis: inputs, monthly climate, trends, terrain, and for each rotation its
+  scores, key figures, calendar, reasons, critical stages, strengths and weaknesses, and main
+  risks. Coordinates are not sent.
+- **The model** (`openai/gpt-oss-120b` by default) is told to answer in at most about 60 words,
+  use only numbers from the summary, say so when the data doesn't have the answer, keep each
+  number with its own meaning and avoid markdown. Cooper detects whether the question is in
+  English or Spanish and tells the model which language to answer in.
+- **Limits:** questions up to 1,500 characters, the last 6 messages as history, a summary of
+  about 7,000 characters and voice notes up to 3 MB. When Groq's per-minute limit is hit and it
+  asks to wait 15 seconds or less, Cooper waits and retries once.
+- **When the analysis changes**, the conversation starts over, because the data behind it is
+  different.
+
+The chat can still be wrong: the panel says so, and suggests checking important decisions
+with an agronomist. It never makes decisions or changes the analysis.
+
 ## The API
 
 | Route | Returns |
@@ -331,6 +380,8 @@ whole presentation uses the templates and the screen says so.
 | `GET /api/weather?lat&lon` | Current weather and a 7-day forecast (Open-Meteo, context only) |
 | `GET /api/soil?lat&lon` | Modelled soil properties by depth and surface texture (SoilGrids, reference only) |
 | `POST /api/assistant` | Jarvis' answer about the open analysis (Groq), or `fuente: "sin_ia"` |
+| `POST /api/chat` | A short answer (plain text) about the analysis summary sent with the question |
+| `POST /api/transcribe` | The text of a voice note (raw audio body, `Content-Type: audio/*`) |
 
 Input to `/api/analyze`:
 
@@ -364,7 +415,8 @@ backend/app/climate.py    climate indicators and trends
 backend/app/terrain.py    SRTM, slope, water flow, RUSLE, zones
 backend/app/engine.py     water balance, scores, selection, explanations and diagnosis
 backend/app/narrator.py   narration rewriting with Groq, and its validation
-backend/app/assistant.py  Jarvis answers with Groq (optional)
+backend/app/assistant.py  Jarvis answers (/api/assistant), plus short chat and
+                          voice-note transcription (/api/chat, /api/transcribe) with Groq
 backend/app/weather.py    live weather (Open-Meteo), cached 10 minutes
 backend/app/soil.py       SoilGrids soil properties, cached on disk
 backend/app/main.py       API and web server

@@ -26,6 +26,6 @@ class Scripts(HTMLParser):
 
 
 if __name__ == "__main__":
-    for path in Path("frontend").glob("*.html"):
+    for path in Path("frontend").rglob("*.html"):
         Scripts().feed(path.read_text(encoding="utf-8"))
     print("Frontend inline script syntax passed")

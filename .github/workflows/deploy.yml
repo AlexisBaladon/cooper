@@ -48,11 +48,14 @@ jobs:
           node --check frontend/language.js
           node --check frontend/translations-es.js
           node --check frontend/slides.js
+          node --check frontend/voice.js
           for f in frontend/js/*.js; do
             if [ "$f" = "frontend/js/relief.js" ] || [ "$f" = "frontend/js/map3d.js" ]; then node --check --input-type=module < "$f"; else node --check "$f"; fi
           done
           node --test frontend/tests/workflow.test.cjs
           node --test frontend/tests/language.test.cjs
+          node --test frontend/tests/slides.test.cjs
+          node --check --input-type=module < frontend/slides3d.js
           python scripts/check_frontend_scripts.py
       - name: Validate deployment scripts and package release
         run: |
@@ -76,7 +79,7 @@ jobs:
           claims = json.loads(base64.urlsafe_b64decode(payload + '=' * (-len(payload) % 4)))
           print(json.dumps({key: claims.get(key) for key in ('iss','aud','sub','repository','ref','event_name')}, indent=2))
           assert claims['aud'] == 'sts.amazonaws.com'
-          assert claims['sub'] == 'repo:AlexisBaladon@93690531/nasa2026@1457777955:ref:refs/heads/main'
+          assert claims['sub'] == 'repo:AlexisBaladon@93690531/cooper@1457777955:ref:refs/heads/main'
           PY
       - name: Authenticate deployment to AWS
         id: aws
