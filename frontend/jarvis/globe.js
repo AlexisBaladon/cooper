@@ -16,7 +16,7 @@ const URUGUAY = { lat: -32.8, lng: -56.0 };
 // Límites entre países (Natural Earth 1:110m, ~490 KB), como líneas de 1 px.
 const COUNTRIES_URL = "https://cdn.jsdelivr.net/npm/globe.gl@2.46.2/example/datasets/ne_110m_admin_0_countries.geojson";
 const BORDER_ALT = 0.00004;                               // ~250 m: apenas sobre los mosaicos, sin flotar al acercarse
-const BORDER_COLOR = "rgba(79,216,255,0.6)";
+const BORDER_COLOR = "rgba(211,226,209,0.45)";
 
 /* Anillos de un Polygon/MultiPolygon como trazos [lat, lng] para la capa de paths. */
 function rings(geometry) {
@@ -47,7 +47,7 @@ export function createGlobe(el, { onPick, onPickDemo }) {
     .backgroundColor("rgba(0,0,0,0)")
     .globeImageUrl("https://cdn.jsdelivr.net/npm/three-globe@2.45.0/example/img/earth-night.jpg")
     .globeTileEngineUrl(TILES)
-    .showAtmosphere(true).atmosphereColor("#4fd8ff").atmosphereAltitude(0.17)
+    .showAtmosphere(true).atmosphereColor("#b7ced0").atmosphereAltitude(0.08)
     .onGlobeClick(({ lat, lng }) => onPick(lat, lng))
     // Marcadores HTML: mantienen su tamaño en pantalla al acercarse (las etiquetas 3D se miden en grados).
     .htmlLat("lat").htmlLng("lon").htmlAltitude(0)
@@ -97,7 +97,7 @@ export function createGlobe(el, { onPick, onPickDemo }) {
     setField(f) {
       field = f;
       if (!f) { globe.ringsData([]).polygonsData([]); return; }
-      globe.ringsData([{ lat: f.lat, lon: f.lon, r: 0.35, speed: 0.3 }, { lat: f.lat, lon: f.lon, r: 0.03, speed: 0.03 }]);
+      globe.ringsData([]); // The field boundary and climate grid already locate the farm.
       globe.polygonsData([
         { geometry: powerCell(f.lat, f.lon), alt: 0.0006, fill: "rgba(255,179,71,0.05)", stroke: "#ffb347" },
         { geometry: fieldSquare(f.lat, f.lon, f.area_ha), alt: 0.0001, fill: "rgba(61,255,194,0.18)", stroke: "#3dffc2" },
