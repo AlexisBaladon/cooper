@@ -181,13 +181,9 @@
 
   /* --------------------------------------------------------------- theme */
   C.theme = {
-    /* "auto" follows the sky at the field: dark at night, light otherwise. */
-    get() { return C.storage.get("cooper-theme", "auto"); },
-    effective() {
-      const t = this.get();
-      if (t === "auto") return document.documentElement.dataset.scene === "noche" ? "dark" : "light";
-      return t === "system" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : t;
-    },
+    /* Two themes: light or dark. Dark is the default (older "auto"/"system" choices become dark). */
+    get() { return C.storage.get("cooper-theme", "dark") === "light" ? "light" : "dark"; },
+    effective() { return this.get(); },
     applyAuto() {
       const want = this.effective();
       if (document.documentElement.getAttribute("data-theme") === want) return;
@@ -195,10 +191,10 @@
       C.emit("theme", want);
     },
     set(t) {
-      C.storage.set("cooper-theme", t);
+      C.storage.set("cooper-theme", t === "light" ? "light" : "dark");
       const root = document.documentElement;
       const apply = () => {
-        if (t === "system") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", this.effective());
+        root.setAttribute("data-theme", this.effective());
         document.querySelector('meta[name="theme-color"]')?.setAttribute("content", this.effective() === "dark" ? "#0b120e" : "#10261a");
         C.emit("theme", this.effective());
       };
@@ -206,7 +202,6 @@
       if (document.startViewTransition && !C.reducedMotion()) document.startViewTransition(apply); else apply();
     },
   };
-  matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { if (C.theme.get() === "system") C.emit("theme", C.theme.effective()); });
 
   /* --------------------------------------------------------------- toast */
   C.toast = (msg, kind = "ok", ms = 3600) => {

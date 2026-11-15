@@ -2350,3 +2350,6 @@ html, body { overflow-x: clip; }
 .off-bar { display: block; height: 8px; border-radius: 99px; background: linear-gradient(90deg, var(--brand) var(--p, 0%), var(--surface-3) var(--p, 0%)); box-shadow: var(--inset); transition: background .2s; }
 .off-progress small { color: var(--muted); font-size: .82rem; }
 @media (max-width: 720px) { .offline-chip span { display: none; } .offline-chip { padding: .45rem; } }
+
+/* Jarvis is reached from its floating orb; the side menu does not carry a Jarvis button. */
+.sidebar [data-jarvis-launch], .sidebar .jarvis-launch { display: none !important; }
