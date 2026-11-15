@@ -56,7 +56,7 @@
       <div class="h-toolbar card" data-rev>
         <label class="field inline">Field <select id="h-filter"><option value="all">All fields</option>${fields.map((f) =>
           `<option value="${esc(f.id)}" ${filter === f.id ? "selected" : ""} class="notranslate">${esc(f.nombre)}</option>`).join("")}</select></label>
-        <label class="field inline grow"><span class="sr-only">Search</span><input id="h-search" type="search" placeholder="Search by field or rotation" value="${esc(query)}"></label>
+        <span class="chip-ic sm">${icon("search")}</span><label class="field inline grow"><span class="sr-only">Search</span><input id="h-search" type="search" placeholder="Search by field or rotation" value="${esc(query)}"></label>
         <span class="h-total">${list.length} of ${all.length} saved</span>
       </div>
       ${list.length ? `<div class="h-list">${list.map(item).join("")}</div>` : `<div class="empty-state card" data-rev>

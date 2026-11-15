@@ -77,7 +77,7 @@
         <header class="jv-head">
           <span class="jv-mini" aria-hidden="true"><img src="assets/brand/jarvis-256.webp" alt=""></span>
           <div><strong>Jarvis</strong><small class="jv-status">Cooper assistant</small></div>
-          <button type="button" class="icon-btn" data-jv="clear" title="New conversation" aria-label="New conversation">${icon("history")}</button>
+          <button type="button" class="icon-btn" data-jv="clear" title="New conversation" aria-label="New conversation">${icon("reset")}</button>
           <button type="button" class="icon-btn" data-jv="close" aria-label="Close">${icon("close")}</button>
         </header>
         <div class="jv-log" aria-live="polite"></div>

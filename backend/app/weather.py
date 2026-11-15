@@ -45,7 +45,9 @@ def _download(lat: float, lon: float) -> dict:
         "current": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,"
                    "weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day",
         "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,"
-                 "precipitation_probability_max,et0_fao_evapotranspiration,wind_speed_10m_max",
+                 "precipitation_probability_max,et0_fao_evapotranspiration,wind_speed_10m_max,sunrise,sunset",
+        "hourly": "temperature_2m,precipitation_probability,weather_code,is_day",
+        "forecast_hours": 24,
     }
     resp = httpx.get(FORECAST_URL, params=params, timeout=10)
     resp.raise_for_status()
@@ -65,7 +67,15 @@ def normalize(raw: dict) -> dict:
             "tmax": pick("temperature_2m_max"), "tmin": pick("temperature_2m_min"),
             "lluvia_mm": pick("precipitation_sum"), "prob_lluvia": pick("precipitation_probability_max"),
             "et0_mm": pick("et0_fao_evapotranspiration"), "viento_max": pick("wind_speed_10m_max"),
+            "amanecer": pick("sunrise"), "atardecer": pick("sunset"),
         })
+    h = raw.get("hourly", {})
+    hours = []
+    for i, t in enumerate((h.get("time") or [])[:24]):
+        at = lambda k: (h.get(k) or [None] * (i + 1))[i]  # noqa: E731
+        ht, hi = describe(at("weather_code"))
+        hours.append({"hora": t, "temp": at("temperature_2m"), "prob_lluvia": at("precipitation_probability"),
+                      "estado": ht, "icono": hi, "es_dia": bool(at("is_day") if at("is_day") is not None else 1)})
     return {
         "fuente": "Open-Meteo",
         "zona_horaria": raw.get("timezone"),
@@ -78,6 +88,7 @@ def normalize(raw: dict) -> dict:
             "es_dia": bool(cur.get("is_day", 1)), "estado": text, "icono": icon,
         },
         "diario": days,
+        "horas": hours,
     }
 
 

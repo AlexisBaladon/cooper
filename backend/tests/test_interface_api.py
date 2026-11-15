@@ -55,7 +55,10 @@ def test_weather_is_normalized(monkeypatch):
                        "wind_speed_10m": 14, "wind_gusts_10m": 30, "wind_direction_10m": 90, "is_day": 1},
            "daily": {"time": ["2026-11-14"], "weather_code": [61], "temperature_2m_max": [25],
                      "temperature_2m_min": [12], "precipitation_sum": [4.2], "precipitation_probability_max": [70],
-                     "et0_fao_evapotranspiration": [4.8], "wind_speed_10m_max": [20]}}
+                     "et0_fao_evapotranspiration": [4.8], "wind_speed_10m_max": [20],
+                     "sunrise": ["2026-11-14T06:02"], "sunset": ["2026-11-14T20:01"]},
+           "hourly": {"time": ["2026-11-14T10:00", "2026-11-14T11:00"], "temperature_2m": [22, 23],
+                      "precipitation_probability": [5, 10], "weather_code": [0, 80], "is_day": [1, 1]}}
     weather._cache.clear()
     calls = []
     monkeypatch.setattr(weather, "_download", lambda lat, lon: calls.append(1) or raw)
@@ -63,6 +66,8 @@ def test_weather_is_normalized(monkeypatch):
     data = client.get("/api/weather", params={"lat": -33, "lon": -56}).json()
     assert data["actual"]["temp"] == 22.4 and data["actual"]["estado"] == "Partly cloudy"
     assert data["diario"][0]["icono"] == "rain" and data["diario"][0]["et0_mm"] == 4.8
+    assert data["diario"][0]["atardecer"] == "2026-11-14T20:01"
+    assert [h["icono"] for h in data["horas"]] == ["clear", "rain"]
     client.get("/api/weather", params={"lat": -33.001, "lon": -56.001})
     assert len(calls) == 1  # caché por punto redondeado
 
