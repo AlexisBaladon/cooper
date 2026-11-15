@@ -42,7 +42,8 @@
           <div class="wz-panels">
             <section class="wz-panel active" data-step="0">
               <div class="wz-grid map-grid">
-                <div class="an-map-wrap"><div id="an-map" class="an-map" aria-label="Map to locate the field"></div>
+                <div class="an-map-wrap card-like"><div id="an-map" class="an-map" aria-label="Map to locate the field"></div>
+                  <button type="button" class="btn soft sm an-3d" data-3d="satellite">${C.line("layers")}<span>View in 3D</span></button>
                   <p class="coords" id="an-coords"></p></div>
                 <div class="wz-side">
                   <h2 class="wz-title">Where is your field?</h2>
@@ -440,7 +441,12 @@
   /* After saving, this screen starts clean (Home keeps the saved analysis). */
   function clearedIds() { return C.storage.get("cooper-cleared", {}); }
   function markCleared(rec) { const m = clearedIds(); m[rec.fieldId] = rec.id; C.storage.set("cooper-cleared", m); }
-  function clearScreen() {
+  function savedElsewhere(rec) {
+    if (rec.fieldId !== S.fieldId) return;
+    markCleared(rec);
+    if (S.rec) clearScreen(true);
+  }
+  function clearScreen(quiet = false) {
     clearTimeout(S.autoTimer);
     const g = C.motion.gsap, body = $("#an-results");
     const done = () => {
@@ -453,9 +459,9 @@
       if (f) fillForm(f);
       goStep(0, false);
       if (g) g.fromTo("#an-wizard", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.6, ease: "expo.out", clearProps: "all" });
-      window.scrollTo({ top: 0, behavior: C.reducedMotion() ? "auto" : "smooth" });
+      if (!quiet) window.scrollTo({ top: 0, behavior: C.reducedMotion() ? "auto" : "smooth" });
     };
-    if (g) g.to(body, { opacity: 0, duration: 0.35, onComplete: done }); else done();
+    if (g && !quiet) g.to(body, { opacity: 0, duration: 0.35, onComplete: done }); else done();
   }
 
   /* ------------------------------------------------------------- tabs */
@@ -580,5 +586,5 @@
     setTimeout(() => { S.map?.invalidateSize(); moveInk(); }, 60);
   }
 
-  C.analysis = { mount, load, onShow, run, save, get rec() { return S.rec; }, selectTab, refresh() { S.ctl?.refresh(); } };
+  C.analysis = { mount, load, onShow, run, save, savedElsewhere, get rec() { return S.rec; }, selectTab, refresh() { S.ctl?.refresh(); } };
 })();

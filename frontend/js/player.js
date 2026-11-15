@@ -20,7 +20,7 @@
     el.innerHTML = `
       <div class="ps-video">
         <iframe title="Explain it simply" allow="autoplay; fullscreen" tabindex="-1"></iframe>
-        <div class="ps-loading" aria-live="polite"><div class="ld-orbit" aria-hidden="true"><i></i><i></i><i></i></div><span>Preparing the explanation…</span></div>
+        <div class="ps-loading" aria-live="polite"><div class="ld-orbit sat" aria-hidden="true"><img src="assets/icons/satellite.webp" alt=""><i></i><i></i></div><span>Preparing the explanation…</span></div>
         <button type="button" class="ps-bigplay" aria-label="Play">${icon("play")}</button>
         <div class="ps-mini-ctl">
           <button type="button" class="icon-btn" data-ps="toggle" aria-label="Play or pause">${icon("play", "i-play")}${icon("pause", "i-pause")}</button>

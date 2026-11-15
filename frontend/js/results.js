@@ -208,11 +208,11 @@
       r.diagnostico.items.map((i) => `<li class="lvl-${LEVEL[i.nivel][0]}"><span class="lvl">${LEVEL[i.nivel][1]}</span><strong>${esc(i.etiqueta)}</strong> — ${esc(cap(i.por_que))}.${
         i.recomendaciones.length ? `<span class="idea">${icon("bulb")}${i.recomendaciones.map((a) => esc(cap(a))).join(". ")}.</span>` : ""}</li>`).join("")
     }</ul></details>` : "";
-    return `<article class="rot card ${r.rol === "actual" ? "current" : ""} ${r === best ? "best" : ""}" data-rev>
+    return `<article class="rot card ${r.rol === "actual" ? "current" : ""} ${r === best ? "best" : ""}" data-rev tabindex="0" aria-label="${esc(r.nombre)}: open details">
       <div class="rot-head"><span class="badge ${r.rol === "actual" ? "muted" : ""}">${role}</span>${r === best ? `<span class="badge best">${icon("star")}Best score</span>` : ""}</div>
       <h3>${esc(r.nombre)}</h3>
       <p class="desc">${esc(r.descripcion)}</p>
-      <div class="total"><span class="big" data-count="${r.total}">${fmt(r.total)}</span><span class="of">/ 100 for your priorities</span></div>
+      <div class="total"><div class="gauge md">${C.ring(r.total, r.rol === "actual" ? "--muted" : "--brand", 88, 8)}<span class="gv" data-count="${Math.round(r.total)}">${fmt(r.total)}</span></div><span class="of">/ 100<br>for your priorities</span></div>
       <div class="bars">${bars}</div>
       ${calendarTable(r)}
       ${kpis}
@@ -251,7 +251,8 @@
       ${data.advertencias.map((w) => `<div class="notice warn" data-rev>${icon("alert")}<span>${esc(w)}</span></div>`).join("")}
       <section class="card" data-rev>
         <div class="card-head"><div class="ch-title"><span class="chip-ic big">${icon("weather")}</span><div><h2>Your area in numbers</h2>
-          <p class="sub">${esc(m.fuente)} · ${esc(m.periodo)} · ${esc(m.resolucion)} grid cell${m.elevacion_m != null ? ` · elevation ${fmt(m.elevacion_m)} m` : ""}</p></div></div></div>
+          <p class="sub">${esc(m.fuente)} · ${esc(m.periodo)} · ${esc(m.resolucion)} grid cell${m.elevacion_m != null ? ` · elevation ${fmt(m.elevacion_m)} m` : ""}</p></div></div>
+          <button type="button" class="ask-jarvis" data-ask-jarvis="When do my crops run short of water during the year?">${icon("help")}<span>Ask Jarvis</span></button></div>
         <div class="chart-head">
           <div><h3 class="chart-title">Rainfall and atmospheric water demand, by month</h3>
             <p class="hint chart-hint">When the orange line (evapotranspiration) rises above the blue bars (rainfall), crops depend on the water stored in the soil.</p></div>
@@ -267,14 +268,16 @@
         <div class="chart-box"><canvas role="img" aria-label="Climate chart"></canvas></div>
         <details class="table-view"><summary>Show as a table</summary><div class="scroll-x">${waterTable(data.clima.mensual)}</div></details>
         <h3>Risk calendar</h3>
-        <p class="hint">Values use the units shown in each row. Colour intensity compares months within a row, not different risks.</p>
+        <p class="hint">Hover a month to compare every risk; click a row to focus it. Colour intensity compares months within a row, not different risks.</p>
         <div class="scroll-x risk-wrap">${riskTable(data.clima.mensual)}</div>
+        <div class="risk-detail" aria-live="polite"></div>
         <h3>How is your area changing?</h3>
         <div class="tiles">${trendsHTML(data.clima.tendencias.indicadores)}</div>
       </section>
       ${data.zonas ? `<section class="card zones-card" data-rev>
         <div class="card-head"><div class="ch-title"><span class="chip-ic big">${icon("layers")}</span><div><h2>Zones of your field</h2>
-          <p class="sub">${fmt(data.zonas.area_ha)} ha · ${fmt(data.zonas.celda_m)} m grid · NASA SRTM 30 m · R = ${fmt(data.zonas.r_factor)} MJ·mm/ha/h/yr · K = ${data.zonas.k_factor} (typical value, not measured)</p></div></div></div>
+          <p class="sub">${fmt(data.zonas.area_ha)} ha · ${fmt(data.zonas.celda_m)} m grid · NASA SRTM 30 m · R = ${fmt(data.zonas.r_factor)} MJ·mm/ha/h/yr · K = ${data.zonas.k_factor} (typical value, not measured)</p></div></div>
+          <div class="btn-row"><button type="button" class="btn soft sm" data-3d-local>${C.line("layers")}<span>View in 3D</span></button><button type="button" class="ask-jarvis" data-ask-jarvis="How can I reduce erosion in my field?">${icon("help")}<span>Ask Jarvis</span></button></div></div>
         <div class="zone-controls">
           <div class="seg" role="group" aria-label="Map layer">${Object.entries(ZONE_LAYERS).map(([k, l]) =>
             `<button type="button" data-layer="${k}" aria-pressed="${k === "erosion"}" class="${k === "erosion" ? "active" : ""}">${esc(l.label)}</button>`).join("")}</div>
@@ -293,7 +296,7 @@
         <div class="card profile-card" data-rev>
           <div class="profile-grid">
             <div><h3>${icon("compare")}Score profile</h3><p class="hint">Each axis is one topic, from 0 at the centre to 100 at the edge. The dashed shape is your current rotation. Click a name in the legend to hide or show it.</p>
-              <ul class="profile-list">${data.rotaciones.map((r, i) => `<li><i style="--c:var(${["--muted", "--brand", "--c-ingreso"][i]})"></i><span>${esc(r.nombre)}</span><strong>${fmt(r.total)}</strong></li>`).join("")}</ul></div>
+              <ul class="profile-list">${data.rotaciones.map((r, i) => `<li><i style="--c:${["#9aa6a0", "var(--brand)", "#e2a93a"][i]}"></i><span>${esc(r.nombre)}</span><strong>${fmt(r.total)}</strong></li>`).join("")}</ul></div>
             <div class="radar-box"><canvas role="img" aria-label="Score profile of the three rotations"></canvas></div>
           </div>
         </div>
@@ -338,6 +341,7 @@
     };
     state.view = "monthly";
     const canvas = $(".chart-box canvas", container);
+    canvas.dataset.rec = analysis.id || ""; canvas.dataset.view = "monthly";
     const buildMain = () => {
       if (state.view === "balance") return C.charts.waterBalance(data);
       if (state.view === "years") return C.charts.annualSeries(data);
@@ -351,7 +355,8 @@
         n.hidden = false; $(".table-view", container).open = true;
         return;
       }
-      if (state.chartCtl) { state.chartCtl.build = buildMain; if (state.chartCtl.chart) { state.chartCtl.chart.destroy(); state.chartCtl.chart = C.charts.make(canvas, buildMain(), true); } return; }
+      canvas.dataset.view = state.view;
+      if (state.chartCtl) { state.chartCtl.build = buildMain; state.chartCtl.redraw(true); return; }
       state.chartCtl = C.charts.lazy(canvas, buildMain);
     }
     drawChart();
@@ -367,6 +372,7 @@
     });
     $(".show-dry", container).addEventListener("change", drawChart);
     const radarCanvas = $(".radar-box canvas", container);
+    radarCanvas.dataset.rec = analysis.id || "";
     state.radarCtl = typeof Chart !== "undefined" ? C.charts.lazy(radarCanvas, () => C.charts.radar(data.rotaciones.map((r, i) => ({ ...r, labelPrefix: i === 0 ? "Current" : "" })))) : null;
 
     /* zones */
@@ -421,10 +427,16 @@
       $(".zone-rot", container)?.addEventListener("change", (e) => { state.rot = e.target.value; drawZones(); });
     }
 
+    /* risk calendar: hover a month, click a row */
+    bindRisk(container, data.clima.mensual);
+    $("[data-3d-local]", container)?.addEventListener("click", (e) => {
+      const f = C.fields.get(analysis.fieldId) || C.fields.active();
+      const layer = { erosion: "erosion", humedad: "humedad", bajos: "bajos", pendiente: "pendiente" }[state.layer] || "erosion";
+      window.CooperMap3D?.open({ field: { ...f, lat: input.lat, lon: input.lon, area_ha: input.area_ha }, rec: analysis, layer, rot: state.rot, originEl: $(".zones-map", container) });
+    });
+
     /* entrance */
     C.motion.reveal($$("[data-rev]", container), { stagger: 0.07 });
-    C.motion.bars(container);
-    $$("[data-count]", container).forEach((el) => C.motion.count(el, Number(el.dataset.count)));
     const ro = new ResizeObserver(() => state.map?.invalidateSize());
     ro.observe(container);
 
@@ -435,6 +447,39 @@
       chartImage() { return state.chartCtl?.chart ? state.chartCtl.chart.toBase64Image("image/png", 1) : null; },
       destroy() { ro.disconnect(); state.chartCtl?.destroy(); state.radarCtl?.destroy(); state.map?.remove(); container.innerHTML = ""; },
     };
+  }
+
+  function bindRisk(container, months) {
+    const wrap = $(".risk-wrap", container), detail = $(".risk-detail", container);
+    if (!wrap || !detail) return;
+    const rows = [["dias_calor", "Hot days", "thermo", 1], ["dias_helada", "Frost-risk days", "climate", 1], ["dias_lluvia_fuerte", "Heavy-rain days", "water", 1], ["deficit", "Water deficit", "soil", 0]];
+    const val = (d, k) => (k === "deficit" ? Math.max(0, -d.balance_mm) : d[k]);
+    const max = Object.fromEntries(rows.map(([k]) => [k, Math.max(...months.map((d) => val(d, k))) || 1]));
+    let pinned = null;
+    const show = (mi) => {
+      const d = months[mi];
+      detail.innerHTML = `<strong>${esc(C.t(d.nombre))}</strong>${rows.map(([k, l, ic, dec]) => `<span class="rd" style="--k:${val(d, k) / max[k]}">${icon(ic)}<em>${esc(C.t(l))}</em><b>${fmt(val(d, k), dec)}${k === "deficit" ? " mm" : ""}</b><i></i></span>`).join("")}`;
+      $$("td.cell, thead th", wrap).forEach((c) => c.classList.toggle("col-on", c.cellIndex - 1 === mi));
+    };
+    const miOf = (t) => { const c = t.closest("td.cell, thead th"); return c && c.cellIndex > 0 ? c.cellIndex - 1 : null; };
+    wrap.addEventListener("pointerover", (e) => { const mi = miOf(e.target); if (mi != null) show(mi); });
+    wrap.addEventListener("pointerleave", () => { if (pinned != null) show(pinned); });
+    wrap.addEventListener("click", (e) => {
+      const mi = miOf(e.target);
+      if (mi != null) { pinned = mi; show(pinned); }
+      const th = e.target.closest('tbody th[scope="row"]');
+      if (th) { const tr = th.parentElement, on = !tr.classList.contains("row-focus"); $$("tbody tr", wrap).forEach((r) => r.classList.remove("row-focus")); wrap.classList.toggle("has-focus", on); if (on) tr.classList.add("row-focus"); }
+    });
+    const now = C.AG_ORDER.indexOf(new Date().getMonth() + 1);
+    show(now >= 0 ? now : 0);
+    /* cells pop in, month by month, when the table comes into view */
+    const g = C.motion.gsap;
+    if (!g) return;
+    let seen = false;
+    new IntersectionObserver((es) => es.forEach((e) => {
+      if (e.isIntersecting && !seen) { seen = true; g.fromTo($$("td.cell", wrap), { scale: 0.3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.55, ease: "back.out(2)", stagger: { each: 0.012, grid: [4, 12], from: "start", axis: "x" } }); }
+      if (!e.isIntersecting && e.intersectionRatio === 0) seen = false;
+    }), { threshold: 0.3 }).observe(wrap);
   }
 
   C.results = { render, zoneRaster, ZONE_LAYERS, riskTable, rankingTable, erosionOf };

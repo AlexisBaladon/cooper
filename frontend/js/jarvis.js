@@ -289,5 +289,10 @@
     if (S.el) suggestions();
   }
 
-  C.jarvis = { mount() { build(); entrance(); }, setContext, toggle, context, intent };
+  /* Opens Jarvis with a question already asked (from "Ask Jarvis" buttons on the cards). */
+  function askAbout(q) {
+    toggle(true);
+    setTimeout(() => ask(q), C.motion.gsap ? 380 : 0);
+  }
+  C.jarvis = { mount() { build(); entrance(); }, setContext, toggle, context, intent, askAbout };
 })();

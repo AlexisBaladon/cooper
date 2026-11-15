@@ -71,9 +71,11 @@
   };
 
   /* --------------------------------------------------------------- panels */
+  const LAYER3D = { "ip-sat": "satellite", "ip-ndvi": "ndvi", "ip-ero": "erosion", "ip-crop": "crop" };
   function imageryPanel(id, title, source, legend, note, ic = "satellite") {
     return `<figure class="card img-panel" data-rev>
-      <figcaption class="ip-head"><div class="ch-title"><span class="chip-ic">${icon(ic)}</span><div><h3>${esc(title)}</h3><small>${esc(source)}</small></div></div></figcaption>
+      <figcaption class="ip-head"><div class="ch-title"><span class="chip-ic">${icon(ic)}</span><div><h3>${esc(title)}</h3><small>${esc(source)}</small></div></div>
+        <button type="button" class="btn soft sm" data-3d="${LAYER3D[id]}">${C.line("layers")}<span>3D</span></button></figcaption>
       <div class="ip-map" id="${id}"><div class="ip-empty" hidden>${icon("satellite")}<strong>Image not available</strong><span>This space is ready for the image source. It will appear here when the provider responds.</span></div></div>
       ${legend ? `<div class="legend ip-legend">${legend}</div>` : ""}
       ${note ? `<p class="hint">${note}</p>` : ""}
@@ -142,7 +144,8 @@
           </div>
         </div>
         <div class="fh-visual"><div class="fh-relief" aria-hidden="true"></div>
-          <span class="fh-tag">${data?.zonas ? "Real SRTM terrain · erosion of your rotation" : "Run an analysis to see the 3D terrain"}</span></div>
+          <span class="fh-tag">${data?.zonas ? "Real SRTM terrain · erosion of your rotation" : "Run an analysis to see the 3D terrain"}</span>
+          <button type="button" class="btn soft sm fh-3d" data-3d="satellite">${C.line("layers")}<span>Explore in 3D</span></button></div>
       </section>
 
       <div class="tiles kpi-row" data-rev>
