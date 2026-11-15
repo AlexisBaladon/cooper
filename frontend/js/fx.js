@@ -176,12 +176,20 @@
   C.fx.closeFocus = closeFocus;
   Object.defineProperty(C.fx, "focusOpen", { get: () => !!focus });
 
-  /* Click a score card (not one of its controls) to bring it close. */
-  const INTERACTIVE = "button, a, summary, details, input, select, textarea, label, canvas, .leaflet-container, .calendar-scroll, .more";
+  /* Click a score card anywhere except on its own controls (or its "open large" button) to
+     bring it close. A drag (scrolling the crop calendar, selecting text in the card) does
+     not open it. */
+  const INTERACTIVE = "button, a, summary, input, select, textarea, label, canvas, .leaflet-container, .more";
+  let downAt = null;
+  document.addEventListener("pointerdown", (e) => { downAt = { x: e.clientX, y: e.clientY }; }, true);
   document.addEventListener("click", (e) => {
     const card = e.target.closest(".opt-card, .rot.card");
-    if (!card || card.closest(SKIP) || e.target.closest(INTERACTIVE)) return;
-    if (window.getSelection?.().toString()) return;
+    if (!card || card.closest(SKIP)) return;
+    const zoom = e.target.closest("[data-zoom]");
+    if (!zoom && e.target.closest(INTERACTIVE)) return;
+    if (!zoom && downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 8) return;
+    const sel = window.getSelection?.();
+    if (!zoom && sel && !sel.isCollapsed && sel.toString().trim() && card.contains(sel.anchorNode)) return;
     focusCard(card);
   });
   document.addEventListener("keydown", (e) => {
@@ -199,9 +207,22 @@
       if (html) openFocus(card, html, { cls: "wide opt-focus", label: C.SCORES[k].label, onOpen: (b) => { b.style.setProperty("--c", `var(${C.SCORES[k].color})`); C.home.bindFocus(b, k); } });
       return;
     }
+    try { openRotation(card); } catch (err) {
+      // Never leave the farmer without the large view: show the plain card if the enhanced
+      // layout fails for any reason.
+      console.error("Cooper: enhanced large view failed", err);
+      if (focus) return;
+      const plain = card.cloneNode(true);
+      plain.removeAttribute("style"); plain.classList.add("is-focus", "plain");
+      plain.querySelectorAll("details").forEach((d) => { d.open = false; });
+      openFocus(card, plain, { cls: "wide rot-focus", label: card.querySelector("h3")?.textContent || "Rotation" });
+    }
+  }
+  function openRotation(card) {
     const clone = card.cloneNode(true);
     clone.removeAttribute("style");
     clone.classList.add("is-focus");
+    clone.querySelector(".rot-zoom")?.remove();
     // Large view: the rotation's facts fill the left column; on the right, the month-by-month
     // guide and the explanations, which always start closed.
     clone.querySelectorAll("details").forEach((d) => { d.open = false; });

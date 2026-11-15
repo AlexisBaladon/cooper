@@ -366,7 +366,8 @@
         i.recomendaciones.length ? `<span class="idea">${icon("bulb")}${i.recomendaciones.map((a) => esc(cap(a))).join(". ")}.</span>` : ""}</li>`).join("")
     }</ul></details>` : "";
     return `<article class="rot card ${r.rol === "actual" ? "current" : ""} ${r === best ? "best" : ""}" data-rev tabindex="0" data-guide="${esc(GUIDE_KEY(r))}" aria-label="${esc(r.nombre)}: open details">
-      <div class="rot-head"><span class="badge ${r.rol === "actual" ? "muted" : ""}">${role}</span>${r === best ? `<span class="badge best">${icon("star")}Best score</span>` : ""}</div>
+      <div class="rot-head"><span class="badge ${r.rol === "actual" ? "muted" : ""}">${role}</span>${r === best ? `<span class="badge best">${icon("star")}Best score</span>` : ""}
+        <button type="button" class="icon-btn rot-zoom" data-zoom aria-label="Open ${esc(r.nombre)} in large view" title="Open in large view">${C.line("expand")}</button></div>
       <h3>${esc(r.nombre)}</h3>
       <p class="desc">${esc(r.descripcion)}</p>
       <div class="total"><div class="gauge md">${C.ring(r.total, r.rol === "actual" ? "--muted" : "--brand", 88, 8)}<span class="gv" data-count="${Math.round(r.total)}">${fmt(r.total)}</span></div><span class="of">/ 100<br>for your priorities</span></div>
