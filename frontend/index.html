@@ -8,6 +8,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="assets/brand/icon-192.png">
   <link rel="apple-touch-icon" href="assets/brand/icon-512.png">
   <meta name="theme-color" content="#10261a">
+  <link rel="manifest" href="manifest.json">
   <script>
     (function () {
       try {
@@ -24,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=53">
+  <link rel="stylesheet" href="styles.css?v=57">
   <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
   </script>
@@ -63,6 +64,7 @@
         <div id="field-menu" class="menu" role="menu" hidden></div>
       </div>
       <div class="tb-right">
+        <a id="offline-chip" class="offline-chip" href="#settings" title="Cooper is showing what is saved on this device" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5a14 14 0 0 1 5-3M21 8.5a14 14 0 0 0-8-3.9M6.5 12.5a8.5 8.5 0 0 1 3-2M17.5 12.5a8.5 8.5 0 0 0-3.2-2.1M12 18.5v.1M4 3l16 18"/></svg><span>Offline</span></a>
         <button type="button" id="weather-pill" class="weather-pill" aria-label="Weather at your field: open the full view"><span class="skeleton" style="width:150px;height:30px"></span></button>
         <div class="clock" aria-live="off"><span id="clock-time" class="clock-time">--:--</span><span id="clock-date" class="clock-date"></span></div>
       </div>
@@ -102,6 +104,13 @@
               <button type="button" class="btn ghost danger" id="set-wipe">Delete all data on this device</button>
             </div>
           </section>
+          <section class="card wide" id="offline-card">
+            <div class="card-head"><div><h2><img class="ic i3d" src="assets/icons/satellite.webp" alt="" aria-hidden="true">Offline use</h2><p class="sub">Cooper keeps working in the field without signal: your fields, saved analyses, charts, maps and exports stay on this device.</p></div></div>
+            <div id="off-status" class="off-status"></div>
+            <div id="off-progress-wrap" class="off-progress" hidden><span class="off-bar" id="off-bar"></span><small id="off-progress"></small></div>
+            <div class="btn-row"><button type="button" class="btn ghost" id="off-prepare"><span>Prepare my fields for offline use</span></button></div>
+            <p class="hint">Do this while you have a connection, and again after adding a field. It saves the maps around each field, the latest weather and the soil data. A new analysis or a new climate scenario still needs a connection.</p>
+          </section>
           <section class="card wide">
             <div class="card-head"><div><h2><img class="ic i3d" src="assets/icons/help.webp" alt="" aria-hidden="true">About Cooper</h2><p class="sub">Prototype for NASA Space Apps 2026 · Field Shift: Adapting Farms with NASA Data</p></div></div>
             <p>Cooper helps farmers think; it doesn't decide for them. Every result comes from written agronomic rules and published formulas that anyone can check. The only AI is optional: it rewrites the narration of “Explain it simply” and answers questions in Jarvis using the numbers of your analysis.</p>
@@ -125,26 +134,28 @@
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-<script src="translations-es.js?v=53"></script>
-<script src="language.js?v=53"></script>
-<script src="workflow.js?v=53"></script>
-<script src="js/core.js?v=53"></script>
-<script src="js/fx.js?v=53"></script>
-<script src="js/scene.js?v=53"></script>
-<script src="js/wx.js?v=53"></script>
-<script src="js/charts.js?v=53"></script>
-<script src="js/results.js?v=53"></script>
-<script src="js/calendar.js?v=53"></script>
-<script src="js/home.js?v=53"></script>
-<script src="js/analysis.js?v=53"></script>
-<script src="js/history.js?v=53"></script>
-<script src="js/export.js?v=53"></script>
-<script src="js/field.js?v=53"></script>
-<script src="js/player.js?v=53"></script>
-<script src="js/jarvis.js?v=53"></script>
-<script src="js/intro.js?v=53"></script>
-<script src="app.js?v=53"></script>
-<script type="module" src="js/relief.js?v=53"></script>
-<script type="module" src="js/map3d.js?v=53"></script>
+<script src="translations-es.js?v=57"></script>
+<script src="language.js?v=57"></script>
+<script src="workflow.js?v=57"></script>
+<script src="js/core.js?v=57"></script>
+<script src="js/glossary.js?v=57"></script>
+<script src="js/fx.js?v=57"></script>
+<script src="js/scene.js?v=57"></script>
+<script src="js/wx.js?v=57"></script>
+<script src="js/charts.js?v=57"></script>
+<script src="js/results.js?v=57"></script>
+<script src="js/calendar.js?v=57"></script>
+<script src="js/home.js?v=57"></script>
+<script src="js/analysis.js?v=57"></script>
+<script src="js/history.js?v=57"></script>
+<script src="js/export.js?v=57"></script>
+<script src="js/field.js?v=57"></script>
+<script src="js/player.js?v=57"></script>
+<script src="js/jarvis.js?v=57"></script>
+<script src="js/intro.js?v=57"></script>
+<script src="js/offline.js?v=57"></script>
+<script src="app.js?v=57"></script>
+<script type="module" src="js/relief.js?v=57"></script>
+<script type="module" src="js/map3d.js?v=57"></script>
 </body>
 </html>
