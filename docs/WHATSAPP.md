@@ -1,5 +1,24 @@
 # Jarvis on WhatsApp — Twilio setup
 
+## AWS deployment
+
+The production webhook is `https://agrocooper.earth/api/whatsapp/webhook` (POST).
+The app reads the Twilio settings from `/etc/nasa2026/ai-keys.env`, outside Git
+and release directories. Keep `WHATSAPP_DB_PATH=/var/lib/nasa2026/whatsapp.sqlite3`
+so queued messages and history survive releases. Use `WHATSAPP_DEMO_ANALYSIS=true`
+for the labelled Young default-field example, and retain the tester allowlist.
+
+To migrate from a local tunnel: install the settings with `WHATSAPP_ENABLED=false`,
+deploy the integration through the main pipeline, enable WhatsApp and restart
+`nasa2026-api`, then set the Sandbox's incoming webhook to the permanent URL.
+Leave status callbacks separate. Test a real question from the joined phone
+before stopping the old local gateway/tunnel. An unsigned POST should return
+403 once enabled. Do not copy the local SQLite database or all local `.env`
+variables to production; configure only this integration's required values.
+
+Production uses the single worker in the existing service. Delivery failures
+are not automatically resent; consult Twilio's delivery logs before retrying.
+
 This local implementation reuses `app.jarvis.chat`, including its Groq models,
 language detection and checks against invented numbers. WhatsApp receives text;
 the website retains its synchronized voice and 3D visualizations. Website analyses

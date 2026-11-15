@@ -2329,7 +2329,6 @@ html, body { overflow-x: clip; }
 .off-bar { display: block; height: 8px; border-radius: 99px; background: linear-gradient(90deg, var(--brand) var(--p, 0%), var(--surface-3) var(--p, 0%)); box-shadow: var(--inset); transition: background .2s; }
 .off-progress small { color: var(--muted); font-size: .82rem; }
 @media (max-width: 720px) { .offline-chip span { display: none; } .offline-chip { padding: .45rem; } }
-=======
 /* Both navigation and the floating orb open the same Jarvis session. */
 .jarvis-launch { width: 100%; border: 0; background: transparent; font-family: inherit; text-align: left; cursor: pointer; }
 .jarvis-launch[aria-expanded="true"] { color: white; background: var(--side-3); }
@@ -2357,3 +2356,6 @@ html.reduce-motion .jarvis-fab *, html.reduce-motion .jarvis-fab { animation: no
   .bottom-nav .jarvis-launch .ic { width: 22px; height: 22px; }
   .bottom-nav .jarvis-launch span { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
 }
+
+/* Jarvis is reached from its floating orb; the side menu does not carry a Jarvis button. */
+.sidebar [data-jarvis-launch], .sidebar .jarvis-launch { display: none !important; }
