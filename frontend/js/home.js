@@ -181,27 +181,82 @@
 
   /* Large, ordered view of one topic: best option and the two alternatives side by side. */
   let last = null;
-  function focusHTML(k) {
+  /* Large view of ONE option at a time: best option, Alternative 1 or Alternative 2,
+     with a switcher that animates from one to the next. */
+  function optionPanel(k, r, n, current) {
+    const meta = C.SCORES[k], p = r.perfil?.[k];
+    const idea = p && p.nivel !== "fuerte" && p.recomendaciones?.length ? p.recomendaciones[0] : null;
+    const d = r.puntajes[k] - current.puntajes[k];
+    const others = Object.keys(C.SCORES).filter((x) => x !== k);
+    return `<article class="fz-one" data-n="${n}">
+      <div class="fz-left">
+        <span class="alt-tag big">${n === 0 ? "Best option" : `Alternative ${n}`}</span>
+        <div class="fz-ring">${C.ring(r.puntajes[k], meta.color, 220, 16, "big")}
+          <div class="fz-ring-in"><span class="big" data-count="${r.puntajes[k]}">${r.puntajes[k]}</span><span>/ 100</span><small>${esc(meta.label)}</small></div></div>
+        <h3 class="fz-name">${esc(r.nombre)}</h3>
+        ${r.id === current.id ? `<span class="delta same">Your current rotation</span>` : `<span class="delta ${d > 0 ? "up" : d < 0 ? "down" : "same"} big">${d > 0 ? "+" : ""}${d} ${C.t("points vs today")} (${current.puntajes[k]})</span>`}
+        <p class="fz-desc">${esc(r.descripcion || "")}</p>
+      </div>
+      <div class="fz-right">
+        <h4>${C.t("Crop calendar")}</h4>
+        ${strip(r, k === "suelo" ? "show-bare" : k === "clima" ? "show-crit" : "")}
+        <h4>${C.t("What changes for")} ${esc(meta.label)}</h4>
+        <div class="metrics big">${metricRows(k, r, current)}</div>
+        ${p ? `<p class="why">${icon("info")}<span>${esc(cap(p.por_que))}.</span></p>` : ""}
+        ${idea ? `<p class="idea">${icon("bulb")}<span>${esc(cap(idea))}.</span></p>` : ""}
+        <h4>${C.t("Its other scores")}</h4>
+        <div class="fz-others">${others.map((o) => `<span style="--c:var(${C.SCORES[o].color})">${icon(C.SCORES[o].icon)}<em>${esc(C.SCORES[o].label)}</em><b data-count="${r.puntajes[o]}">${r.puntajes[o]}</b><i class="m-track"><i class="m-fill" data-w="${r.puntajes[o]}"></i></i></span>`).join("")}</div>
+      </div>
+    </article>`;
+  }
+  function focusHTML(k, n = 0) {
     if (!last) return null;
     const { ranking, current } = last;
     const meta = C.SCORES[k];
     const sorted = bestBy(ranking, k).slice(0, 3);
-    const col = (r, n) => {
-      const p = r.perfil?.[k];
-      const idea = p && p.nivel !== "fuerte" && p.recomendaciones?.length ? p.recomendaciones[0] : null;
-      return `<article class="fz-col ${n === 0 ? "best" : ""}">
-        <span class="alt-tag">${n === 0 ? "Best option" : `Alternative ${n}`}</span>
-        <div class="opt-score"><div class="gauge">${C.ring(r.puntajes[k], meta.color, 92, 9)}<span class="gv" data-count="${r.puntajes[k]}">${r.puntajes[k]}</span></div>
-          <div class="opt-name"><strong>${esc(r.nombre)}</strong>${delta(k, r, current)}</div></div>
-        ${strip(r, k === "suelo" ? "show-bare" : k === "clima" ? "show-crit" : "")}
-        <div class="metrics">${metricRows(k, r, current)}</div>
-        ${p ? `<p class="why">${icon("info")}<span>${esc(cap(p.por_que))}.</span></p>` : ""}
-        ${idea ? `<p class="idea">${icon("bulb")}<span>${esc(cap(idea))}.</span></p>` : ""}
-      </article>`;
-    };
+    n = Math.min(n, sorted.length - 1);
     return `<header class="fz-head"><span class="chip-ic big">${icon(meta.icon)}</span><div><small>Your best options in</small><h2>${esc(meta.label)}</h2>
         <p class="sub">Compared with your current rotation, ${esc(current.nombre)} (${current.puntajes[k]} points).</p></div>${askBtn(ASK[k])}</header>
-      <div class="fz-cols">${sorted.map(col).join("")}</div>`;
+      <nav class="fz-switch" aria-label="Options">
+        <button type="button" class="icon-btn fz-prev" aria-label="Previous option">${C.line("right", "flip-x")}</button>
+        <div class="seg">${sorted.map((r, i) => `<button type="button" data-n="${i}" aria-pressed="${i === n}">${i === 0 ? "Best option" : `Alternative ${i}`}<small>${r.puntajes[k]}</small></button>`).join("")}</div>
+        <button type="button" class="icon-btn fz-next" aria-label="Next option">${C.line("right")}</button>
+      </nav>
+      <div class="fz-stage" data-k="${k}" data-n="${n}">${optionPanel(k, sorted[n], n, current)}</div>`;
+  }
+  /* Switch between options inside the large view, one at a time. */
+  function bindFocus(body, k) {
+    const stage = body.querySelector(".fz-stage");
+    if (!stage || !last) return;
+    const sorted = bestBy(last.ranking, k).slice(0, 3);
+    const go = (n, dir) => {
+      const cur = Number(stage.dataset.n);
+      n = (n + sorted.length) % sorted.length;
+      if (n === cur) return;
+      dir = dir || (n > cur ? 1 : -1);
+      stage.dataset.n = n;
+      body.querySelectorAll(".fz-switch [data-n]").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.n) === n)));
+      const old = stage.firstElementChild;
+      stage.insertAdjacentHTML("beforeend", optionPanel(k, sorted[n], n, last.current));
+      const nu = stage.lastElementChild;
+      const g = C.motion.gsap;
+      if (!g) { old.remove(); C.fx.liven(nu); return; }
+      stage.style.height = old.offsetHeight + "px";
+      g.set(nu, { position: "absolute", inset: 0 });
+      g.to(old, { xPercent: -40 * dir, rotationY: -25 * dir, opacity: 0, duration: 0.55, ease: "power3.in", transformPerspective: 1400, onComplete: () => old.remove() });
+      g.fromTo(nu, { xPercent: 45 * dir, rotationY: 25 * dir, opacity: 0, transformPerspective: 1400 }, { xPercent: 0, rotationY: 0, opacity: 1, duration: 0.8, ease: "expo.out", delay: 0.2,
+        onStart: () => C.fx.liven(nu), onComplete: () => { g.set(nu, { clearProps: "all" }); stage.style.height = ""; } });
+    };
+    body.addEventListener("click", (e) => {
+      const b = e.target.closest(".fz-switch [data-n]"); if (b) go(Number(b.dataset.n));
+      if (e.target.closest(".fz-prev")) go(Number(stage.dataset.n) - 1, -1);
+      if (e.target.closest(".fz-next")) go(Number(stage.dataset.n) + 1, 1);
+    });
+    body.closest(".focus-wrap")?.addEventListener("keydown", (e) => {
+      if (e.target.matches("input, textarea")) return;
+      if (e.key === "ArrowRight") go(Number(stage.dataset.n) + 1, 1);
+      if (e.key === "ArrowLeft") go(Number(stage.dataset.n) - 1, -1);
+    });
   }
 
   /* Next sowing, critical stage and harvest in the current rotation (year 1), from this month. */
@@ -237,6 +292,22 @@
     </section>`;
   }
 
+  /* Four moments of this analysis, each one a door into its chapter of the explanation. */
+  function moments(rec) {
+    const r = rec.result, months = r.clima.mensual;
+    const thirsty = months.filter((m) => m.et0_mm - m.lluvia_mm > 10);
+    const rain = r.clima.tendencias.indicadores.find((t) => t.id === "lluvia_mm");
+    const cur = r.rotaciones[0], ranking = r.ranking || r.rotaciones, best = ranking[0];
+    const er = cur.indicadores.erosion_t_ha;
+    const tol = r.zonas?.tolerancia_t_ha || 7;
+    return [
+      { ch: 1, ic: "weather", v: `${thirsty.length}`, unit: thirsty.length === 1 ? "month" : "months", l: "with more evaporation than rain", tone: thirsty.length >= 5 ? "warn" : "" },
+      { ch: 2, ic: "water", v: rain ? `${rain.cambio_pct > 0 ? "+" : ""}${fmt(rain.cambio_pct)}%` : "–", unit: "", l: "rainfall, 1996–2010 vs 2011–2025", tone: "" },
+      { ch: 3, ic: "soil", v: er != null ? fmt(er, 1) : fmt(cur.indicadores.meses_descubiertos, 1), unit: er != null ? "t/ha" : "months", l: er != null ? `erosion a year today · tolerance ${tol}` : "without a crop a year today", tone: er != null && er > tol ? "warn" : "" },
+      { ch: 5, ic: "best", v: fmt(best.total), unit: "/100", l: best.id === cur.id ? "your rotation is already the best fit" : `best option: ${best.nombre}`, tone: "good" },
+    ];
+  }
+
   function explainCard(rec) {
     const chapters = ["Introduction", "Climate", "How it changed", "Your rotation today", "Strengths and weaknesses", "A better option", "What to check", "Closing"];
     return `<section class="card explain" data-rev>
@@ -246,10 +317,16 @@
         <span class="ex-badge">${icon("volume")}Narrated · 8 chapters</span>
       </div>
       <div class="ex-info">
-        <small>Explain it simply</small>
-        <h2>Your analysis, explained</h2>
-        <p>A narrated summary of this whole analysis over a 3D model of your field: climate, how it changed, your rotation today, its strengths and weaknesses, a better option and what to check with your agronomist.</p>
-        <ol class="chapters">${chapters.map((c, i) => `<li><button type="button" data-chapter="${i}"><span>${String(i + 1).padStart(2, "0")}</span>${esc(c)}</button></li>`).join("")}</ol>
+        <div class="ex-title"><div><small>Explain it simply</small><h2>Your analysis, explained</h2></div></div>
+        <p>A narrated summary of this whole analysis over a 3D model of your field, in eight short chapters.</p>
+        <div class="ex-timeline" role="list" aria-label="Chapters">${chapters.map((c, i) => `<button type="button" role="listitem" data-chapter="${i}" style="--i:${i}"><i></i><span><em>${String(i + 1).padStart(2, "0")}</em>${esc(c)}</span></button>`).join("")}</div>
+        <h3 class="ex-sub">Key moments in your explanation</h3>
+        <div class="ex-moments">${moments(rec).map((m) => `<button type="button" class="ex-moment ${m.tone}" data-chapter="${m.ch}">
+          <span class="exm-ic">${icon(m.ic)}</span>
+          <span class="exm-v"><b data-count-text="${esc(m.v)}">${esc(m.v)}</b>${m.unit ? `<small>${esc(m.unit)}</small>` : ""}</span>
+          <span class="exm-l">${esc(m.l)}</span>
+          <span class="exm-go">${C.line("play")}<em>${esc(C.t(chapters[m.ch]))}</em></span>
+        </button>`).join("")}</div>
         <p class="hint">${esc(rec.context?.field || "")} · ${esc(C.dateLabel(rec.fecha))}. Keeps playing while you use the rest of the app.</p>
       </div>
     </section>`;
@@ -416,5 +493,5 @@
   C.reliefData = reliefData;
   C.listen("scene", () => { $$(".wx-card-bg").forEach((el) => { el.style.backgroundImage = `url('${C.scene.SCENES[C.scene.current].sm}')`; }); });
 
-  C.home = { render, destroy, upcoming, bestBy, focusHTML };
+  C.home = { render, destroy, upcoming, bestBy, focusHTML, bindFocus };
 })();

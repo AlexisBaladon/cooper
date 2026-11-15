@@ -183,7 +183,7 @@
   Object.defineProperty(C.fx, "focusOpen", { get: () => !!focus });
 
   /* Click a score card (not one of its controls) to bring it close. */
-  const INTERACTIVE = "button, a, summary, details, input, select, textarea, label, canvas, .leaflet-container, .calendar-scroll, .more, .alt-lines";
+  const INTERACTIVE = "button, a, summary, details, input, select, textarea, label, canvas, .leaflet-container, .calendar-scroll, .more";
   document.addEventListener("click", (e) => {
     const card = e.target.closest(".opt-card, .rot.card");
     if (!card || card.closest(SKIP) || e.target.closest(INTERACTIVE)) return;
@@ -193,11 +193,16 @@
   document.addEventListener("keydown", (e) => {
     if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".opt-card, .rot.card")) { e.preventDefault(); focusCard(e.target); }
   });
+  let focusAlt = null;
+  document.addEventListener("pointerdown", (e) => { const alt = e.target.closest(".opt-card.flipped .alt"); focusAlt = alt ? [...alt.parentElement.children].indexOf(alt) + 1 : null; }, true);
   function focusCard(card) {
     if (card.matches(".opt-card")) {
       const k = card.dataset.score;
-      const html = C.home?.focusHTML?.(k);
-      if (html) openFocus(card, html, { cls: "wide opt-focus", label: C.SCORES[k].label, onOpen: (b) => b.style.setProperty("--c", `var(${C.SCORES[k].color})`) });
+      // A turned card opens on the alternative that was clicked; otherwise on the best option.
+      const n = card.classList.contains("flipped") ? (focusAlt ?? 1) : 0;
+      focusAlt = null;
+      const html = C.home?.focusHTML?.(k, n);
+      if (html) openFocus(card, html, { cls: "wide opt-focus", label: C.SCORES[k].label, onOpen: (b) => { b.style.setProperty("--c", `var(${C.SCORES[k].color})`); C.home.bindFocus(b, k); } });
       return;
     }
     const clone = card.cloneNode(true);
