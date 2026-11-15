@@ -10,6 +10,11 @@
   // Desktop opens the field workspace; smaller screens use the compact chat panel.
   const FULL_MIN_WIDTH = 900;
 
+  // Jarvis on WhatsApp (Twilio Sandbox): the first message must be the join text.
+  const WA_NUMBER = "+1 415 523 8886", WA_JOIN = "join stronger-printed";
+  const WA_LINK = "https://wa.me/14155238886?text=" + encodeURIComponent(WA_JOIN);
+  const WA_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.64.07-.3-.15-1.26-.46-2.4-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.91-2.2-.24-.58-.49-.5-.67-.51l-.57-.01c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.18-1.42-.08-.12-.27-.2-.57-.35zM12.05 21.8h-.01a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.82 9.82 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.88 9.88zm8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.41z"/></svg>';
+
   const launchers = () => [...document.querySelectorAll("[data-jarvis-launch]")];
   const launcher = () => S.trigger?.isConnected ? S.trigger : launchers().find((b) => b.getClientRects().length);
   function markOpen(open, full = false) {
@@ -24,6 +29,7 @@
     const el = document.createElement("div");
     el.id = "jarvis";
     el.innerHTML = `
+      <button type="button" class="jarvis-wa" data-jv="whatsapp" aria-label="Chat with Jarvis on WhatsApp" title="Chat with Jarvis on WhatsApp">${WA_ICON}</button>
       <button type="button" class="jarvis-fab" data-jarvis-launch aria-label="Open Jarvis" title="Open Jarvis" aria-expanded="false" aria-controls="jv-panel">
         <span class="jarvis-fab-core" aria-hidden="true"></span>
         <img class="jarvis-fab-ring outer" src="assets/brand/jarvis-256.webp" width="88" height="88" alt="" aria-hidden="true">
@@ -55,6 +61,7 @@
     el.addEventListener("click", (e) => {
       const b = e.target.closest("[data-jv]");
       if (b?.dataset.jv === "close") toggle(false);
+      if (b?.dataset.jv === "whatsapp") whatsapp();
       if (b?.dataset.jv === "clear") { S.history = []; $(".jv-log", el).innerHTML = ""; greet(); }
       const s = e.target.closest("[data-ask]");
       if (s) ask(s.dataset.ask);
@@ -64,6 +71,19 @@
     $(".jv-input", el).addEventListener("submit", (e) => { e.preventDefault(); const i = $("#jv-text"); const q = i.value.trim(); if (q) { i.value = ""; ask(q); } });
     el.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.open) { toggle(false); launcher()?.focus(); } });
   }
+  /* QR and link to start a WhatsApp chat with Jarvis. */
+  function whatsapp() {
+    return C.dialog({
+      title: "Jarvis on WhatsApp",
+      body: `<div class="wa-box">
+        <img class="wa-qr" src="assets/brand/whatsapp-qr.svg" width="232" height="232" alt="QR code that opens the WhatsApp chat">
+        <p>Scan the code with your phone's camera. To chat with the AI on WhatsApp, send this text:</p>
+        <p class="wa-code notranslate"><code>${esc(WA_JOIN)}</code><span>${esc(WA_NUMBER)}</span></p>
+        <a class="btn wa-open" href="${esc(WA_LINK)}" target="_blank" rel="noopener noreferrer">${WA_ICON}<span>Open the chat in WhatsApp</span></a>
+      </div>`,
+    });
+  }
+
   /* ------------------------------------------- Jarvis a pantalla completa */
   // Open the field workspace from the same navigation as the rest of Cooper.
   const canFull = () => matchMedia(`(min-width: ${FULL_MIN_WIDTH}px)`).matches;
