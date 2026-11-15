@@ -51,6 +51,29 @@ References: [current Sandbox availability](https://www.twilio.com/docs/whatsapp/
 
 ## Operation and limits
 
+### Default-field demo analysis
+
+Set `WHATSAPP_DEMO_ANALYSIS=true` only for the local gateway to let Jarvis answer
+questions using `data/whatsapp-default-analysis.json`. The snapshot uses the
+website's initial sample: near Young (-32.62, -57.75), 100 ha, continuous soybean,
+no livestock, 120 mm soil water storage, priorities water 3 / soil 4 / income 4 /
+forage 1 / climate 3, with no climate scenario. Its results were calculated by
+Cooper from the cached 1996–2025 NASA POWER and SRTM data. They are fixed demo
+results, not a live analysis of the person messaging. Every model reply gets a
+demo label; the model also receives that distinction as a system instruction.
+
+Demo conversations have their own history, separate from general chat. `/reset`
+and `/forget` clear both histories. Turning the flag off restores context-free
+chat. Changing inputs by message does not recalculate the snapshot. There is
+still no browser/account linking. Rebuild the fixture offline after relevant
+engine/default changes with `python scripts/generate_whatsapp_demo.py` from the
+repository root; it requires the default field's existing NASA cache and fails
+instead of downloading missing data.
+
+Try “What inputs does this example use?”, “Which rotation has the best total
+score?”, “How much soil does continuous soybean lose?”, or “Which option saves
+the most water?”. The normal Jarvis numeric grounding checks still apply.
+
 For a temporary local HTTPS tunnel, run the webhook-only app:
 
 ```powershell
@@ -83,7 +106,8 @@ only for the gateway process to avoid two workers sharing a local queue.
   prototype queue, not a guaranteed-delivery messaging service.
 - Text only: attachments/voice notes get a helpful response. No scheduled or
   unsolicited messages, report playback, 3D visuals, analysis sharing, or analysis
-  execution from WhatsApp in this version. Replies use the same brief Jarvis
+  execution from WhatsApp in this version; the optional fixed demo above is the
+  only analysis context supplied by this adapter. Replies use the same brief Jarvis
   style. A Twilio account and Groq key are required for a live end-to-end test.
 - Twilio/WhatsApp messaging can incur charges. Check your account pricing and
   limits before enabling; no paid account or sender has been created by this work.

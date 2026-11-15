@@ -1,0 +1,673 @@
+{
+  "description": "Frozen Cooper engine output for the website default sample inputs; not synthetic measurements.",
+  "input": {
+    "lat": -32.62,
+    "lon": -57.75,
+    "area_ha": 100,
+    "rotacion_actual": "soja_continua",
+    "tiene_ganado": false,
+    "capacidad_suelo_mm": 120,
+    "prioridades": {
+      "agua": 3,
+      "suelo": 4,
+      "ingreso": 4,
+      "forraje": 1,
+      "clima": 3
+    },
+    "escenario": {
+      "lluvia_pct": 0,
+      "temp_delta": 0
+    }
+  },
+  "context": {
+    "demo": true,
+    "snapshot_id": "young-default-v1",
+    "field": "DEMO: Near Young, Rio Negro (cropland)",
+    "scope": "Fixed example analysis, never the WhatsApp sender's own field. Not a forecast or live data.",
+    "inputs": {
+      "field_size_ha": 100,
+      "has_livestock": false,
+      "soil_water_capacity_mm": 120,
+      "current_rotation": "Continuous soybean",
+      "priorities_0_to_5": {
+        "water": 3,
+        "soil": 4,
+        "income": 4,
+        "forage": 1,
+        "climate": 3
+      },
+      "climate_scenario": "none (historical climate)"
+    },
+    "climate": {
+      "source": "NASA POWER (MERRA-2 / GPM-IMERG), AG community",
+      "period": "1996-2025",
+      "resolution": "~0.5° x 0.625° (~50 km)",
+      "months": "May,Jun,Jul,Aug,Sep,Oct,Nov,Dec,Jan,Feb,Mar,Apr",
+      "rain_mm": [
+        103,
+        79,
+        62,
+        81,
+        97,
+        114,
+        102,
+        121,
+        120,
+        134,
+        113,
+        128
+      ],
+      "et0_mm": [
+        61,
+        46,
+        51,
+        72,
+        97,
+        137,
+        167,
+        195,
+        199,
+        155,
+        135,
+        90
+      ]
+    },
+    "warnings": [],
+    "rotations": [
+      {
+        "role": "current",
+        "id": "soja_continua",
+        "name": "Continuous soybean",
+        "total": 43.6,
+        "scores": {
+          "water": 57,
+          "soil": 24,
+          "income": 57,
+          "forage": 0,
+          "climate": 53
+        },
+        "bare_months": 6.0,
+        "water_use_mm": 770,
+        "deficit_year_mm": {
+          "typical": 221,
+          "dry": 334
+        },
+        "deficit_critical_mm": {
+          "typical": 169,
+          "dry": 268
+        },
+        "erosion_t_ha_yr": 11.05,
+        "calendar": [
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            {
+              "id": "soja",
+              "abrev": "Sb",
+              "nombre": "First-crop soybean",
+              "color": "#7cb342",
+              "critico": false
+            },
+            {
+              "id": "soja",
+              "abrev": "Sb",
+              "nombre": "First-crop soybean",
+              "color": "#7cb342",
+              "critico": false
+            },
+            {
+              "id": "soja",
+              "abrev": "Sb",
+              "nombre": "First-crop soybean",
+              "color": "#7cb342",
+              "critico": true
+            },
+            {
+              "id": "soja",
+              "abrev": "Sb",
+              "nombre": "First-crop soybean",
+              "color": "#7cb342",
+              "critico": true
+            },
+            {
+              "id": "soja",
+              "abrev": "Sb",
+              "nombre": "First-crop soybean",
+              "color": "#7cb342",
+              "critico": false
+            },
+            {
+              "id": "soja",
+              "abrev": "Sb",
+              "nombre": "First-crop soybean",
+              "color": "#7cb342",
+              "critico": false
+            }
+          ]
+        ],
+        "assessment": [
+          {
+            "label": "Forage",
+            "level": "flojo",
+            "explanation": "it produces little forage for livestock",
+            "ideas": [
+              "add a winter forage crop or a pasture for more forage"
+            ]
+          },
+          {
+            "label": "Soil health",
+            "level": "flojo",
+            "explanation": "about 11 tonnes of soil per hectare are lost each year, and the tolerable limit is 7",
+            "ideas": [
+              "keep the soil covered all year, especially on slopes"
+            ]
+          },
+          {
+            "label": "Climate resilience",
+            "level": "medio",
+            "explanation": "in dry years the crops are short of about 268 millimeters of water right at their most sensitive stage",
+            "ideas": [
+              "review the sowing date with an agronomist so flowering doesn't fall in the driest months"
+            ]
+          },
+          {
+            "label": "Water saving",
+            "level": "medio",
+            "explanation": "in a dry year, the crops are short of about 334 millimeters of water",
+            "ideas": [
+              "include crops that handle drought better, such as sorghum"
+            ]
+          },
+          {
+            "label": "Income (indicative)",
+            "level": "medio",
+            "explanation": "it grows only one cash crop a year",
+            "ideas": [
+              "consider a second cash crop in the year, if water and the market allow it"
+            ]
+          }
+        ],
+        "reasons": [
+          "This is the rotation you use today. It's shown as the baseline for comparison."
+        ],
+        "risks": [
+          "Estimated erosion (11.1 t/ha a year) exceeds the reference tolerance: an agronomist should review slope length, terraces or strip cropping.",
+          "In dry years water runs short during critical stages (about 268 mm): review sowing dates, varieties or irrigation."
+        ]
+      },
+      {
+        "role": "alt1",
+        "id": "cebada_sorgo",
+        "name": "Barley/sorghum → oat/soybean",
+        "total": 58.8,
+        "scores": {
+          "water": 41,
+          "soil": 61,
+          "income": 71,
+          "forage": 60,
+          "climate": 57
+        },
+        "bare_months": 1.0,
+        "water_use_mm": 1024,
+        "deficit_year_mm": {
+          "typical": 230,
+          "dry": 357
+        },
+        "deficit_critical_mm": {
+          "typical": 131,
+          "dry": 220
+        },
+        "erosion_t_ha_yr": 7.7,
+        "calendar": [
+          [
+            null,
+            {
+              "id": "cebada",
+              "abrev": "Ba",
+              "nombre": "Barley",
+              "color": "#d4b35f",
+              "critico": false
+            },
+            {
+              "id": "cebada",
+              "abrev": "Ba",
+              "nombre": "Barley",
+              "color": "#d4b35f",
+              "critico": false
+            },
+            {
+              "id": "cebada",
+              "abrev": "Ba",
+              "nombre": "Barley",
+              "color": "#d4b35f",
+              "critico": false
+            },
+            {
+              "id": "cebada",
+              "abrev": "Ba",
+              "nombre": "Barley",
+              "color": "#d4b35f",
+              "critico": false
+            },
+            {
+              "id": "cebada",
+              "abrev": "Ba",
+              "nombre": "Barley",
+              "color": "#d4b35f",
+              "critico": true
+            },
+            {
+              "id": "cebada",
+              "abrev": "Ba",
+              "nombre": "Barley",
+              "color": "#d4b35f",
+              "critico": false
+            },
+            {
+              "id": "sorgo",
+              "abrev": "Sg",
+              "nombre": "Sorghum",
+              "color": "#c75b39",
+              "critico": false
+            },
+            {
+              "id": "sorgo",
+              "abrev": "Sg",
+              "nombre": "Sorghum",
+              "color": "#c75b39",
+              "critico": false
+            },
+            {
+              "id": "sorgo",
+              "abrev": "Sg",
+              "nombre": "Sorghum",
+              "color": "#c75b39",
+              "critico": true
+            },
+            {
+              "id": "sorgo",
+              "abrev": "Sg",
+              "nombre": "Sorghum",
+              "color": "#c75b39",
+              "critico": false
+            },
+            {
+              "id": "sorgo",
+              "abrev": "Sg",
+              "nombre": "Sorghum",
+              "color": "#c75b39",
+              "critico": false
+            }
+          ],
+          [
+            {
+              "id": "avena_negra",
+              "abrev": "Oa",
+              "nombre": "Black oat (cover crop)",
+              "color": "#2e7d32",
+              "critico": false
+            },
+            {
+              "id": "avena_negra",
+              "abrev": "Oa",
+              "nombre": "Black oat (cover crop)",
+              "color": "#2e7d32",
+              "critico": false
+            },
+            {
+              "id": "avena_negra",
+              "abrev": "Oa",
+              "nombre": "Black oat (cover crop)",
+              "color": "#2e7d32",
+              "critico": false
+            },
+            {
+              "id": "avena_negra",
+              "abrev": "Oa",
+              "nombre": "Black oat (cover crop)",
+              "color": "#2e7d32",
+              "critico": false
+            },
+            {
+              "id": "avena_negra",
+              "abrev": "Oa",
+              "nombre": "Black oat (cover crop)",
+              "color": "#2e7d32",
+              "critico": false
+            },
+            null,
+            {
+              "id": "soja",
+              "abrev": "Sb",
+              "nombre": "First-crop soybean",
+              "color": "#7cb342",
+              "critico": false
+            },
+            {
+              "id": "soja",
+              "abrev": "Sb",
+              "nombre": "First-crop soybean",
+              "color": "#7cb342",
+              "critico": false
+            },
+            {
+              "id": "soja",
+              "abrev": "Sb",
+              "nombre": "First-crop soybean",
+              "color": "#7cb342",
+              "critico": true
+            },
+            {
+              "id": "soja",
+              "abrev": "Sb",
+              "nombre": "First-crop soybean",
+              "color": "#7cb342",
+              "critico": true
+            },
+            {
+              "id": "soja",
+              "abrev": "Sb",
+              "nombre": "First-crop soybean",
+              "color": "#7cb342",
+              "critico": false
+            },
+            {
+              "id": "soja",
+              "abrev": "Sb",
+              "nombre": "First-crop soybean",
+              "color": "#7cb342",
+              "critico": false
+            }
+          ]
+        ],
+        "assessment": [
+          {
+            "label": "Income (indicative)",
+            "level": "fuerte",
+            "explanation": "it grows two cash crops a year",
+            "ideas": []
+          },
+          {
+            "label": "Water saving",
+            "level": "medio",
+            "explanation": "in a dry year, the crops are short of about 357 millimeters of water",
+            "ideas": [
+              "include crops that handle drought better, such as sorghum"
+            ]
+          },
+          {
+            "label": "Climate resilience",
+            "level": "medio",
+            "explanation": "in dry years the crops are short of about 220 millimeters of water right at their most sensitive stage",
+            "ideas": [
+              "review the sowing date with an agronomist so flowering doesn't fall in the driest months"
+            ]
+          },
+          {
+            "label": "Forage",
+            "level": "medio",
+            "explanation": "it produces little forage for livestock",
+            "ideas": [
+              "add a winter forage crop or a pasture for more forage"
+            ]
+          },
+          {
+            "label": "Soil health",
+            "level": "medio",
+            "explanation": "about 8 tonnes of soil per hectare are lost each year, and the tolerable limit is 7; on top of that, almost no crop adds nitrogen to the soil",
+            "ideas": [
+              "keep the soil covered all year, especially on slopes"
+            ]
+          }
+        ],
+        "reasons": [
+          "You gave the most weight to: soil health, income (indicative).",
+          "It improves soil health (24→61 points): estimated erosion drops from 11.1 to 7.7 t/ha a year; the field is left without a crop 1 month a year instead of 6 months; it leaves more stubble to build organic matter; it rotates more plant families."
+        ],
+        "risks": [
+          "Estimated erosion (7.7 t/ha a year) exceeds the reference tolerance: an agronomist should review slope length, terraces or strip cropping.",
+          "In dry years water runs short during critical stages (about 220 mm): review sowing dates, varieties or irrigation."
+        ]
+      },
+      {
+        "role": "alt2",
+        "id": "trigo_soja2",
+        "name": "Wheat / second-crop soybean",
+        "total": 57.7,
+        "scores": {
+          "water": 39,
+          "soil": 54,
+          "income": 86,
+          "forage": 20,
+          "climate": 56
+        },
+        "bare_months": 1.0,
+        "water_use_mm": 1053,
+        "deficit_year_mm": {
+          "typical": 235,
+          "dry": 358
+        },
+        "deficit_critical_mm": {
+          "typical": 135,
+          "dry": 227
+        },
+        "erosion_t_ha_yr": 8.1,
+        "calendar": [
+          [
+            null,
+            {
+              "id": "trigo",
+              "abrev": "Wh",
+              "nombre": "Wheat",
+              "color": "#b8860b",
+              "critico": false
+            },
+            {
+              "id": "trigo",
+              "abrev": "Wh",
+              "nombre": "Wheat",
+              "color": "#b8860b",
+              "critico": false
+            },
+            {
+              "id": "trigo",
+              "abrev": "Wh",
+              "nombre": "Wheat",
+              "color": "#b8860b",
+              "critico": false
+            },
+            {
+              "id": "trigo",
+              "abrev": "Wh",
+              "nombre": "Wheat",
+              "color": "#b8860b",
+              "critico": false
+            },
+            {
+              "id": "trigo",
+              "abrev": "Wh",
+              "nombre": "Wheat",
+              "color": "#b8860b",
+              "critico": true
+            },
+            {
+              "id": "trigo",
+              "abrev": "Wh",
+              "nombre": "Wheat",
+              "color": "#b8860b",
+              "critico": false
+            },
+            {
+              "id": "soja2",
+              "abrev": "Sb2",
+              "nombre": "Second-crop soybean",
+              "color": "#aed581",
+              "critico": false
+            },
+            {
+              "id": "soja2",
+              "abrev": "Sb2",
+              "nombre": "Second-crop soybean",
+              "color": "#aed581",
+              "critico": false
+            },
+            {
+              "id": "soja2",
+              "abrev": "Sb2",
+              "nombre": "Second-crop soybean",
+              "color": "#aed581",
+              "critico": true
+            },
+            {
+              "id": "soja2",
+              "abrev": "Sb2",
+              "nombre": "Second-crop soybean",
+              "color": "#aed581",
+              "critico": true
+            },
+            {
+              "id": "soja2",
+              "abrev": "Sb2",
+              "nombre": "Second-crop soybean",
+              "color": "#aed581",
+              "critico": false
+            }
+          ]
+        ],
+        "assessment": [
+          {
+            "label": "Income (indicative)",
+            "level": "fuerte",
+            "explanation": "it grows two cash crops a year",
+            "ideas": []
+          },
+          {
+            "label": "Forage",
+            "level": "flojo",
+            "explanation": "it produces little forage for livestock",
+            "ideas": [
+              "add a winter forage crop or a pasture for more forage"
+            ]
+          },
+          {
+            "label": "Water saving",
+            "level": "flojo",
+            "explanation": "in a dry year, the crops are short of about 358 millimeters of water",
+            "ideas": [
+              "include crops that handle drought better, such as sorghum"
+            ]
+          },
+          {
+            "label": "Soil health",
+            "level": "medio",
+            "explanation": "about 8 tonnes of soil per hectare are lost each year, and the tolerable limit is 7; on top of that, the same crop is repeated year after year, which favors pests and diseases",
+            "ideas": [
+              "keep the soil covered all year, especially on slopes"
+            ]
+          },
+          {
+            "label": "Climate resilience",
+            "level": "medio",
+            "explanation": "in dry years the crops are short of about 227 millimeters of water right at their most sensitive stage",
+            "ideas": [
+              "review the sowing date with an agronomist so flowering doesn't fall in the driest months"
+            ]
+          }
+        ],
+        "reasons": [
+          "You gave the most weight to: soil health, income (indicative).",
+          "It improves soil health (24→54 points): estimated erosion drops from 11.1 to 8.1 t/ha a year; the field is left without a crop 1 month a year instead of 6 months; it leaves more stubble to build organic matter; it rotates more plant families."
+        ],
+        "risks": [
+          "Estimated erosion (8.1 t/ha a year) exceeds the reference tolerance: an agronomist should review slope length, terraces or strip cropping.",
+          "In dry years water runs short during critical stages (about 227 mm): review sowing dates, varieties or irrigation."
+        ]
+      }
+    ],
+    "ranking": [
+      {
+        "name": "Barley/sorghum → oat/soybean",
+        "total": 58.8,
+        "scores": {
+          "water": 41,
+          "soil": 61,
+          "income": 71,
+          "forage": 60,
+          "climate": 57
+        }
+      },
+      {
+        "name": "Wheat / second-crop soybean",
+        "total": 57.7,
+        "scores": {
+          "water": 39,
+          "soil": 54,
+          "income": 86,
+          "forage": 20,
+          "climate": 56
+        }
+      },
+      {
+        "name": "Canola/2nd soybean → oat/maize → barley/2nd soybean",
+        "total": 54.6,
+        "scores": {
+          "water": 38,
+          "soil": 65,
+          "income": 76,
+          "forage": 27,
+          "climate": 38
+        }
+      },
+      {
+        "name": "Wheat/2nd soybean → vetch/maize",
+        "total": 54.3,
+        "scores": {
+          "water": 36,
+          "soil": 74,
+          "income": 71,
+          "forage": 40,
+          "climate": 29
+        }
+      },
+      {
+        "name": "Soybean with a black oat cover crop",
+        "total": 50.1,
+        "scores": {
+          "water": 41,
+          "soil": 52,
+          "income": 57,
+          "forage": 40,
+          "climate": 51
+        }
+      },
+      {
+        "name": "Continuous soybean",
+        "total": 43.6,
+        "scores": {
+          "water": 57,
+          "soil": 24,
+          "income": 57,
+          "forage": 0,
+          "climate": 53
+        }
+      }
+    ],
+    "limitations": "Income is an indicative score, not currency, prices, profit or a yield prediction. Review decisions with an agronomist.",
+    "terrain": {
+      "source": "NASA SRTM",
+      "summary": {
+        "elev_min": 49.0,
+        "elev_max": 70.0,
+        "desnivel_m": 21.0,
+        "pendiente_media_pct": 2.0,
+        "pendiente_max_pct": 4.4,
+        "area_baja_pct": 23
+      },
+      "erosion_tolerance_t_ha_yr": 7.0
+    }
+  }
+}

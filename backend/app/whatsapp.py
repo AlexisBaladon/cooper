@@ -24,6 +24,13 @@ from . import jarvis
 router = APIRouter()
 log = logging.getLogger(__name__)
 EMPTY = '<Response></Response>'
+DEMO_PATH = Path(__file__).resolve().parents[2] / 'data' / 'whatsapp-default-analysis.json'
+
+
+def demo_context():
+    if os.getenv('WHATSAPP_DEMO_ANALYSIS', '').lower() != 'true':
+        return None
+    return json.loads(DEMO_PATH.read_text(encoding='utf-8'))['context']
 
 
 @asynccontextmanager
@@ -124,8 +131,10 @@ def process_one():
             return
         db.execute("UPDATE jobs SET state='processing' WHERE sid=?", (row['sid'],))
     source = row['sender']
+    context = demo_context()
+    session = source + ':young-default-v1' if context else source
     with database() as db:
-        previous = db.execute('SELECT history FROM conversations WHERE sender=? AND updated>?', (source, time.time() - 86400)).fetchone()
+        previous = db.execute('SELECT history FROM conversations WHERE sender=? AND updated>?', (session, time.time() - 86400)).fetchone()
     history = json.loads(previous['history']) if previous else []
     reset = row['body'].lower() in ('/reset', '/forget')
     if reset:
@@ -134,7 +143,11 @@ def process_one():
     else:
         history.append({'role': 'user', 'content': row['body']})
         try:
-            reply = jarvis.chat({'messages': history[-12:], 'context': None})['reply']
+            result = jarvis.chat({'messages': history[-12:], 'context': context})
+            reply = result['reply']
+            if context:
+                label = 'Análisis de demostración (Young): ' if result.get('lang') == 'es' else 'Demo analysis (Young sample): '
+                reply = label + reply
         except Exception:
             # Do not log exception bodies: providers may include message contents.
             reply = 'Jarvis could not answer right now. Please try again shortly.'
@@ -149,10 +162,10 @@ def process_one():
         return
     with database() as db:
         if reset:
-            db.execute('DELETE FROM conversations WHERE sender=?', (source,))
+            db.execute('DELETE FROM conversations WHERE sender IN (?,?)', (source, source + ':young-default-v1'))
         else:
             history.append({'role': 'assistant', 'content': reply})
-            db.execute('INSERT OR REPLACE INTO conversations VALUES(?,?,?)', (source, json.dumps(history[-12:]), time.time()))
+            db.execute('INSERT OR REPLACE INTO conversations VALUES(?,?,?)', (session, json.dumps(history[-12:]), time.time()))
         db.execute("UPDATE jobs SET state='sent',body='' WHERE sid=?", (row['sid'],))
 
 
