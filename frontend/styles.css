@@ -1771,7 +1771,7 @@ img.i3d { filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .28)); will-change: transf
 .an-3d { position: absolute; left: 12px; bottom: 34px; z-index: 500; }
 
 @media (max-width: 1280px) {
-  .home-top { grid-template-columns: 1fr; grid-template-rows: none; }
+  .home-top, .home-top.empty { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
   .home-top > .overall { grid-row: auto; }
   .fz-cols { grid-template-columns: 1fr; }
   .m3d { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) auto; }
