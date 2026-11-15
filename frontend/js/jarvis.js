@@ -24,6 +24,12 @@
     const el = document.createElement("div");
     el.id = "jarvis";
     el.innerHTML = `
+      <button type="button" class="jarvis-fab" data-jarvis-launch aria-label="Open Jarvis" title="Open Jarvis" aria-expanded="false" aria-controls="jv-panel">
+        <span class="jarvis-fab-core" aria-hidden="true"></span>
+        <img class="jarvis-fab-ring outer" src="assets/brand/jarvis-256.webp" width="88" height="88" alt="" aria-hidden="true">
+        <img class="jarvis-fab-ring inner" src="assets/brand/jarvis-256.webp" width="88" height="88" alt="" aria-hidden="true">
+        <svg class="jarvis-fab-arcs" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46"/><circle cx="50" cy="50" r="39"/></svg>
+      </button>
       <section class="jv-panel" id="jv-panel" role="dialog" aria-label="Jarvis assistant" hidden>
         <header class="jv-head">
           <span class="jv-mini jv-brand" aria-hidden="true"><img src="assets/brand/logo-mark.webp" alt=""></span>
@@ -70,7 +76,7 @@
     wrap.setAttribute("aria-modal", "true");
     wrap.setAttribute("role", "dialog");
     wrap.setAttribute("aria-label", C.t("Jarvis assistant"));
-    wrap.innerHTML = '<iframe title="Jarvis" src="jarvis/index.html?v=orbital1" allow="microphone; camera; autoplay"></iframe>';
+    wrap.innerHTML = '<iframe title="Jarvis" src="jarvis/index.html?v=orbital2" allow="microphone; camera; autoplay"></iframe>';
     document.body.appendChild(wrap);
     const frame = wrap.firstChild;
     S.full = { wrap, frame, prevFocus: document.activeElement };

@@ -25,12 +25,13 @@ including the ignored `.env` file in the snapshot.
 ## Orbital comparison
 
 This version restores the original scene's Three.js orbital rings, star particles
-and voice bars inside the dedicated 3D pane. The scene uses a space background;
+and voice bars inside the dedicated 3D pane. The scene uses a space background.
+A floating Jarvis launcher is also available on the orbital version.
 Cooper's compact header, navigation, fonts, theme-aware panels and Back to Cooper
 button remain. Chat body text is 14 px, below the 18 px heading.
 
-The globe leaves space for the orbital frame, and the chat stays outside the
-renderer viewport. Continuous ring and star motion pauses with reduced-motion
+The globe leaves space for the orbital rings. An animated light frame follows the
+rectangular scene boundary, while the chat stays outside the renderer viewport. Continuous ring and star motion pauses with reduced-motion
 preferences. The agricultural version remains available on its own branch.
 
 ## Returning to either design

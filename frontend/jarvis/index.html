@@ -120,12 +120,12 @@
   body.embed .close-embed:hover { background: rgba(79, 216, 255, 0.22); box-shadow: 0 0 14px rgba(79, 216, 255, 0.45); }
   .boot { position: fixed; inset: 0; z-index: 4; display: grid; place-items: center; pointer-events: none; font-size: 13px; letter-spacing: 0.4em; color: var(--c); text-shadow: 0 0 10px var(--c); }
 </style>
-<link rel="stylesheet" href="theme.css?v=orbital1">
+<link rel="stylesheet" href="theme.css?v=orbital2">
 </head>
 <body>
 <div class="scan"></div>
 <div class="vignette"></div>
-<section id="scene-region" class="scene-region" aria-label="Interactive field visualization"><div id="globe"></div><div class="vlabel" id="vlabel"></div></section>
+<section id="scene-region" class="scene-region" aria-label="Interactive field visualization"><div class="scene-frame-corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div id="globe"></div><div class="vlabel" id="vlabel"></div></section>
 <div id="hand-cursor"></div>
 <canvas id="hand-preview" width="192" height="144" hidden></canvas>
 <div class="boot" id="boot"></div>

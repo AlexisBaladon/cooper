@@ -955,17 +955,33 @@ body.has-dialog { overflow: hidden; }
   .card { box-shadow: none; break-inside: avoid; }
 }
 
-/* Jarvis a pantalla completa: el orbe se expande (clip-path circular) y adentro carga frontend/jarvis/. */
+/* Jarvis workspace: the fullscreen scene opens from either launcher. */
 .jv-full { position: fixed; inset: 0; z-index: 4000; background: #08100b; }
 .jv-full iframe { display: block; width: 100%; height: 100%; border: 0; background: #08100b; }
 html.jv-full-open, html.jv-full-open body { overflow: hidden; }
 
-/* Jarvis belongs to Cooper's navigation, without a floating animated orb. */
+/* Both navigation and the floating orb open the same Jarvis session. */
 .jarvis-launch { width: 100%; border: 0; background: transparent; font-family: inherit; text-align: left; cursor: pointer; }
 .jarvis-launch[aria-expanded="true"] { color: white; background: var(--side-3); }
+.jarvis-fab { position: relative; width: 88px; height: 88px; padding: 0; border: 0; border-radius: 50%; background: #071a1c; cursor: pointer; box-shadow: 0 0 0 1px #73dedb40, 0 0 30px #58d8c82b, 0 10px 30px #0005; transition: transform .25s var(--ease), box-shadow .25s; }
+.jarvis-fab:hover { transform: translateY(-4px) scale(1.05); box-shadow: 0 0 0 1px #93f1df90, 0 0 45px #58d8c850, 0 15px 35px #0006; }
+.jarvis-fab:active { transform: scale(.96); }
+.jarvis-fab-core { position: absolute; inset: 31%; border-radius: 50%; background: radial-gradient(circle, #ddfff2, #59dec9 28%, #17525e 60%, transparent 75%); box-shadow: 0 0 22px #58d8c890; animation: jarvis-core-breathe 3s ease-in-out infinite alternate; }
+.jarvis-fab-ring { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; filter: hue-rotate(-30deg) drop-shadow(0 0 3px #73dedb90); }
+.jarvis-fab-ring.outer { animation: spin 24s linear infinite; }
+.jarvis-fab-ring.inner { inset: 17%; width: 66%; height: 66%; opacity: .7; animation: spin 16s linear infinite reverse; }
+.jarvis-fab-arcs { position: absolute; inset: -5%; width: 110%; height: 110%; pointer-events: none; animation: spin 32s linear infinite reverse; }
+.jarvis-fab-arcs circle { fill: none; stroke: #9debd480; stroke-width: .8; stroke-dasharray: 12 30; }
+.jarvis-fab-arcs circle + circle { stroke-dasharray: 2 8; opacity: .5; }
+@keyframes jarvis-core-breathe { from { opacity: .65; scale: .94; } to { opacity: 1; scale: 1.06; } }
+html.jv-full-open #jarvis { visibility: hidden; }
+html.reduce-motion .jarvis-fab *, html.reduce-motion .jarvis-fab { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) { .jarvis-fab *, .jarvis-fab { animation: none !important; transition: none !important; } }
 .jv-brand { background: var(--brand-soft); box-shadow: none; border-radius: 10px; }
 .jv-brand img { width: 30px; height: 24px; object-fit: contain; animation: none; filter: none; }
 @media (max-width: 900px) {
+  .jarvis-fab { width: 72px; height: 72px; }
+  #jarvis .jv-panel { bottom: 172px; height: min(70dvh, calc(100dvh - 192px)); }
   .bottom-nav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .bottom-nav .jarvis-launch { width: auto; height: auto; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 2px; font-size: .72rem; font-weight: 400; color: var(--side-muted); }
   .bottom-nav .jarvis-launch .ic { width: 22px; height: 22px; }
