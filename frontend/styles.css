@@ -2289,3 +2289,8 @@ html, body { overflow-x: clip; }
 .choice.lit:not(.on)::after { border-radius: 20px; }
 .st-gauge { height: auto; align-items: center; }
 .st-gauge i, .st-gauge i:nth-child(1), .st-gauge i:nth-child(2), .st-gauge i:nth-child(3) { width: 26px; height: 7px; border-radius: 4px; }
+/* rotation cards: a visible "open large" button */
+.rot-head { align-items: center; }
+.rot-zoom { margin-left: auto; width: 34px; height: 34px; flex: none; }
+.rot-zoom .ic { width: 17px; height: 17px; }
+.rot.card:hover .rot-zoom { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 50%, var(--line)); }
