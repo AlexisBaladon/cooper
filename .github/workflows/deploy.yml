@@ -53,6 +53,8 @@ jobs:
           done
           node --test frontend/tests/workflow.test.cjs
           node --test frontend/tests/language.test.cjs
+          node --test frontend/tests/slides.test.cjs
+          node --check --input-type=module < frontend/slides3d.js
           python scripts/check_frontend_scripts.py
       - name: Validate deployment scripts and package release
         run: |

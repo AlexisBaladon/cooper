@@ -57,7 +57,7 @@ requests. Server-side API keys and the NASA cache persist outside application re
    - **strengths and weaknesses** of each rotation: every score rated good, fair or weak,
      the reason behind it, and up to two ideas to improve each weak point;
    - a scenario slider to recalculate everything with less rain or more heat.
-4. **Explain it simply** opens a one-minute narrated summary over a 3D model of the field:
+4. **Explain it simply** opens a narrated summary over a 3D model of the field, built from templates chosen by the field's data:
    its real SRTM terrain, crops changing month by month, soil colored by erosion and soil
    washing downhill, followed by the climate, the diagnosis, a better option and what to
    check with an agronomist. There's also a version with simple 2D charts. The narration is

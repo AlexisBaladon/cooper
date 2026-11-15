@@ -280,9 +280,29 @@ there are no user accounts on the server yet.
 
 ### "Explain it simply" (`slides.html` and `slides-3d.html`)
 
-An eight-slide narrated presentation for someone with no technical background:
-introduction, climate, how it changed, the current rotation, strengths and weaknesses, a
-better option, what to check, and closing.
+A narrated presentation for someone with no technical background. It is built from a
+**library of templates** (`slides.js`): the fixed ones always tell the same story, and the
+optional ones are added only when the field's data call for them, so two fields get
+different explanations.
+
+**Fixed:** introduction, climate, how it changed, the current rotation, strengths and
+weaknesses, a better option, what to check, and closing.
+
+**Optional** (each computes a relevance from 0 to 1 with written rules; the three most
+relevant ones above 0.3 are shown, placed where they fit the story):
+
+| Template | It appears when | What it shows (all from the analysis) |
+|---|---|---|
+| The soil as a water tank | Crops run short of water in a dry year | NASA POWER root-zone moisture month by month, and the crops' deficit in an average and a dry year |
+| Heat or frost at the worst moment | Critical crop stages meet very hot days or frost | Hot and frost-risk days in the critical stages, today and with the option |
+| Where the field loses soil | The field has relief and part of it exceeds the tolerable loss | Height difference, slopes, low spots, and the share of the field above tolerance |
+| Why covered soil matters | The option leaves the soil bare at least two months less | The same field split in two under the same rain: bare (today's erosion) and covered (the option's) |
+| The work roots do underground | The engine found nitrogen-fixing or deep-rooted crops in the option | A soil cutaway with only the contributions the engine listed |
+| A second option | The second alternative scores close to the first | Its calendar and the scores where it does better and worse |
+
+No AI chooses the templates or computes anything: `plan()` in `slides.js` returns each
+one's relevance and whether it is shown (`?templates=terreno,otra` forces a list, to review
+them). The story has at most 11 slides.
 
 - On Home it plays in a video-style player: it expands over a blurred interface, has a
   progress bar with chapters, ±10 seconds, volume, captions and full screen, and it can
@@ -296,7 +316,9 @@ better option, what to check, and closing.
 - The 3D version (`slides3d.js`, with Three.js) shows a model of the field: the terrain is
   the SRTM terrain, the soil color is each zone's erosion, plants change month by month
   with the calendar, and the amount of soil washing downhill is proportional to the tonnes
-  lost. The landscape beyond the fence is decorative.
+  lost. The landscape beyond the fence is decorative. The optional templates add a soil
+  cutaway whose water level is the month's root-zone moisture, the split field, a cutaway
+  with roots, and hot or frosty skies.
 
 ### Narration rewritten with Groq
 
