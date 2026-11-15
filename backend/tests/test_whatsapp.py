@@ -25,7 +25,7 @@ def client(monkeypatch, tmp_path):
     for key, value in {
         'WHATSAPP_ENABLED': 'true', 'TWILIO_AUTH_TOKEN': 'test-token',
         'TWILIO_ACCOUNT_SID': 'ACtest', 'TWILIO_WHATSAPP_FROM': TO,
-        'TWILIO_WHATSAPP_WEBHOOK_URL': URL, 'WHATSAPP_ALLOWED_SENDERS': FROM,
+        'TWILIO_WHATSAPP_WEBHOOK_URL': URL,
         'WHATSAPP_DB_PATH': str(tmp_path / 'messages.sqlite3'),
     }.items():
         monkeypatch.setenv(key, value)
@@ -48,10 +48,11 @@ def test_disabled_and_bad_signatures(client, monkeypatch):
 def test_signed_dedup_and_access(client):
     assert send(client).text == whatsapp.EMPTY
     assert send(client).status_code == 200
-    assert send(client, From='whatsapp:+15551234567').status_code == 403
-    assert send(client, AccountSid='ACother').status_code == 403
+    assert send(client, sid='SMother', From='whatsapp:+15551234567').text == whatsapp.EMPTY  # any number may write
+    assert send(client, sid='SMbad', From='+15551234567').status_code == 400
+    assert send(client, sid='SMacct', AccountSid='ACother').status_code == 403
     with whatsapp.database() as db:
-        assert db.execute('SELECT count(*) FROM jobs').fetchone()[0] == 1
+        assert db.execute('SELECT count(*) FROM jobs').fetchone()[0] == 2
 
 
 def test_media_length_and_rate_limit(client):
