@@ -1496,3 +1496,27 @@ html.sb-collapsed .nav-item .nav-ic { position: static; width: 40px; height: 40p
 
 .rotations .calendar-scroll { min-height: calc(34px + var(--cal-rows, 1) * 33px + 14px); }
 .rotations .kpis { grid-auto-rows: 1fr; }
+
+/* v4: spacing between every card, calendars that fit, system scrollbars, editor status */
+#an-body > *, .h-results > * { margin-bottom: var(--gap); }
+#an-body > section:not(.card) > .rotations, .h-results > section:not(.card) > .rotations { margin-bottom: 0; }
+.rotations { margin-bottom: var(--gap); }
+.rot .calendar-scroll { overflow-x: auto; }
+.rot .cal-table { min-width: 0; table-layout: fixed; font-size: .68rem; border-spacing: 2px; }
+.rot .cal-table th { padding: 2px 0; font-size: .64rem; }
+.rot .cal-table th:first-child { width: 26px; }
+.rot .cal-table td { min-width: 0; padding: 5px 0; font-size: .66rem; letter-spacing: -.02em; }
+.rotations .calendar-scroll { min-height: calc(28px + var(--cal-rows, 1) * 29px + 10px); }
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text) 22%, transparent) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text) 20%, transparent); border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--text) 34%, transparent); }
+.calendar-scroll::-webkit-scrollbar { height: 8px; }
+.calendar-scroll { border-radius: 14px; border-color: var(--glass-line); background: var(--glass-2); padding: 4px; }
+.calendar-scroll .cal-table { background: transparent; }
+.wz-status { display: inline-flex; align-items: center; gap: 8px; font-size: .86rem; color: var(--text-2); padding: .4rem .8rem; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--glass-line); }
+.wz-status .ic { width: 18px; height: 18px; color: var(--brand); }
+.wz-status .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line-2); border-top-color: var(--brand); animation: spin .8s linear infinite; }
+.wz-status.done { color: var(--brand); }
+#player-shell .ps-video iframe { position: absolute; inset: auto; }

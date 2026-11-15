@@ -56,6 +56,17 @@
       </div>`;
     document.body.append(back, el);
     S.shell = el; S.frame = $("iframe", el); S.back = back;
+    // The explanation is laid out once at 1280×720 and scaled to the player, so the
+    // mini window shows the same picture in small instead of squeezing it.
+    const fit = () => {
+      const box = $(".ps-video", el), w = box.clientWidth, h = box.clientHeight;
+      if (!w || !h) return;
+      const k = Math.min(w / 1280, h / 720);
+      Object.assign(S.frame.style, { width: "1280px", height: "720px", left: (w - 1280 * k) / 2 + "px", top: (h - 720 * k) / 2 + "px",
+        transform: `scale(${k})`, transformOrigin: "0 0" });
+    };
+    new ResizeObserver(fit).observe($(".ps-video", el));
+    S.fit = fit;
     el.addEventListener("click", onClick);
     back.addEventListener("click", () => setMode("mini"));
     const vol = $(".ps-vol input", el);

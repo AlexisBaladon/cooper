@@ -99,6 +99,7 @@
             <button type="button" class="btn ghost" id="wz-back" hidden>${icon("right", "flip-x")}<span>Back</span></button>
             <span class="wz-count" id="wz-count">Step 1 of 4</span>
             <button type="button" class="btn primary" id="wz-next"><span>Next</span>${icon("right")}</button>
+            <span class="wz-status" id="wz-status" role="status" hidden></span>
             <button id="an-run" class="btn primary lg" type="button" disabled hidden>Loading crop options…</button>
           </footer>
         </section>
@@ -154,7 +155,7 @@
     }
     $("#wz-back").hidden = n === 0;
     $("#wz-next").hidden = n === 3;
-    $("#an-run").hidden = n !== 3;
+    $("#an-run").hidden = n !== 3 && !S.editing;
     $("#wz-count").textContent = `${C.t("Step")} ${n + 1} ${C.t("of")} 4`;
     if (n === 0) setTimeout(() => S.map?.invalidateSize(), 60);
     if (focus) setTimeout(() => (to.querySelector(".choice[aria-checked=true], select, input[type=range], .choice, button") || to).focus?.({ preventScroll: true }), 300);
@@ -191,6 +192,29 @@
     radio("#an-live-cards", (v) => { $("#an-livestock").checked = v === "1"; });
     radio("#an-soil-cards", (v) => { $("#an-soil").value = v; });
     $("#an-area-pills").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; $("#an-area").value = b.dataset.v; syncChoices(); updateRect(); markChanged(); });
+  }
+
+  /* Editing an existing analysis: every change updates the results below, the editor stays open. */
+  function startEditing() {
+    S.editing = true;
+    foldWizard(false); goStep(0, false);
+    $("#an-run").hidden = false; $("#an-run").disabled = false; $("#an-run").textContent = C.t("Done");
+    setStatus("");
+  }
+  function stopEditing() {
+    S.editing = false;
+    setStatus("");
+    $("#an-run").textContent = C.t("Analyze my field");
+    $("#an-run").hidden = S.step !== 3;
+    foldWizard(true);
+  }
+  function setStatus(kind) {
+    const el = $("#wz-status");
+    if (!el) return;
+    el.hidden = !kind;
+    el.className = `wz-status ${kind}`;
+    el.innerHTML = kind === "busy" ? `<i class="spin"></i>${esc(C.t("Updating the analysis with your changes…"))}`
+      : kind === "done" ? `${icon("check")}${esc(C.t("Analysis updated below"))}` : "";
   }
 
   /* After an analysis the wizard folds into a one-line summary; "Edit settings" brings it back. */
@@ -319,7 +343,9 @@
     C.motion.reveal($("#an-loading"), { y: 10 });
   }
 
-  async function run() {
+  async function run(fromButton) {
+    // While editing an analysis, the main button just closes the editor once results are up to date.
+    if (fromButton === true && S.editing && current()) { stopEditing(); return; }
     if (S.queue.active) { S.queue.queued = true; return; }
     const body = readRequest();
     try { CooperWorkflow.validate(body); } catch (err) { showError(err.message); return; }
@@ -331,7 +357,8 @@
     const context = { field: field.nombre, generatedAt: new Date().toISOString() };
     $("#an-error").hidden = true;
     const first = !S.rec;
-    foldWizard(true);
+    if (!S.editing) foldWizard(true);
+    else setStatus("busy");
     if (first) showLoading(true); else $("#an-results").classList.add("is-busy");
     $("#an-run").disabled = true; $("#an-run").textContent = C.t("Comparing rotations…");
     $("#an-results").setAttribute("aria-busy", "true");
@@ -353,7 +380,8 @@
     } finally {
       showLoading(false);
       $("#an-results").classList.remove("is-busy");
-      $("#an-run").disabled = false; $("#an-run").textContent = C.t("Analyze my field");
+      $("#an-run").disabled = false; $("#an-run").textContent = C.t(S.editing ? "Done" : "Analyze my field");
+      if (S.editing && S.queue && !S.queue.queued) setStatus(current() ? "done" : "");
       $("#an-results").setAttribute("aria-busy", "false");
       if (S.queue.finish()) setTimeout(run, 500);
     }
@@ -377,7 +405,7 @@
       bindScenario();
     }
     updateStale();
-    foldWizard(true, live);
+    if (!S.editing) foldWizard(true, live);
     if (live) C.motion.reveal($("#an-bar"), { y: 8 });
   }
 
@@ -416,9 +444,10 @@
     clearTimeout(S.autoTimer);
     const g = C.motion.gsap, body = $("#an-results");
     const done = () => {
-      S.rec = null; S.ctl?.destroy(); S.ctl = null;
+      S.rec = null; S.ctl?.destroy(); S.ctl = null; S.editing = false; setStatus("");
       $("#an-bar").hidden = true; $("#an-stale").hidden = true; $("#an-error").hidden = true;
       $("#an-summary").hidden = true; $("#an-wizard").hidden = false;
+      $("#an-run").textContent = C.t("Analyze my field");
       body.style.opacity = "";
       const f = C.fields.get(S.fieldId);
       if (f) fillForm(f);
@@ -471,7 +500,7 @@
     $$(".wz-step", root).forEach((b) => b.addEventListener("click", () => goStep(Number(b.dataset.step))));
     $("#wz-next").addEventListener("click", () => goStep(S.step + 1));
     $("#wz-back").addEventListener("click", () => goStep(S.step - 1));
-    $("#an-edit").addEventListener("click", () => { foldWizard(false); goStep(0, false); });
+    $("#an-edit").addEventListener("click", () => { startEditing(); });
     $("#an-priorities").innerHTML = Object.entries(C.PRIORITY_HINTS).map(([k, label]) => `
       <div class="prio" style="--c:var(${C.SCORES[k].color})">
         <span class="prio-ic">${icon(C.SCORES[k].icon)}</span>
@@ -514,7 +543,7 @@
         rotacion_actual: d.rotacion, tiene_ganado: d.tiene_ganado, capacidad_suelo_mm: 120, prioridades: { ...C.DEFAULT_PRIORITIES } });
       C.fields.setActive(id);
     });
-    $("#an-run").addEventListener("click", run);
+    $("#an-run").addEventListener("click", () => run(true));
     $("#an-save").addEventListener("click", save);
     $("#an-pdf").addEventListener("click", () => S.rec && C.exporter.pdf(S.rec, S.ctl));
     $("#an-explain").addEventListener("click", () => S.rec && C.player.open(S.rec, $("#an-explain")));
@@ -537,11 +566,12 @@
     const sameField = S.fieldId === field.id;
     fillForm(field);
     if (sameField && S.rec) { updateStale(); return; }
-    S.rec = null; S.ctl?.destroy(); S.ctl = null;
+    S.rec = null; S.ctl?.destroy(); S.ctl = null; S.editing = false; setStatus("");
+    $("#an-run").textContent = C.t("Analyze my field");
     $("#an-bar").hidden = true; $("#an-stale").hidden = true; $("#an-error").hidden = true;
     $("#an-summary").hidden = true; $("#an-wizard").hidden = false;
     const draft = await C.db.get("drafts", field.id);
-    if (draft && C.fields.activeId() === field.id && clearedIds()[field.id] !== draft.id) showResult(draft, false);
+    if (draft && !draft.saved && C.fields.activeId() === field.id && clearedIds()[field.id] !== draft.id) showResult(draft, false);
     else goStep(0, false);
   }
 
