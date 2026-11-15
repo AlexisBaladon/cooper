@@ -822,7 +822,9 @@ class Player {
     this.i = 0;
     this.sentence = 0;
     this.playing = false;
-    this.voiceOn = "speechSynthesis" in window;
+    this.browserVoice = "speechSynthesis" in window;
+    this.voiceOn = this.browserVoice || !!window.CooperVoice;
+    this.audio = null; // the ElevenLabs sentence being played, if any
     this.token = 0;
     this.rate = 1;
     this.volume = 1;
@@ -836,14 +838,14 @@ class Player {
     this.subhead = root.querySelector(".subhead");
     this.dots = root.querySelector(".dots");
     this.pickVoice();
-    if (this.voiceOn) speechSynthesis.onvoiceschanged = () => this.pickVoice();
+    if (this.browserVoice) speechSynthesis.onvoiceschanged = () => this.pickVoice();
     this.dots.innerHTML = slides.map((s, k) => `<button aria-label="Go to slide ${k + 1}" data-k="${k}"></button>`).join("");
     this.dots.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) this.go(Number(b.dataset.k)); });
     this.show(0);
   }
 
   pickVoice() {
-    if (!this.voiceOn) return;
+    if (!this.browserVoice) return;
     // Voz en inglés (la UI y la narración están en inglés).
     const vs = speechSynthesis.getVoices().filter((v) => v.lang && v.lang.toLowerCase().startsWith(window.CooperLang?.current || "en"));
     const pref = window.CooperLang?.current === "es" ? ["es-uy", "es-ar", "es-es", "es-mx"] : ["en-us", "en-gb", "en-au", "en-ca", "en-ie", "en-in"];
@@ -885,10 +887,64 @@ class Player {
   /* Speaks one sentence. The timeline is the master clock: the voice follows it, and it
      never holds the clock more than 2.5 s past the sentence's estimated length. Chrome does
      not stop the previous sentence at once after cancel(), so the next one waits a moment. */
-  say(text, my) {
-    const words = text.split(/\s+/).length;
+  async say(text, my) {
+    const t0 = performance.now();
     const estMs = this.estimate(text) * 1000;
-    if (!this.voiceOn || !this.voice) return new Promise((r) => setTimeout(r, estMs));
+    if (!this.voiceOn) return new Promise((r) => setTimeout(r, estMs));
+    if (await this.sayCloud(text, my)) return;
+    if (my !== undefined && (my !== this.token || !this.playing)) return;
+    const left = Math.max(0, estMs - (performance.now() - t0));
+    if (!this.browserVoice || !this.voice) return new Promise((r) => setTimeout(r, left));
+    return this.sayBrowser(text, my, estMs);
+  }
+
+  /* Starts fetching the voice of a slide before it is needed, so sentences follow without gaps. */
+  preload(i) {
+    const V = window.CooperVoice, s = this.slides[i];
+    if (!V || !s || !this.voiceOn) return;
+    s.narration.forEach((t) => V.get(t, window.CooperLang?.current || "en"));
+  }
+
+  /* The server's voice (ElevenLabs). Resolves false when there is none for this sentence, so
+     the browser's voice says it instead. */
+  async sayCloud(text, my) {
+    const V = window.CooperVoice;
+    if (!V || !V.available()) return false;
+    const url = await V.within(text, window.CooperLang?.current || "en", 4000);
+    if (!url) return false;
+    if (my !== undefined && (my !== this.token || !this.playing)) return true;
+    const words = text.split(/\s+/).length;
+    return new Promise((resolve) => {
+      const a = new Audio(url);
+      let done = false, started = 0;
+      const finish = (ok) => {
+        if (done) return;
+        done = true; clearTimeout(guard);
+        if (this.audio === a) this.audio = null;
+        a.pause();
+        resolve(ok);
+      };
+      const guard = setTimeout(() => finish(true), 45000);
+      a.playbackRate = this.rate;
+      a.preservesPitch = true;
+      a.volume = this.volume;
+      a.onplaying = () => { if (!started) { started = performance.now(); if (this.playing && this.clock.startedAt) this.clock.startedAt = started; } };
+      a.onended = () => {
+        const dur = (performance.now() - started) / 1000;
+        if (started && dur > 0.8) this.wps = Math.min(4.2, Math.max(1.6, 0.65 * this.wps + 0.35 * (words / (dur * this.rate))));
+        finish(true);
+      };
+      a.onerror = () => finish(!!started);
+      a.stop = () => finish(true);
+      this.audio = a;
+      a.play().catch(() => finish(false)); // blocked until the first click: the browser's voice tries
+    });
+  }
+
+  stopAudio() { if (this.audio) this.audio.stop(); }
+
+  sayBrowser(text, my, estMs) {
+    const words = text.split(/\s+/).length;
     return new Promise((resolve) => {
       let done = false, started = 0;
       const finish = (ok) => {
@@ -926,6 +982,8 @@ class Player {
     const alive = () => my === this.token && this.playing;
     while (alive()) {
       const s = this.slides[this.i];
+      this.preload(this.i);
+      this.preload(this.i + 1);
       for (let k = this.sentence; k < s.narration.length; k++) {
         if (!alive()) return;
         this.sentence = k;
@@ -966,7 +1024,8 @@ class Player {
     const t = this.currentTime();
     this.playing = false;
     this.token++;
-    if (this.voiceOn) speechSynthesis.cancel();
+    this.stopAudio();
+    if (this.browserVoice) speechSynthesis.cancel();
     this.root.classList.remove("is-playing");
     // Al reanudar se repite la frase actual desde su inicio.
     const seg = this.segmentAt(this.i, this.sentence);
@@ -1026,6 +1085,7 @@ class Player {
 
   setVolume(v) {
     this.volume = Math.max(0, Math.min(1, v));
+    if (this.audio) this.audio.volume = this.volume;
     this.emit();
   }
 
@@ -1048,7 +1108,7 @@ class Player {
   setVoiceEnabled(on) {
     const wasPlaying = this.playing;
     this.pause();
-    this.voiceOn = on && "speechSynthesis" in window;
+    this.voiceOn = on && (this.browserVoice || !!window.CooperVoice);
     if (wasPlaying) this.play();
   }
 }

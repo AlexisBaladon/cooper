@@ -17,12 +17,12 @@ from pathlib import Path
 from typing import Literal
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import assistant, climate, engine, jarvis, narrator, power, soil, terrain, weather
+from . import assistant, climate, engine, jarvis, narrator, power, soil, terrain, voice, weather
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -206,6 +206,24 @@ async def jarvis_translate(request: Request) -> dict:
         return await run_in_threadpool(jarvis.translate, data)
     except assistant.AssistantError as exc:
         raise HTTPException(exc.status, str(exc)) from exc
+
+
+class VoiceRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=voice.MAX_CHARS)
+    lang: Literal["en", "es", "pt"] = "en"
+    speaker: Literal["narrator", "jarvis"] = "narrator"
+
+
+@app.post("/api/voice")
+def speak(req: VoiceRequest) -> Response:
+    """Texto → audio MP3 (ElevenLabs). 503 si no está disponible: la página usa la voz del navegador."""
+    try:
+        audio = voice.speak(req.text, req.lang, req.speaker)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except voice.VoiceError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return Response(audio, media_type="audio/mpeg", headers={"Cache-Control": "private, max-age=86400"})
 
 
 @app.get("/api/catalog")

@@ -308,8 +308,9 @@ them). The story has at most 11 slides.
   progress bar with chapters, ±10 seconds, volume, captions and full screen, and it can
   keep playing in a small window while the farmer uses the rest of the app. The player
   drives the same narration engine (`slides.js`) through its timeline API.
-- The base texts come from templates (`slides.js`). The voice is the browser's English
-  voice.
+- The base texts come from templates (`slides.js`). The voice comes from ElevenLabs
+  (`/api/voice`, `voice.py`, one sentence per request, saved on the server once generated);
+  without a key or a connection, the browser's own voice is used.
 - It uses the last analysis run on the main screen, which is saved in the browser. If
   there is none, it uses a real example from the field near Young (`slides-sample.js`,
   built with `scripts/make_slides_sample.py`).

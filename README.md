@@ -124,6 +124,15 @@ falls back to templates and the chat explains that it isn't set up.
 `backend/.env` is ignored by git; never commit it. Groq receives the slides' text, the chat
 questions, voice notes and a summary of the analysis, never coordinates.
 
+### Optional: spoken voice (ElevenLabs)
+
+"Explain it simply" and full-screen Jarvis speak with an ElevenLabs voice when
+`ELEVENLABS_API_KEY` is set in `backend/.env` (a key with the *Text to Speech* permission is
+enough). The server asks for one sentence at a time (`POST /api/voice`) and keeps every
+sentence it has already generated in `data/cache/voice`, so replaying an explanation spends
+no credit. Without the key, without credit or without a connection, the browser's own voice
+is used instead. ElevenLabs receives only the sentences to be spoken.
+
 Groq's free tier allows about 8,000 tokens per minute; each chat question uses roughly 2,500.
 If several questions arrive at once, Cooper waits a few seconds and retries before showing a
 "busy" message.
@@ -157,6 +166,7 @@ backend/app/engine.py    water balance, indicators, scores and explanations
 backend/app/terrain.py   SRTM elevation, slope, water flow, RUSLE erosion and field zones
 backend/app/narrator.py  narration rewriting with Groq, with number checks
 backend/app/assistant.py "Ask Cooper" chat and voice-note transcription (Groq)
+backend/app/voice.py     spoken voice with ElevenLabs, saved per sentence
 backend/app/main.py      API (/api/catalog, /api/analyze, /api/narrate, /api/chat, /api/transcribe) and web server
 backend/tests/           tests with synthetic data and a simulated Groq
 backend/.env.example     template for the Groq key

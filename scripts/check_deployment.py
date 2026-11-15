@@ -64,6 +64,10 @@ def main() -> None:
         code, _ = request(path, body)
         assert code == expected, (code, path)
         checks[f"{path}_validation"] = code
+    # Voz: la ruta llega al backend, que rechaza un texto vacío sin llamar a ElevenLabs.
+    code, _ = request("/api/voice", b'{"text": ""}')
+    assert code == 422, (code, "voice route")
+    checks["speech_request_validation"] = code
     if args.analyze_sample:
         field = catalog["campos_demo"][0]
         body = json.dumps({"lat": field["lat"], "lon": field["lon"], "rotacion_actual": field["rotacion"], "tiene_ganado": field["tiene_ganado"]}).encode()

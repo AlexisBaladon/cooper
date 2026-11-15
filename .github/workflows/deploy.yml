@@ -48,6 +48,7 @@ jobs:
           node --check frontend/language.js
           node --check frontend/translations-es.js
           node --check frontend/slides.js
+          node --check frontend/voice.js
           for f in frontend/js/*.js; do
             if [ "$f" = "frontend/js/relief.js" ] || [ "$f" = "frontend/js/map3d.js" ]; then node --check --input-type=module < "$f"; else node --check "$f"; fi
           done

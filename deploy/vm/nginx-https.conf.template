@@ -12,6 +12,8 @@ limit_req_zone $server_addr zone=nasa_chat_global:1m rate=25r/m;
 limit_req_zone $binary_remote_addr zone=nasa_voice_ip:1m rate=5r/m;
 limit_req_zone $server_addr zone=nasa_voice_global:1m rate=15r/m;
 limit_conn_zone $server_addr zone=nasa_assistant_connections:1m;
+limit_req_zone $binary_remote_addr zone=nasa_speech_ip:1m rate=40r/m;
+limit_req_zone $server_addr zone=nasa_speech_global:1m rate=120r/m;
 
 # The explanation modal embeds these pages on Cooper's own origin only.
 map $uri $nasa_frame_options {
