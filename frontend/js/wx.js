@@ -185,26 +185,25 @@
     setTimeout(() => $(".wx-close", wrap)?.focus(), 60);
   }
 
+  /* Expanded view: the photograph stays still, except real weather: rain or snow when it
+     rains or snows, a lightning flash in storms, and stars only in the night sky. */
   function heroFx(cv, kind, isDay) {
     if (!cv || C.reducedMotion()) return null;
+    const mode = ["rain", "drizzle", "storm"].includes(kind) ? "rain" : kind === "snow" ? "snow" : !isDay ? "stars" : null;
+    if (!mode) return null;
     const ctx = cv.getContext("2d");
     const dpr = Math.min(2, devicePixelRatio || 1);
     let raf = 0, alive = true;
-    const fit = () => { cv.width = cv.clientWidth * dpr; cv.height = cv.clientHeight * dpr; };
-    fit();
-    const mode = ["rain", "drizzle", "storm"].includes(kind) ? "rain" : kind === "snow" ? "snow" : !isDay ? "stars" : kind === "clear" || kind === "partly" ? "sun" : "clouds";
-    const P = Array.from({ length: mode === "rain" ? 160 : mode === "stars" ? 120 : 40 }, () => ({ x: Math.random(), y: Math.random(), s: Math.random(), p: Math.random() * 6.3 }));
+    cv.width = cv.clientWidth * dpr; cv.height = cv.clientHeight * dpr;
+    // The hero shows the photograph with cover at 45% height and a 1.0 zoom.
+    const limit = (C.skyLimit ? C.skyLimit(cv.clientWidth, cv.clientHeight, 0.45, 0, 1) : cv.clientHeight * 0.4) * dpr;
+    const P = Array.from({ length: mode === "rain" ? 160 : mode === "snow" ? 90 : 110 }, () => ({ x: Math.random(), y: Math.random(), s: Math.random(), p: Math.random() * 6.3 }));
     let flash = 0, last = performance.now();
     const frame = (t) => {
       if (!alive) return;
       const dt = Math.min(0.05, (t - last) / 1000); last = t;
       const W = cv.width, H = cv.height;
       ctx.clearRect(0, 0, W, H);
-      if (mode === "sun") {
-        const r = 0.35 + 0.05 * Math.sin(t / 900);
-        ctx.fillStyle = `rgba(255,236,170,${0.12 + 0.05 * Math.sin(t / 700)})`;
-        ctx.beginPath(); ctx.arc(W * 0.82, H * 0.18, H * r, 0, 6.3); ctx.fill();
-      }
       for (const q of P) {
         if (mode === "rain") {
           q.y += dt * (1.2 + q.s); q.x += dt * 0.1; if (q.y > 1) { q.y = -0.1; q.x = Math.random(); }
@@ -213,12 +212,11 @@
         } else if (mode === "snow") {
           q.y += dt * (0.08 + q.s * 0.1); q.x += Math.sin(t / 1200 + q.p) * dt * 0.03; if (q.y > 1) q.y = -0.05;
           ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.beginPath(); ctx.arc(q.x * W, q.y * H, (1.5 + q.s * 2.5) * dpr, 0, 6.3); ctx.fill();
-        } else if (mode === "stars") {
-          q.p += dt * (1 + q.s * 2); const a = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(q.p));
-          ctx.fillStyle = `rgba(255,255,255,${a * (0.35 + 0.65 * q.s)})`; ctx.beginPath(); ctx.arc(q.x * W, q.y * H * 0.7, (0.6 + 1.4 * q.s) * dpr, 0, 6.3); ctx.fill();
         } else {
-          q.x += dt * 0.01 * (0.3 + q.s); if (q.x > 1.1) q.x = -0.1;
-          ctx.fillStyle = `rgba(255,255,255,${0.05 + 0.08 * q.s})`; ctx.beginPath(); ctx.ellipse(q.x * W, q.y * H * 0.6, (40 + 80 * q.s) * dpr, (14 + 20 * q.s) * dpr, 0, 0, 6.3); ctx.fill();
+          const y = q.y * Math.max(0, limit - 6 * dpr);
+          if (y <= 0) continue;
+          q.p += dt * (1 + q.s * 2); const a = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(q.p));
+          ctx.fillStyle = `rgba(255,255,255,${a * (0.35 + 0.65 * q.s)})`; ctx.beginPath(); ctx.arc(q.x * W, y, (0.6 + 1.3 * q.s) * dpr, 0, 6.3); ctx.fill();
         }
       }
       if (kind === "storm") { if (Math.random() < 0.006) flash = 1; if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash * 0.35})`; ctx.fillRect(0, 0, W, H); flash -= dt * 3; } }

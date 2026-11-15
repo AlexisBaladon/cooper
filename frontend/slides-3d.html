@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#1b5e20">
   <script>if (new URLSearchParams(location.search).has("embed")) document.documentElement.classList.add("embed");</script>
 
-  <link rel="stylesheet" href="slides.css?v=1">
+  <link rel="stylesheet" href="slides.css?v=40">
   <style>
     /* ---- capa 3D detrás del texto ---- */
     .stage.s3d { padding: 0; }
@@ -120,12 +120,12 @@
   <p class="note">The terrain is vertically exaggerated for readability; shapes are illustrative. Values come from SRTM, NASA POWER and the prototype RUSLE model. <span id="ai-note">AI only rewrites the narration text.</span> Keys: space = pause, ← → = change slide.</p>
 </div>
 
-<script src="translations-es.js?v=3"></script>
-<script src="language.js?v=2"></script>
+<script src="translations-es.js?v=40"></script>
+<script src="language.js?v=40"></script>
 <script>if (parent === window) window.addEventListener("cooper-language", () => location.reload());</script>
-<script src="workflow.js?v=2"></script>
+<script src="workflow.js?v=40"></script>
 <script src="slides-sample.js"></script>
-<script src="slides.js?v=2"></script>
+<script src="slides.js?v=40"></script>
 <script type="module">
   async function initialize() {
 
@@ -144,7 +144,7 @@ if (window.parent !== window) document.addEventListener("keydown", (e) => {
 
   const embed = document.documentElement.classList.contains("embed");
   if (!data.terreno) { location.replace("slides.html?analysis=1" + (embed ? "&embed=1" : "")); return; }
-  const { start3D } = await import("./slides3d.js?v=3");
+  const { start3D } = await import("./slides3d.js?v=40");
   const root = document.getElementById("player");
   const only = new URLSearchParams(location.search).get("slide");
   if (only) document.documentElement.classList.add("static");

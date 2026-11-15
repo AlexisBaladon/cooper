@@ -81,47 +81,67 @@
     C.emit("scene", name);
   }
 
-  /* ----------------------------------------------------------- particles */
+  /* ----------------------------------------------------------- particles
+   * Only what the photograph can carry: stars twinkle in the night sky (never below the
+   * horizon), and rain or snow fall when it is actually raining or snowing. Day, sunset and
+   * overcast scenes stay as the still photograph. */
+  // The field photographs are 2752×1536 with the horizon at ~53% of their height;
+  // stars stop at 44% so they stay well above the tree line.
+  const IMG_W = 2752, IMG_H = 1536, SKY_TOP_FRACTION = 0.44;
+  /* Screen y (in px of a box) of the sky limit, for a background drawn with "cover". */
+  function skyLimit(boxW, boxH, posY = 0.62, overscan = 0.03, zoom = 1.1) {
+    const W = boxW * (1 + 2 * overscan), H = boxH * (1 + 2 * overscan);
+    const k = Math.max(W / IMG_W, H / IMG_H);
+    const y = -boxH * overscan + (H - IMG_H * k) * posY + SKY_TOP_FRACTION * IMG_H * k;
+    // The slow zoom moves the horizon; take the highest position it can reach.
+    const cy = boxH / 2;
+    return Math.min(y, cy + (y - cy) * zoom, cy + (y - cy) * 1.04);
+  }
+  C.skyLimit = skyLimit;
+
   function startFx(name) {
     const cv = S.canvas, ctx = cv.getContext("2d");
     cancelAnimationFrame(S.fxRaf);
-    if (C.reducedMotion()) { ctx.clearRect(0, 0, cv.width, cv.height); return; }
-    const rain = S.weather?.actual && ["rain", "drizzle", "storm"].includes(S.weather.actual.icono);
-    const mode = rain ? "rain" : name === "noche" ? "stars" : name === "lindo" ? "motes" : name === "tarde" ? "motes" : "none";
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    if (C.reducedMotion()) return;
+    const icon = S.weather?.actual?.icono;
+    const mode = ["rain", "drizzle", "storm"].includes(icon) ? "rain" : icon === "snow" ? "snow" : name === "noche" ? "stars" : "none";
+    if (mode === "none") return;
     const dpr = Math.min(1.5, devicePixelRatio || 1);
-    const fit = () => { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; };
+    let limit = 0;
+    const fit = () => { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; limit = skyLimit(innerWidth, innerHeight) * dpr; };
     fit(); window.onresize = fit;
-    const N = mode === "rain" ? 140 : mode === "stars" ? 90 : mode === "motes" ? 28 : 0;
+    const N = mode === "rain" ? 140 : mode === "snow" ? 80 : 110;
     const P = Array.from({ length: N }, () => ({ x: Math.random(), y: Math.random(), s: Math.random(), p: Math.random() * 6.28 }));
     let last = performance.now();
     const frame = (now) => {
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
-      ctx.clearRect(0, 0, cv.width, cv.height);
       const W = cv.width, H = cv.height;
+      ctx.clearRect(0, 0, W, H);
       for (const q of P) {
         if (mode === "rain") {
           q.y += dt * (0.9 + q.s * 0.8); q.x += dt * 0.08;
           if (q.y > 1) { q.y = -0.05; q.x = Math.random(); }
-          ctx.strokeStyle = `rgba(210,225,240,${0.18 + q.s * 0.25})`; ctx.lineWidth = dpr;
+          ctx.strokeStyle = `rgba(210,225,240,${0.16 + q.s * 0.22})`; ctx.lineWidth = dpr;
           ctx.beginPath(); ctx.moveTo(q.x * W, q.y * H); ctx.lineTo(q.x * W - 4 * dpr, q.y * H - (14 + q.s * 10) * dpr); ctx.stroke();
-        } else if (mode === "stars") {
-          if (q.y > 0.55) q.y *= 0.5;
+        } else if (mode === "snow") {
+          q.y += dt * (0.05 + q.s * 0.06); q.x += Math.sin(now / 1400 + q.p) * dt * 0.02;
+          if (q.y > 1) { q.y = -0.03; q.x = Math.random(); }
+          ctx.fillStyle = `rgba(255,255,255,${0.5 + 0.4 * q.s})`;
+          ctx.beginPath(); ctx.arc(q.x * W, q.y * H, (1.2 + q.s * 2) * dpr, 0, 6.28); ctx.fill();
+        } else {
+          const y = q.y * Math.max(0, limit - 6 * dpr);
+          if (y <= 0) continue;
           q.p += dt * (0.8 + q.s * 1.6);
           const a = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(q.p));
           ctx.fillStyle = `rgba(255,255,255,${a * (0.4 + q.s * 0.6)})`;
-          ctx.beginPath(); ctx.arc(q.x * W, q.y * H, (0.6 + q.s * 1.3) * dpr, 0, 6.28); ctx.fill();
-        } else if (mode === "motes") {
-          q.y -= dt * 0.012 * (0.5 + q.s); q.x += Math.sin(now / 3000 + q.p) * dt * 0.006;
-          if (q.y < -0.02) { q.y = 1.02; q.x = Math.random(); }
-          q.p += dt;
-          ctx.fillStyle = name === "tarde" ? `rgba(255,214,160,${0.12 + 0.18 * q.s})` : `rgba(255,255,235,${0.1 + 0.16 * q.s})`;
-          ctx.beginPath(); ctx.arc(q.x * W, q.y * H, (1.2 + q.s * 2.2) * dpr, 0, 6.28); ctx.fill();
+          ctx.beginPath(); ctx.arc(q.x * W, y, (0.6 + q.s * 1.2) * dpr, 0, 6.28); ctx.fill();
         }
       }
-      if (N && !document.hidden) S.fxRaf = requestAnimationFrame(frame);
+      if (!document.hidden) S.fxRaf = requestAnimationFrame(frame);
     };
-    if (N) S.fxRaf = requestAnimationFrame(frame);
-    document.addEventListener("visibilitychange", () => { if (!document.hidden && N) { cancelAnimationFrame(S.fxRaf); last = performance.now(); S.fxRaf = requestAnimationFrame(frame); } }, { once: true });
+    S.fxRaf = requestAnimationFrame(frame);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) { cancelAnimationFrame(S.fxRaf); last = performance.now(); S.fxRaf = requestAnimationFrame(frame); } }, { once: true });
   }
 
   function update(weather) {
