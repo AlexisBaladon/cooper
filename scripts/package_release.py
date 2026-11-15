@@ -3,12 +3,15 @@
 from pathlib import Path
 import tarfile
 
+import make_offline_manifest
+
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
     web = root / "frontend"
     if not (web / "index.html").is_file():
         raise SystemExit("Missing frontend/index.html")
+    make_offline_manifest.write()  # the service worker's list always matches the release
     files = [root / "backend" / "requirements.txt"]
     files.extend(
         path for path in (root / "backend" / "app").rglob("*")

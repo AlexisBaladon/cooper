@@ -62,7 +62,7 @@
     const a = w.actual;
     body.innerHTML = `
       <div class="wx-now">
-        <div class="wx-place"><strong class="notranslate">${esc(field.nombre)}</strong><span>${esc(C.t(a.estado))} · feels ${fmt(a.sensacion, 0)}°</span></div>
+        <div class="wx-place"><strong class="notranslate">${esc(field.nombre)}</strong><span>${esc(C.t(a.estado))} · feels ${fmt(a.sensacion, 0)}°${w.guardado ? ` · ${esc(C.t("Saved"))} ${esc(C.dateLabel(w.guardado))}` : ""}</span></div>
         ${svg(a.icono, a.es_dia, { cls: "wx-big" })}
         <div class="wx-temp"><span data-count="${Math.round(a.temp)}">${fmt(a.temp, 0)}</span><sup>°C</sup></div>
       </div>
@@ -84,7 +84,7 @@
     el.classList.remove("is-off");
     el.style.setProperty("--wx-bg", `url('${sceneImg()}')`);
     el.innerHTML = `${svg(a.icono, a.es_dia, { cls: "wx-chip-ic" })}<span class="wp-t">${fmt(a.temp, 0)}°</span>
-      <span class="wp-txt"><strong>${esc(C.t(a.estado))}</strong><small>H ${fmt(d0?.tmax, 0)}° · L ${fmt(d0?.tmin, 0)}° · ${fmt(d0?.prob_lluvia ?? 0)}% rain</small></span>`;
+      <span class="wp-txt"><strong>${esc(C.t(a.estado))}</strong><small>${w.guardado ? `${esc(C.t("Saved"))} ${esc(C.dateLabel(w.guardado, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}` : `H ${fmt(d0?.tmax, 0)}° · L ${fmt(d0?.tmin, 0)}° · ${fmt(d0?.prob_lluvia ?? 0)}% rain`}</small></span>`;
   }
 
   /* ------------------------------------------------------- expanded view */

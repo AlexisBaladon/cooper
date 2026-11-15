@@ -64,7 +64,9 @@
   function prepareSlides(slides) {
     return slides.map((slide) => ({...slide, headline: translate(slide.headline), narration: slide.narration.map(translate)}));
   }
-  window.CooperLang = {get current() { return current; }, t: translate, refresh, prepareSlides};
+  // English text of a text node, even while it is shown translated (used by the glossary).
+  const original = (node) => (originals.has(node) && rendered.get(node) === node.nodeValue ? originals.get(node) : node.nodeValue);
+  window.CooperLang = {get current() { return current; }, t: translate, refresh, prepareSlides, original};
   document.getElementById("language")?.addEventListener("change", (e) => set(e.target.value));
   window.addEventListener("storage", (e) => { if (e.key === "cooper-language") set(e.newValue, false); });
   refresh();

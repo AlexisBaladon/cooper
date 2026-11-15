@@ -54,6 +54,71 @@
     },
   };
 
+  /* Radar ambience: a slow scanning sweep, the shapes breathing, and a pulse that travels
+     from point to point (or stays on the topic the farmer points at). Drawn only while the
+     chart is on screen; no tooltip is ever shown without the pointer. */
+  const radarFx = {
+    id: "cooperRadarFx",
+    afterInit(chart, _a, opts) {
+      if (!opts || opts.display === false) return;
+      chart.$fxStart = performance.now();
+      let on = true, last = 0;
+      const io = new IntersectionObserver((es) => { on = es[0].isIntersecting; }, { threshold: 0 });
+      io.observe(chart.canvas);
+      const tick = (t) => {
+        chart.$fxRaf = requestAnimationFrame(tick);
+        if (!on || document.hidden || C.reducedMotion() || t - last < 33 || !chart.ctx) return;
+        last = t;
+        if (Chart.animator.running(chart)) return;
+        chart.draw();
+      };
+      chart.$fxRaf = requestAnimationFrame(tick);
+      chart.$fxIo = io;
+    },
+    afterDestroy(chart) { cancelAnimationFrame(chart.$fxRaf); chart.$fxIo?.disconnect(); },
+    beforeDatasetsDraw(chart, _a, opts) {
+      if (!opts || opts.display === false || C.reducedMotion()) return;
+      const sc = chart.scales.r; if (!sc) return;
+      const ctx = chart.ctx, cx = sc.xCenter, cy = sc.yCenter, R = sc.drawingArea;
+      const el = (performance.now() - (chart.$fxStart || 0)) / 1000;
+      const ang = -Math.PI / 2 + el * 0.55 + 5.5 * (1 - Math.exp(-el / 0.9));
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, ang - 0.5, ang); ctx.closePath();
+      ctx.fillStyle = opts.sweep || "rgba(127,211,255,.10)"; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(ang) * R, cy + Math.sin(ang) * R);
+      ctx.strokeStyle = opts.sweepLine || "rgba(127,211,255,.45)"; ctx.lineWidth = 1.4; ctx.stroke();
+      ctx.restore();
+    },
+    afterDatasetsDraw(chart, _a, opts) {
+      if (!opts || opts.display === false || C.reducedMotion()) return;
+      const t = performance.now() / 1000, n = chart.data.labels.length;
+      const k = chart.$spot ?? Math.floor(t / 1.6) % n;
+      const ctx = chart.ctx;
+      ctx.save();
+      chart.data.datasets.forEach((d, di) => {
+        const meta = chart.getDatasetMeta(di);
+        if (meta.hidden || !chart.isDatasetVisible(di)) return;
+        const col = Array.isArray(d.borderColor) ? d.borderColor[0] : d.borderColor;
+        meta.data.forEach((pt, i) => {
+          const { x, y } = pt.getProps(["x", "y"], true);
+          const ph = (t * 0.9 + i * 0.17 + di * 0.3) % 1;
+          if (i === k) {
+            for (const off of [0, 0.5]) {
+              const p = (t * 0.8 + off) % 1;
+              ctx.beginPath(); ctx.arc(x, y, 6 + p * 16, 0, Math.PI * 2);
+              ctx.strokeStyle = col; ctx.globalAlpha = (1 - p) * 0.7; ctx.lineWidth = 2; ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+          } else if (di === chart.data.datasets.length - 1 || opts.all) {
+            ctx.beginPath(); ctx.arc(x, y, 5 + Math.sin(ph * Math.PI * 2) * 1.5 + 2, 0, Math.PI * 2);
+            ctx.strokeStyle = col; ctx.globalAlpha = 0.18; ctx.lineWidth = 1.5; ctx.stroke(); ctx.globalAlpha = 1;
+          }
+        });
+      });
+      ctx.restore();
+    },
+  };
+
   function theme() {
     if (typeof Chart === "undefined") return false;
     const d = Chart.defaults;
@@ -84,6 +149,7 @@
     t.displayColors = true;
     if (!Chart.registry.plugins.get("cooperCrosshair")) Chart.register(crosshair);
     if (!Chart.registry.plugins.get("cooperRings")) Chart.register(ringLabels);
+    if (!Chart.registry.plugins.get("cooperRadarFx")) Chart.register(radarFx);
     return true;
   }
 
@@ -104,23 +170,199 @@
   }
 
   /* Creates the chart when it enters the viewport, so its animation is actually seen. */
-  function lazy(canvas, build) {
-    const ctl = { chart: null, canvas, build, destroy() { io.disconnect(); this.chart?.destroy(); this.chart = null; live.delete(this); }, redraw(anim = false) {
-      if (!this.chart || !canvas.isConnected) return;
-      this.chart.destroy(); this.chart = make(canvas, build(), anim);
-    } };
-    const io = new IntersectionObserver((entries) => {
-      if (!entries.some((e) => e.isIntersecting)) return;
-      io.disconnect();
-      if (!ctl.chart && canvas.isConnected) ctl.chart = make(canvas, build(), true);
-    }, { threshold: 0.25 });
+  /* ------------------------------------------------ palettes and notes
+   * Every chart can be recoloured, annotated with notes pinned to data points, opened
+   * large and saved as an image. Choices are remembered per chart in this browser. */
+  const PALETTES = {
+    cooper: { label: "Cooper", colors: null },
+    vivid: { label: "Vivid", colors: ["#2f80ed", "#f2994a", "#27ae60", "#eb5757", "#9b51e0", "#00b8a9"] },
+    earth: { label: "Earth", colors: ["#6b8e23", "#c08a3e", "#4f7a8a", "#a0522d", "#8f9779", "#d4a017"] },
+    contrast: { label: "High contrast", colors: ["#0072b2", "#e69f00", "#009e73", "#d55e00", "#cc79a7", "#56b4e9"] },
+    ocean: { label: "Ocean", colors: ["#0b6e99", "#2ec4b6", "#1d3557", "#48cae4", "#457b9d", "#90e0ef"] },
+    sunset: { label: "Sunset", colors: ["#e76f51", "#f4a261", "#9d4edd", "#e9c46a", "#d62828", "#ff8fab"] },
+    forest: { label: "Forest", colors: ["#2d6a4f", "#95d5b2", "#40916c", "#b7e4c7", "#1b4332", "#74c69d"] },
+    harvest: { label: "Harvest", colors: ["#bc6c25", "#dda15e", "#606c38", "#fefae0", "#283618", "#e9c46a"] },
+    berry: { label: "Berry", colors: ["#7b2cbf", "#e5383b", "#c77dff", "#ff758f", "#3c096c", "#ffb3c1"] },
+    slate: { label: "Monochrome", colors: ["#264653", "#6c8a96", "#a3b8c2", "#3d5a66", "#8aa1ac", "#c8d5db"] },
+    neon: { label: "Neon", colors: ["#00f5d4", "#f15bb5", "#fee440", "#00bbf9", "#9b5de5", "#fb5607"] },
+    colorblind: { label: "Colour-blind safe", colors: ["#332288", "#88ccee", "#44aa99", "#117733", "#ddcc77", "#cc6677"] },
+  };
+  const prefs = () => C.storage.get("cooper-chart-prefs", {});
+  const setPref = (key, patch) => { const all = prefs(); all[key] = { ...(all[key] || {}), ...patch }; C.storage.set("cooper-chart-prefs", all); };
+  const notesOf = (key) => C.storage.get("cooper-chart-notes", {})[key] || [];
+  const saveNotes = (key, list) => { const all = C.storage.get("cooper-chart-notes", {}); all[key] = list; C.storage.set("cooper-chart-notes", all); };
+
+  function applyPalette(cfg, name) {
+    const pal = PALETTES[name]?.colors;
+    if (!pal) return cfg;
+    const map = new Map();
+    const pick = (c) => { if (typeof c !== "string") return c; const base = c.replace(/rgba?\(([^)]+)\)/, (m, inner) => inner.split(",").slice(0, 3).join(",")); if (!map.has(base)) map.set(base, pal[map.size % pal.length]); return map.get(base); };
+    cfg.data.datasets.forEach((d) => {
+      const fill = cfg.type === "radar" || d.fill;
+      const col = pick(Array.isArray(d.borderColor) ? d.borderColor[0] : d.borderColor || (Array.isArray(d.backgroundColor) ? d.backgroundColor[0] : d.backgroundColor));
+      if (Array.isArray(d.backgroundColor)) { d.backgroundColor = d.backgroundColor.map((c) => alpha(pick(c), 0.85)); d.hoverBackgroundColor = d.backgroundColor.map((c) => c.replace(/,0\.85\)$/, ",1)")); }
+      else if (d.type === "bar" || cfg.type === "bar") { d.backgroundColor = alpha(col, 0.88); d.hoverBackgroundColor = col; }
+      else d.backgroundColor = fill ? alpha(col, 0.18) : col;
+      if (d.borderColor) d.borderColor = col;
+      if (d.pointBackgroundColor) d.pointBackgroundColor = col;
+    });
+    return cfg;
+  }
+
+  const notesPlugin = {
+    id: "cooperNotes",
+    afterDatasetsDraw(chart) {
+      const key = chart.$cooperKey;
+      if (!key) return;
+      const ctx = chart.ctx;
+      chart.$noteHits = [];
+      notesOf(key).forEach((n, idx) => {
+        const meta = chart.getDatasetMeta(n.d);
+        const el = meta?.data?.[n.i];
+        if (!el || meta.hidden) return;
+        const { x, y } = el.getProps(["x", "y"], true);
+        ctx.save();
+        ctx.fillStyle = n.color || "#e8a33d"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.font = "600 11px IBM Plex Sans, sans-serif";
+        const t = n.text.length > 34 ? n.text.slice(0, 33) + "…" : n.text;
+        const w = ctx.measureText(t).width + 14;
+        const bx = Math.min(chart.width - w - 4, Math.max(4, x - w / 2)), by = Math.max(4, y - 34);
+        ctx.fillStyle = "rgba(14,22,17,.88)";
+        ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, by, w, 20, 6); else ctx.rect(bx, by, w, 20); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.textBaseline = "middle"; ctx.fillText(t, bx + 7, by + 10.5);
+        ctx.restore();
+        chart.$noteHits.push({ idx, x, y, bx, by, w });
+      });
+    },
+  };
+
+  function noteDialog(text = "") {
+    return C.dialog({
+      title: C.t("Note on this point"),
+      body: `<label class="field">${C.t("Your note")}<textarea id="note-text" rows="3" maxlength="140" autofocus>${C.esc(text)}</textarea></label>
+        <div class="note-colors">${["#e8a33d", "#2f80ed", "#27ae60", "#eb5757", "#9b51e0"].map((c, i) => `<label><input type="radio" name="note-c" value="${c}" ${i === 0 ? "checked" : ""}><i style="background:${c}"></i></label>`).join("")}</div>`,
+      actions: [...(text ? [{ label: C.t("Delete note"), kind: "ghost danger", value: { del: true } }] : []), { label: C.t("Cancel"), value: null },
+        { label: C.t("Save note"), kind: "primary", handler: (b) => ({ text: b.querySelector("#note-text").value.trim(), color: b.querySelector("input[name=note-c]:checked")?.value }) }],
+    });
+  }
+
+  function toolbar(ctl) {
+    const box = ctl.canvas.parentElement;
+    if (!box || box.querySelector(".chart-tools")) return;
+    box.classList.add("has-tools");
+    const bar = document.createElement("div");
+    bar.className = "chart-tools";
+    bar.innerHTML = `<button type="button" data-ct="palette" title="${C.t("Change colours")}" aria-label="${C.t("Change colours")}">${C.line("sun")}</button>
+      <button type="button" data-ct="note" title="${C.t("Add a note: then click a point")}" aria-label="${C.t("Add a note")}" aria-pressed="false">${C.line("edit")}</button>
+      <button type="button" data-ct="clear" title="${C.t("Remove notes")}" aria-label="${C.t("Remove notes")}">${C.line("trash")}</button>
+      <button type="button" data-ct="expand" title="${C.t("Open large")}" aria-label="${C.t("Open large")}">${C.line("expand")}</button>
+      <button type="button" data-ct="png" title="${C.t("Save as image")}" aria-label="${C.t("Save as image")}">${C.line("download")}</button>`;
+    box.appendChild(bar);
+    bar.addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-ct]"); if (!b || !ctl.chart) return;
+      const a = b.dataset.ct;
+      if (a === "palette") palettePicker(ctl, b);
+      if (a === "note") { ctl.noteMode = !ctl.noteMode; b.setAttribute("aria-pressed", String(ctl.noteMode)); box.classList.toggle("note-mode", ctl.noteMode); if (ctl.noteMode) C.toast(C.t("Click a point of the chart to pin a note."), "info", 2200); }
+      if (a === "clear") { saveNotes(ctl.key, []); ctl.chart.update("none"); }
+      if (a === "png") {
+        const link = document.createElement("a");
+        link.href = ctl.chart.toBase64Image("image/png", 1); link.download = `cooper-chart-${Date.now()}.png`; link.click();
+      }
+      if (a === "expand") openLarge(ctl);
+    });
+    ctl.canvas.addEventListener("click", async (e) => {
+      const ch = ctl.chart; if (!ch) return;
+      const r = ctl.canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+      const hit = (ch.$noteHits || []).find((h) => Math.hypot(h.x - x, h.y - y) < 10 || (x >= h.bx && x <= h.bx + h.w && y >= h.by && y <= h.by + 20));
+      if (hit) {
+        const list = notesOf(ctl.key), n = list[hit.idx];
+        const res = await noteDialog(n.text);
+        if (res?.del) list.splice(hit.idx, 1); else if (res?.text) Object.assign(n, res);
+        saveNotes(ctl.key, list); ch.update("none");
+        return;
+      }
+      if (!ctl.noteMode) return;
+      const els = ch.getElementsAtEventForMode(e, ch.config.type === "radar" ? "nearest" : "nearest", { intersect: false }, true);
+      if (!els.length) return;
+      const res = await noteDialog();
+      if (res?.text) { const list = notesOf(ctl.key); list.push({ d: els[0].datasetIndex, i: els[0].index, ...res }); saveNotes(ctl.key, list); ch.update("none"); }
+      ctl.noteMode = false; box.classList.remove("note-mode"); bar.querySelector('[data-ct="note"]').setAttribute("aria-pressed", "false");
+    });
+  }
+
+  /* A swatch menu with every palette; the chosen one is remembered for this chart. */
+  function palettePicker(ctl, btn) {
+    document.querySelector(".pal-menu")?.remove();
+    const cur = prefs()[ctl.key]?.palette || "cooper";
+    const brand = [v("--brand"), v("--series-1"), v("--series-2"), "#e2a93a", v("--c-agua"), v("--c-suelo")];
+    const menu = document.createElement("div");
+    menu.className = "pal-menu";
+    menu.setAttribute("role", "menu");
+    menu.innerHTML = `<p>${C.t("Chart colours")}</p>` + Object.entries(PALETTES).map(([k, p]) => `<button type="button" role="menuitemradio" aria-checked="${k === cur}" data-pal="${k}">
+      <span class="pal-sw">${(p.colors || brand).slice(0, 6).map((c) => `<i style="background:${c}"></i>`).join("")}</span><span>${C.esc(C.t(p.label))}</span></button>`).join("");
+    document.body.appendChild(menu);
+    const r = btn.getBoundingClientRect(), mw = menu.offsetWidth, mh = menu.offsetHeight;
+    menu.style.left = Math.max(8, Math.min(innerWidth - mw - 8, r.right - mw)) + "px";
+    menu.style.top = (r.bottom + 8 + mh > innerHeight ? Math.max(8, r.top - mh - 8) : r.bottom + 8) + "px";
+    C.motion.gsap?.fromTo(menu, { opacity: 0, y: -6, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.25, ease: "power3.out" });
+    C.motion.gsap?.fromTo(menu.querySelectorAll("button"), { opacity: 0, x: -6 }, { opacity: 1, x: 0, duration: 0.25, stagger: 0.02, delay: 0.05 });
+    const y0 = scrollY;
+    const onScroll = () => { if (Math.abs(scrollY - y0) > 60) close(); };
+    const close = (e) => { if (e && e.type === "pointerdown" && (menu.contains(e.target) || btn.contains(e.target))) return; menu.remove(); document.removeEventListener("pointerdown", close, true); removeEventListener("scroll", onScroll); };
+    setTimeout(() => { document.addEventListener("pointerdown", close, true); addEventListener("scroll", onScroll, { passive: true }); }, 0);
+    menu.addEventListener("click", (e) => {
+      const it = e.target.closest("[data-pal]"); if (!it) return;
+      setPref(ctl.key, { palette: it.dataset.pal });
+      ctl.redraw(true);
+      close();
+    });
+    menu.addEventListener("keydown", (e) => { if (e.key === "Escape") { close(); btn.focus(); } });
+    menu.querySelector('[aria-checked="true"]')?.focus();
+  }
+
+  function openLarge(ctl) {
+    const host = document.createElement("div");
+    host.className = "chart-large";
+    host.innerHTML = `<div class="chart-box xl"><canvas role="img" aria-label="${C.esc(ctl.canvas.getAttribute("aria-label") || "Chart")}"></canvas></div>`;
+    let big = null;
+    C.fx.openFocus(ctl.canvas.closest(".card, .opt-face, .focus-card") || ctl.canvas.parentElement, host, { cls: "wide chart-focus", label: ctl.canvas.getAttribute("aria-label") || "Chart",
+      onOpen: (b) => setTimeout(() => { big = lazy(b.querySelector("canvas"), ctl.build, { key: ctl.key }); }, 60) });
+  }
+
+  /* Creates the chart when it enters the viewport and replays its entrance when it comes back. */
+  function lazy(canvas, build, opts = {}) {
     if (typeof Chart === "undefined") return null;
+    const key = opts.key || [canvas.dataset.rec || "", canvas.getAttribute("aria-label") || "", canvas.dataset.view || ""].join("|");
+    const ctl = { chart: null, canvas, build, key, noteMode: false,
+      destroy() { io.disconnect(); this.chart?.destroy(); this.chart = null; live.delete(this); },
+      redraw(anim = false) { if (!this.chart || !canvas.isConnected) return; this.chart.destroy(); this.chart = makeKeyed(this, anim); } };
+    Object.defineProperty(ctl, "key", { get: () => opts.key || [canvas.dataset.rec || "", canvas.getAttribute("aria-label") || "", canvas.dataset.view || ""].join("|") });
+    let away = false;
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) {
+          if (!ctl.chart && canvas.isConnected) ctl.chart = makeKeyed(ctl, true);
+          else if (away && ctl.chart && !C.reducedMotion()) { ctl.chart.$fxStart = performance.now(); ctl.chart.reset(); ctl.chart.update(); }
+          away = false;
+        } else if (e.intersectionRatio === 0) away = true;
+      }
+    }, { threshold: 0.25 });
     io.observe(canvas);
     live.add(ctl);
+    toolbar(ctl);
     return ctl;
+  }
+  function makeKeyed(ctl, animate) {
+    const cfg = applyPalette(ctl.build(), prefs()[ctl.key]?.palette || "cooper");
+    const ch = make(ctl.canvas, cfg, animate);
+    ch.$cooperKey = ctl.key;
+    ctl.canvas.dispatchEvent(new CustomEvent("cooper-chart", { detail: ch }));
+    return ch;
   }
   function make(canvas, config, animate = true) {
     theme();
+    if (!Chart.registry.plugins.get("cooperNotes")) Chart.register(notesPlugin);
     if (!animate) config.options = { ...config.options, animation: false, animations: {} };
     return new Chart(canvas, config);
   }
@@ -212,30 +454,43 @@
     };
   }
 
-  function radar(rotations, { compact = false } = {}) {
+  function radar(rotations, { compact = false, big = false } = {}) {
     const keys = Object.keys(C.SCORES);
-    const palette = [v("--muted"), v("--brand"), v("--c-ingreso"), v("--c-agua")];
+    const palette = ["#8f9ca8", v("--brand"), "#e2a93a", v("--c-agua")];
+    const solid = (c) => (c.startsWith("#") ? c : "#2c7350");
+    const txt = solid(v("--text")).length === 7 ? solid(v("--text")) : "#888888";
+    const gridC = alpha(txt, big ? 0.2 : 0.17), ringC = alpha(txt, big ? 0.3 : 0.22);
+    const n = rotations.length;
     return {
       type: "radar",
-      data: { labels: keys.map((k) => T(C.SCORES[k].label).replace(" (indicative)", "")), datasets: rotations.map((r, i) => ({
-        label: (r.labelPrefix ? T(r.labelPrefix) + ": " : "") + T(r.nombre),
-        data: keys.map((k) => r.puntajes[k]),
-        borderColor: palette[i % palette.length], backgroundColor: alpha(palette[i % palette.length].startsWith("#") ? palette[i % palette.length] : "#1f5a3e", i === 0 ? 0.08 : 0.16),
-        borderWidth: i === 0 ? 2 : 2.5, borderDash: i === 0 ? [5, 4] : [], pointRadius: compact ? 3 : 4.5, pointHoverRadius: 7,
-        pointBackgroundColor: palette[i % palette.length], pointBorderColor: v("--surface"), pointBorderWidth: 2, order: rotations.length - i,
-      })) },
+      data: { labels: keys.map((k) => T(C.SCORES[k].label).replace(" (indicative)", "")), datasets: rotations.map((r, i) => {
+        const col = palette[i % palette.length], cur = i === 0 && n > 1;
+        return {
+          label: (r.labelPrefix ? T(r.labelPrefix) + ": " : "") + T(r.nombre),
+          data: keys.map((k) => r.puntajes[k]),
+          borderColor: col, backgroundColor: alpha(solid(col), cur ? 0.08 : big ? 0.14 : 0.2),
+          borderWidth: cur ? 2.8 : big ? 3.6 : 3.2, borderDash: cur ? [7, 5] : [], borderJoinStyle: "round",
+          pointRadius: compact ? 4.5 : 5.5, pointHoverRadius: compact ? 8 : 10, pointHitRadius: 14,
+          pointBackgroundColor: col, pointBorderColor: "#ffffff", pointBorderWidth: 2, pointHoverBorderWidth: 3, order: n - i,
+        };
+      }) },
       options: {
         responsive: true, maintainAspectRatio: false,
-        animation: { duration: C.reducedMotion() ? 0 : 1200, easing: "easeOutQuart" },
-        animations: { r: { from: 0, duration: 1200, easing: "easeOutBack", delay: (ctx) => (ctx.type === "data" ? ctx.datasetIndex * 180 + ctx.dataIndex * 40 : 0) } },
-        plugins: { cooperCrosshair: false, cooperRings: compact ? { display: false } : { bg: alpha(v("--surface").startsWith("#") ? v("--surface") : "#ffffff", 0.9), color: v("--text-2") },
-          legend: { display: !compact, position: "bottom" },
-          tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: ${c.parsed.r} / 100` } } },
-        scales: { r: { min: 0, max: 100, beginAtZero: true, angleLines: { color: v("--grid") }, grid: { color: v("--grid") },
-          ticks: { display: false, stepSize: 25, z: 2, showLabelBackdrop: true, backdropColor: alpha(v("--surface").startsWith("#") ? v("--surface") : "#ffffff", 0.92),
-            backdropPadding: { x: 4, y: 2 }, color: v("--text-2"), font: { size: 10.5, weight: "600" } },
-          pointLabels: { color: v("--text"), padding: compact ? 6 : 12, font: { size: compact ? 11 : 13, weight: "600" } } } },
-        layout: { padding: compact ? 4 : 10 },
+        animation: { duration: C.reducedMotion() ? 0 : 1500, easing: "easeOutQuart" },
+        animations: { r: { from: 0, duration: 1700, easing: "easeOutElastic", delay: (ctx) => (ctx.type === "data" && ctx.mode === "default" ? ctx.datasetIndex * 280 + ctx.dataIndex * 90 : 0) } },
+        interaction: { mode: "index", intersect: false },
+        events: ["mousemove", "mouseout", "click", "touchstart", "touchmove", "touchend"],
+        plugins: { cooperCrosshair: false, cooperRings: { display: false },
+          cooperRadarFx: { display: true },
+          legend: { display: !compact && !big, position: "bottom", labels: { color: v("--text"), font: { size: 12.5, weight: "500" }, padding: 16 } },
+          tooltip: { callbacks: { title: (items) => items[0]?.label || "", label: (c) => ` ${c.dataset.label}: ${c.parsed.r} / 100` } } },
+        scales: { r: { min: 0, max: 100, beginAtZero: true, angleLines: { color: gridC, lineWidth: 1.2 },
+          grid: { color: (c) => (c.tick?.value === 100 ? ringC : gridC), lineWidth: (c) => (c.tick?.value === 100 ? 2 : 1.1), circular: false },
+          ticks: { display: false, stepSize: 25 },
+          pointLabels: { color: v("--text"), padding: compact ? 8 : innerWidth < 700 ? 8 : 16,
+            callback: (l) => (innerWidth < 700 && l.includes(" ") ? l.split(" ") : l),
+            font: { size: innerWidth < 700 ? 11 : compact ? 11.5 : big ? 14.5 : 14, weight: "600" } } } },
+        layout: { padding: compact ? 6 : 16 },
       },
     };
   }
@@ -263,5 +518,5 @@
   C.listen("theme", () => setTimeout(() => { theme(); for (const c of [...live]) { if (!c.canvas.isConnected) { live.delete(c); continue; } c.redraw(false); } }, 60));
   C.listen("language", () => { for (const c of [...live]) { if (!c.canvas.isConnected) { live.delete(c); continue; } c.redraw(false); } });
 
-  C.charts = { theme, lazy, make, climateMonthly, waterBalance, annualSeries, radar, temperature, alpha };
+  C.charts = { theme, lazy, make, PALETTES, climateMonthly, waterBalance, annualSeries, radar, temperature, alpha };
 })();

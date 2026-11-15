@@ -20,6 +20,8 @@
       const r = await fetch(`/api/weather?lat=${field.lat}&lon=${field.lon}`, { signal: AbortSignal.timeout(15000) });
       if (!r.ok) throw new Error(String(r.status));
       const v = await r.json();
+      const saved = r.headers.get("X-Cooper-Saved"); // set by sw.js when this is the saved copy
+      if (saved) v.guardado = saved;
       wcache.set(key, { t: Date.now(), v });
       return (this.last = v);
     },
@@ -237,8 +239,9 @@
     if (!rec || rec.saved) { if (rec?.saved) C.toast(C.t("This analysis is already saved."), "info"); return; }
     const saved = { ...rec, saved: true };
     await C.db.put("analyses", saved); await C.db.put("drafts", saved);
-    C.toast(C.t("Analysis saved in your history."));
+    C.toast(C.t("Analysis saved in your history. It stays on Home; the Analysis screen is ready for a new analysis."), "ok", 5200);
     C.emit("history-changed"); C.emit("analysis", saved);
+    C.analysis.savedElsewhere?.(saved);
   };
   C.simulateRain = async (pct) => {
     C.go("analysis");
@@ -255,6 +258,24 @@
       const go = e.target.closest("[data-go]");
       if (go) { e.preventDefault(); C.go(go.dataset.go); return; }
       if (e.target.closest('[data-act="save-current"]')) { C.saveCurrent(); return; }
+      const ask = e.target.closest("[data-ask-jarvis]");
+      if (ask) {
+        e.preventDefault();
+        const card = ask.closest(".opt-card");
+        if (card && !C.fx.focusOpen) card.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        C.jarvis.askAbout(ask.dataset.askJarvis);
+        return;
+      }
+      const d3 = e.target.closest("[data-3d]");
+      if (d3) {
+        const f = C.fields.active();
+        const rec = await homeRecord(f);
+        const host = d3.closest(".card, .img-panel");
+        const origin = host?.querySelector(".mini-map, .ip-map, .fh-visual, .an-map") || host;
+        const open = () => window.CooperMap3D.open({ field: f, rec, layer: d3.dataset["3d"], originEl: origin });
+        if (window.CooperMap3D) open(); else C.listen("map3d-ready", open);
+        return;
+      }
       if (e.target.closest('[data-act="open-analysis"]')) {
         const rec = await homeRecord(C.fields.active());
         if (rec?.saved) { C.history.reveal(rec.id); C.go("analysis/history"); } else C.go("analysis");
