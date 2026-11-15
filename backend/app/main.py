@@ -14,6 +14,8 @@ Ejecutar desde backend/:  python -m uvicorn app.main:app --reload
 from __future__ import annotations
 
 from pathlib import Path
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from typing import Literal
 
 import httpx
@@ -22,7 +24,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import assistant, climate, engine, jarvis, narrator, power, soil, terrain, voice, weather
+from . import assistant, climate, engine, jarvis, narrator, power, soil, terrain, voice, weather, whatsapp
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -39,7 +41,19 @@ DEMO_FIELDS = [
      "rotacion": "trigo_soja2", "tiene_ganado": True},
 ]
 
-app = FastAPI(title="Cooper", version="0.6.0")
+@asynccontextmanager
+async def lifespan(app):
+    task = asyncio.create_task(whatsapp.worker())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+
+app = FastAPI(title="Cooper", version="0.6.0", lifespan=lifespan)
+app.include_router(whatsapp.router)
 catalog = engine.load_catalog()
 
 
