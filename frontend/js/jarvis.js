@@ -70,7 +70,7 @@
     wrap.setAttribute("aria-modal", "true");
     wrap.setAttribute("role", "dialog");
     wrap.setAttribute("aria-label", C.t("Jarvis assistant"));
-    wrap.innerHTML = '<iframe title="Jarvis" src="jarvis/index.html?v=7" allow="microphone; camera; autoplay"></iframe>';
+    wrap.innerHTML = '<iframe title="Jarvis" src="jarvis/index.html?v=orbital1" allow="microphone; camera; autoplay"></iframe>';
     document.body.appendChild(wrap);
     const frame = wrap.firstChild;
     S.full = { wrap, frame, prevFocus: document.activeElement };

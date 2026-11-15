@@ -120,7 +120,7 @@
   body.embed .close-embed:hover { background: rgba(79, 216, 255, 0.22); box-shadow: 0 0 14px rgba(79, 216, 255, 0.45); }
   .boot { position: fixed; inset: 0; z-index: 4; display: grid; place-items: center; pointer-events: none; font-size: 13px; letter-spacing: 0.4em; color: var(--c); text-shadow: 0 0 10px var(--c); }
 </style>
-<link rel="stylesheet" href="theme.css?v=6">
+<link rel="stylesheet" href="theme.css?v=orbital1">
 </head>
 <body>
 <div class="scan"></div>
@@ -215,7 +215,7 @@ const camera = new THREE.PerspectiveCamera(45, sceneSize().width / sceneSize().h
 // tanto en pantallas anchas como verticales.
 function fitCamera() {
   const half = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  const radius = 4.2;
+  const radius = 5.0;
   const byHeight = radius / half;
   const byWidth = radius / (half * camera.aspect);
   camera.position.set(0, 0, Math.max(byHeight, byWidth) + 1.2);
@@ -231,11 +231,11 @@ composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(sceneSize().width / 2, sceneSize().height / 2), 1.1, 0.65, 0.05);
 composer.addPass(bloom);
 // Brillo = el del estado × un factor que baja cuando hay un visual (si no, se satura).
-const fx = { bloom: 0.6, k: 1 };
+const fx = { bloom: 1.0, k: 1 };
 composer.addPass(new OutputPass());
 
 const params = { speed: 1, intensity: 1, audio: 0 };
-const color = new THREE.Color("#74c497");
+const color = new THREE.Color("#58d8c8");
 const tinted = [];                       // materiales que siguen el color del estado
 
 /* ------------------------------------------------------------ núcleo */
@@ -407,10 +407,11 @@ tinted.push(dustMat);
 const dust = new THREE.Points(dustGeo, dustMat);
 dust.rotation.x = 0.35;
 rig.add(dust);
-// The field and its measurements are the presentation. Keep decorative HUD
-// rings, audio bars and star particles out of the agricultural workspace.
-ringHolder.visible = false;
-dust.visible = false;
+// Orbital comparison: restore the original 3D rings, voice bars and star field
+// inside the dedicated visual pane, leaving the conversation unobstructed.
+ringHolder.visible = true;
+dust.visible = true;
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.classList.contains("reduce-motion");
 
 function applyColor() {
   tinted.forEach((m) => m.color.copy(color));
@@ -423,13 +424,13 @@ function applyColor() {
 
 /* =========================================================== estados */
 const STATES = {
-  idle:      { color: "#74c497", speed: 0.4, intensity: 0.8, bloom: 0.6, caption: "Standing by. Ask me about your field." },
-  listening: { color: "#65d6b0", speed: 0.3, intensity: 0.85, bloom: 0.65, caption: "Listening…" },
-  thinking:  { color: "#ffb347", speed: 0.6, intensity: 0.9, bloom: 0.65, caption: "Cross-checking 30 years of NASA climate data…" },
-  speaking:  { color: "#b4e0b6", speed: 0.5, intensity: 0.85, bloom: 0.6, caption: "Alternative 1 keeps your soil covered eleven months a year and cuts erosion by about a third." },
+  idle:      { color: "#58d8c8", speed: 1.0, intensity: 1.0, bloom: 1.0, caption: "Standing by. Ask me about your field." },
+  listening: { color: "#7cecc7", speed: 0.55, intensity: 1.2, bloom: 1.15, caption: "Listening…" },
+  thinking:  { color: "#edb85a", speed: 2.4, intensity: 1.3, bloom: 1.25, caption: "Cross-checking 30 years of NASA climate data…" },
+  speaking:  { color: "#93dfe6", speed: 1.4, intensity: 1.25, bloom: 1.1, caption: "Alternative 1 keeps your soil covered eleven months a year and cuts erosion by about a third." },
 };
 let current = "boot";
-let typer = null;
+let typer = null, pulse = null;
 const $ = (id) => document.getElementById(id);
 
 // Show complete sentences immediately; narration and data should be easy to
@@ -455,7 +456,11 @@ function setState(name, caption) {
   gsap.to(fx, { bloom: cfg.bloom, duration: 1, ease: "power2.out" });
   gsap.to(coreUniforms.uIntensity, { value: cfg.intensity, duration: 1 });
 
-  // State changes use colour, not repeated scale pulses around the data.
+  if (pulse) { pulse.kill(); pulse = null; }
+  rings.forEach((r) => gsap.to(r.scale, { x: 1, y: 1, z: 1, duration: 0.4 }));
+  if (name === "thinking" && !reducedMotion()) {
+    pulse = gsap.to(rings.map((r) => r.scale), { x: 1.035, y: 1.035, z: 1.035, duration: 0.9, stagger: 0.06, yoyo: true, repeat: -1, ease: "sine.inOut" });
+  }
   if (caption !== null) typeText($("caption"), caption ?? cfg.caption, name === "speaking" ? 0.045 : 0.03);
 }
 
@@ -779,7 +784,7 @@ function speak(segments, lang, { then = null } = {}) {
 const vis = await import("./visuals.js").catch((e) => { console.warn("visuals.js not loaded", e); return null; });
 const stage = vis ? vis.createStage(rig) : { show: () => false, hide() {}, update() {}, root: new THREE.Group() };
 stage.root.scale.setScalar(1.3);                         // los visuales miden ~1.9 de radio; los anillos se abren a 1.22
-const GLOBE_RING = 1.75;                                 // cuánto se abren los anillos para rodear el globo
+const GLOBE_RING = 1.32;                                 // cuánto se abren los anillos para rodear el globo
 const globeMod = await import("./globe.js?v=2").catch((e) => { console.warn("globe.js not loaded", e); return null; });
 // El globo solo muestra el campo y la celda de clima: el campo se elige en Cooper.
 const globe = globeMod ? globeMod.createGlobe($("globe"), { onPick() {}, onPickDemo() {} }) : null;
@@ -790,7 +795,7 @@ const cancelVisualHide = () => { if (hideTimer) hideTimer.kill(); hideTimer = nu
 function sizeGlobe() {
   if (!globe) return;
   const { width, height } = sceneSize();
-  const px = Math.floor(Math.min(width * 0.97, height * 0.96));
+  const px = Math.floor(Math.min(width * 0.74, height * 0.74));
   $("globe").style.width = $("globe").style.height = `${px}px`;
   globe.size(px);
 }
@@ -798,7 +803,9 @@ function setCenter(mode) {
   center = mode;
   document.body.dataset.view = mode;
   const k = mode === "core" ? 1 : 0.001;
-  gsap.to(fx, { k: mode === "core" ? 1 : mode === "globe" ? 0.6 : 0.45, duration: 0.8, overwrite: "auto" });
+  const ringScale = mode === "globe" ? GLOBE_RING : mode === "visual" ? 1.12 : 1;
+  gsap.to(ringHolder.scale, { x: ringScale, y: ringScale, z: ringScale, duration: 0.9, ease: "power3.inOut", overwrite: true });
+  gsap.to(fx, { k: mode === "core" ? 1 : mode === "globe" ? 0.75 : 0.55, duration: 0.8, overwrite: "auto" });
   gsap.to(coreHolder.scale, { x: k, y: k, z: k, duration: 0.8, ease: "power3.inOut", overwrite: true });
   if (mode !== "visual") {                              // al salir de un visual, vuelve a su posición (la mano lo pudo girar o agrandar)
     stage.hide();
@@ -1107,8 +1114,11 @@ const bootEl = $("boot");
 boot
   .add(typeText(bootEl, "CONNECTING TO YOUR FIELD", 0.04))
   .to(shellUniforms.uOpacity, { value: 1, duration: 1.4, ease: "power2.out" }, 0.4)
+  .to(dustMat, { opacity: 0.38, duration: 1.5, ease: "power2.out" }, 0.2)
+  .to(rings.map((r) => r.scale), { x: 1, y: 1, z: 1, duration: 1.1, stagger: 0.08, ease: "expo.out" }, 0.35)
+  .to(barGroup.scale, { x: 1, y: 1, z: 1, duration: 0.8, ease: "power2.out" }, 0.8)
   .to(core.scale, { x: 1, y: 1, z: 1, duration: 1.6, ease: "power2.out" }, 0.6)
-  .fromTo(fx, { bloom: 0.75 }, { bloom: 0.6, duration: 1.8, ease: "power3.out" }, 0.6)
+  .fromTo(fx, { bloom: 1.6 }, { bloom: 1.0, duration: 1.8, ease: "power3.out" }, 0.6)
   .to(bootEl, { opacity: 0, duration: 0.6 }, 2.4)
   .to("#hud", { opacity: 1, duration: 0.8 }, 2.4)
   .call(startIntake, null, 1.4);
@@ -1118,16 +1128,20 @@ const clock = new THREE.Clock();
 let frames = 0, fpsT = 0;
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
-  const level = audioFrame(t);
+  const motionDt = reducedMotion() ? 0 : dt;
+  const sceneTime = reducedMotion() ? 0 : t;
+  const level = audioFrame(sceneTime);
   params.audio += (level - params.audio) * 0.25;
 
-  coreUniforms.uTime.value = t; coreUniforms.uAudio.value = params.audio;
-  shellUniforms.uTime.value = t; shellUniforms.uAudio.value = params.audio;
-  core.rotation.y += dt * 0.25 * params.speed;
-  core.rotation.x = Math.sin(t * 0.3) * 0.15;
-  wire.rotation.y -= dt * 0.4 * params.speed;
-  wireMat.opacity = 0.25 + 0.2 * Math.sin(t * 2) * 0.5 + params.audio * 0.4;
-  // Decorative ring and particle layers are not rendered or animated.
+  coreUniforms.uTime.value = sceneTime; coreUniforms.uAudio.value = params.audio;
+  shellUniforms.uTime.value = sceneTime; shellUniforms.uAudio.value = params.audio;
+  core.rotation.y += motionDt * 0.25 * params.speed;
+  core.rotation.x = Math.sin(sceneTime * 0.3) * 0.15;
+  wire.rotation.y -= motionDt * 0.4 * params.speed;
+  wireMat.opacity = 0.25 + 0.2 * Math.sin(sceneTime * 2) * 0.5 + params.audio * 0.4;
+  rings.forEach((r) => { r.rotation.z += motionDt * r.userData.spin * params.speed; });
+  dust.rotation.y += motionDt * 0.02 * params.speed;
+  updateBars(levels);
   stage.update(dt);
   bloom.strength = fx.bloom * fx.k;
   placeLabel();

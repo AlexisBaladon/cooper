@@ -19,7 +19,7 @@
 }
 body { font-family: var(--font); letter-spacing: 0; background: radial-gradient(ellipse at 50% 42%, #1c3426, #0c160f 75%); }
 body::before {
-  content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .12;
+  content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .04;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='600' fill='none' stroke='%2374c497' stroke-width='1'%3E%3Cpath d='M-80 440C90 190 200 510 430 330S740 120 980 320M-80 470C90 220 200 540 430 360S740 150 980 350M-80 500C90 250 200 570 430 390S740 180 980 380M-80 530C90 280 200 600 430 420S740 210 980 410M130 80C230-50 420 30 380 140S100 240 130 80ZM160 90C240-5 385 45 350 135S140 205 160 90ZM190 100C245 35 345 65 320 130S180 165 190 100Z'/%3E%3C/svg%3E") center / cover;
 }
 /* Postprocessing draws a black canvas even with alpha enabled. Screen blending
@@ -126,24 +126,10 @@ body.embed .close-embed:hover { background: var(--brand-soft); box-shadow: var(-
   position: fixed; left: 20px; top: 104px; bottom: 20px;
   right: calc(var(--conversation-width) + 40px); overflow: hidden;
   border-radius: 24px; isolation: isolate;
-  background: radial-gradient(ellipse at center, #1c3426, #0c160f 75%);
+  background: radial-gradient(ellipse at center, #0b1b25, #02070d 78%);
 }
-.scene-region::before {
-  content: ""; position: absolute; inset: -12%; z-index: 0; pointer-events: none;
-  background-image:
-    radial-gradient(ellipse at 12% 38%, #b7cf7447, transparent 43%),
-    radial-gradient(ellipse at 87% 68%, #70b6a13d, transparent 45%),
-    url("contours.svg?v=1");
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  opacity: .55;
-  animation: terrain-drift 16s ease-in-out infinite alternate, ambient-breathe 7s ease-in-out infinite alternate;
-}
-@keyframes terrain-drift { from { transform: translate3d(-3%, -2%, 0) rotate(-1deg); } to { transform: translate3d(3%, 2%, 0) rotate(1deg); } }
-@keyframes ambient-breathe { from { opacity: .4; } to { opacity: .85; } }
-@media (prefers-reduced-motion: reduce) {
-  .scene-region::before, body[data-view] .scene-region::after { animation: none !important; opacity: .45; }
-}
+/* The space version uses real Three.js stars and rings, not contour artwork. */
+.scene-region::before { content: none; }
 .scene-region .scene-canvas { position: absolute; inset: 0; }
 .scene-region #globe { position: absolute; left: 50%; top: 50%; }
 .scene-region .vlabel { z-index: 3; pointer-events: none; }
@@ -161,9 +147,9 @@ body.embed .close-embed:hover { background: var(--brand-soft); box-shadow: var(-
 .conversation .caption {
   position: static; transform: none; width: auto; max-height: none; overflow: visible;
   margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none;
-  background: transparent; text-align: left; font-size: 16px; line-height: 1.65;
+  background: transparent; text-align: left; font-size: 14px; line-height: 1.65;
 }
-.question { margin: 0 0 16px; padding: 12px 14px; color: var(--brand); background: var(--brand-soft); border-radius: 12px; font: 500 14px/1.5 var(--font); overflow-wrap: anywhere; }
+.question { margin: 0 0 16px; padding: 12px 14px; color: var(--brand); background: var(--brand-soft); border-radius: 12px; font: 500 13px/1.5 var(--font); overflow-wrap: anywhere; }
 .conversation .side {
   position: static; display: block; width: auto; max-height: none; overflow: visible;
   padding: 18px 0 0; margin: 20px 0 0; border: 0; border-top: 1px solid var(--line);
