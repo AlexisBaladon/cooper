@@ -4,6 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Explain it simply (3D) · Cooper</title>
+  <link rel="icon" type="image/png" sizes="512x512" href="assets/cooper-logo.png">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="apple-touch-icon" href="assets/cooper-logo.png">
+  <meta name="theme-color" content="#1b5e20">
+
   <link rel="stylesheet" href="slides.css?v=1">
   <style>
     /* ---- capa 3D detrás del texto ---- */
@@ -74,7 +79,7 @@
 <div class="player" id="player">
   <div class="topbar">
     <a class="brand" href="index.html">← Cooper</a>
-    <span class="styles">Style: <a href="slides.html">Charts</a> · <a class="on" href="slides-3d.html">3D</a></span>
+    <label class="language-control"><span>Language / Idioma</span><select id="language" aria-label="Language / Idioma"><option value="en">English</option><option value="es">Español</option></select></label>
     <span class="counter"></span>
   </div>
 
@@ -111,22 +116,33 @@
       <label class="opt" id="voice-pick-wrap">Voice <select id="voice-pick"></select></label>
     </div>
   </div>
-  <p class="note">The 3D model and every number come from the data (SRTM terrain, NASA POWER climate, RUSLE erosion). <span id="ai-note">AI only rewrites the narration text.</span> Keys: space = pause, ← → = change slide.</p>
+  <p class="note">The terrain is vertically exaggerated for readability; shapes are illustrative. Values come from SRTM, NASA POWER and the prototype RUSLE model. <span id="ai-note">AI only rewrites the narration text.</span> Keys: space = pause, ← → = change slide.</p>
 </div>
 
+<script src="translations-es.js?v=3"></script>
+<script src="language.js?v=2"></script>
+<script>if (parent === window) window.addEventListener("cooper-language", () => location.reload());</script>
+<script src="workflow.js?v=2"></script>
 <script src="slides-sample.js"></script>
-<script src="slides.js?v=1"></script>
+<script src="slides.js?v=2"></script>
 <script type="module">
-  import { start3D } from "./slides3d.js?v=1";
+  async function initialize() {
 
-  let data = null, source = "";
-  try {
-    const raw = localStorage.getItem("cooper-analysis");
-    if (raw) { data = JSON.parse(raw); source = "Using the analysis you ran on the main screen."; }
-  } catch (e) { /* datos corruptos: usar el ejemplo */ }
-  if (!data || !data.terreno) { data = window.SAMPLE_ANALYSIS; source = "Using the sample field near Young (real NASA POWER and SRTM data)."; }
-  document.getElementById("data-source").textContent = source;
+if (window.parent !== window) document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") window.parent.postMessage({type: "cooper-close"}, location.origin);
+    });
+    let data = CooperWorkflow.explanationData(window);
+    if (!data && new URLSearchParams(location.search).has("analysis")) {
+      document.getElementById("start").innerHTML = '<h2>No analysis is available</h2><p>Return to Cooper and run your field comparison first.</p><a href="index.html">Back to Cooper</a>';
+      return;
+    }
+    const sample = !data;
+    if (!data) data = window.SAMPLE_ANALYSIS;
+    const source = sample ? "DEMONSTRATION ONLY · Sample field near Young, not your field." : CooperWorkflow.sourceNote(data);
+    document.getElementById("data-source").textContent = source;
 
+  if (!data.terreno) { location.replace("slides.html?analysis=1"); return; }
+  const { start3D } = await import("./slides3d.js?v=3");
   const root = document.getElementById("player");
   const only = new URLSearchParams(location.search).get("slide");
   if (only) document.documentElement.classList.add("static");
@@ -185,20 +201,24 @@
       const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 45000);
       fetch("/api/narrate", {
         method: "POST", headers: { "Content-Type": "application/json" }, signal: ctrl.signal,
-        body: JSON.stringify({ slides: player.slides.map((s) => ({ key: s.key, headline: s.headline, narration: s.narration })) }),
+        body: JSON.stringify({ language: CooperLang.current, slides: player.slides.map((s) => ({ key: s.key, headline: s.headline, narration: s.narration })) }),
       }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status)))).then((res) => {
-        if (res.fuente !== "groq") { setNote(`Template text, no AI. ${res.motivo || ""}`); return; }
+        if (res.fuente !== "groq") { setNote("Original explanation text. AI narration is temporarily unavailable; your analysis and numbers are unchanged."); return; }
         res.slides.forEach((t, i) => {
           const s = player.slides[i];
           if (s && s.key === t.key && t.narration.length === s.narration.length) { s.headline = t.headline; s.narration = t.narration; }
         });
-        setNote(`Narration rewritten with AI (Groq · ${res.modelo}) in ${res.reescritas} of ${res.slides.length} slides. The numbers come from the data.`);
+        setNote(`AI narration ready for ${res.reescritas} of ${res.slides.length} slides; the other slides keep their original text. The numbers come from your analysis.`);
         if (only) showStatic(); else if (!player.playing) player.show(player.i);
       }).catch(() => setNote("Template text, no AI (couldn't connect)."))
         .finally(() => { clearTimeout(timer); startBtn.disabled = false; startBtn.textContent = "▶ Start"; });
     }
 
   }
+  }
+  initialize().catch(() => {
+    document.getElementById("start").innerHTML = '<h2>Use the charts explanation</h2><p>The 3D view could not load on this connection or device. Your analysis is still available.</p><a href="slides.html?analysis=1">Open charts for this analysis</a>';
+  });
 </script>
 </body>
 </html>

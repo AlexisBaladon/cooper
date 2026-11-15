@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import time
 from functools import lru_cache
 from pathlib import Path
@@ -37,7 +38,7 @@ GRID_N = 15
 K_DEFAULT = 0.035          # t·ha·h / (ha·MJ·mm)
 TOLERANCIA_T_HA = 7.0      # pérdida de suelo tolerable de referencia (revisar por suelo)
 AS_CAP_M = 250.0           # largo de ladera máximo efectivo (m)
-CACHE_DIR = Path(__file__).resolve().parents[2] / "data" / "cache"
+CACHE_DIR = Path(os.environ.get("NASA_CACHE_DIR", Path(__file__).resolve().parents[2] / "data" / "cache"))
 
 
 # --------------------------------------------------------------- elevación

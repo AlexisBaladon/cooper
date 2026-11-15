@@ -32,6 +32,12 @@ def main() -> None:
     code, page = request("/")
     assert code == 200 and b"Cooper" in page, (code, "homepage")
     checks["homepage_https"] = code
+    for path, policy in (("/", "DENY"), ("/slides-3d.html", "SAMEORIGIN"), ("/slides.html", "SAMEORIGIN")):
+        with urlopen(base + path, timeout=20) as response:
+            assert response.status == 200
+            assert response.headers.get("X-Frame-Options") == policy, (path, response.headers)
+            assert response.headers.get("X-Content-Type-Options") == "nosniff"
+        checks[f"frame_policy:{path}"] = policy
     code, health = request("/api/health")
     assert code == 200 and json.loads(health)["status"] == "ok"
     checks["backend_health"] = code
@@ -42,6 +48,9 @@ def main() -> None:
     code, _ = request("/api/analyze", b"{}")
     assert code == 422, code
     checks["request_validation"] = code
+    code, _ = request("/api/narrate", b"{}")
+    assert code == 422, (code, "narration route")
+    checks["narration_request_validation"] = code
     if args.analyze_sample:
         field = catalog["campos_demo"][0]
         body = json.dumps({"lat": field["lat"], "lon": field["lon"], "rotacion_actual": field["rotacion"], "tiene_ganado": field["tiene_ganado"]}).encode()
@@ -49,7 +58,9 @@ def main() -> None:
         assert code == 200, (code, analysis_body[:500])
         result = json.loads(analysis_body)
         assert len(result["rotaciones"]) == 3 and len(result["clima"]["mensual"]) == 12
-        checks["nasa_sample_analysis"] = {"status": code, "period": result["meta"]["periodo"]}
+        checks["nasa_sample_analysis"] = {"status": code, "period": result["meta"]["periodo"],
+                                          "terrain_cells": len((result.get("zonas") or {}).get("celdas", [])),
+                                          "warnings": result["advertencias"]}
     for path in ("/api/docs", "/api/climate/power", "/api/openai", "/api/groq"):
         code, _ = request(path)
         assert code == 404, (path, code)

@@ -1114,12 +1114,13 @@ function webglOk() {
 
 export function start3D(root, data) {
   if (!webglOk()) {
+    root.querySelector(".start").hidden = true;
     root.querySelector(".stage-inner").innerHTML =
-      `<p class="no3d">Your browser can't display 3D. <a href="slides.html">See the charts version</a>.</p>`;
+      `<p class="no3d">Your browser can't display 3D. <a href="slides.html?analysis=1">See the charts for this analysis</a>.</p>`;
     return null;
   }
   const scene = new FieldScene(root.querySelector(".canvas3d"), data);
-  const player = new Player(root, build3DSlides(data, scene));
+  const player = new Player(root, window.CooperLang.prepareSlides(window.CooperWorkflow.labelScenario(build3DSlides(data, scene), data)));
   window.cooperScene = scene;
   return player;
 }

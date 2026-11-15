@@ -42,12 +42,21 @@ jobs:
           python -m pip install -r backend/requirements.txt
           (cd backend && python -m pytest -q)
       - name: Check frontend JavaScript
-        run: node --check frontend/app.js
+        run: |
+          node --check frontend/app.js
+          node --check frontend/workflow.js
+          node --check frontend/language.js
+          node --check frontend/translations-es.js
+          node --test frontend/tests/workflow.test.cjs
+          node --test frontend/tests/language.test.cjs
+          python scripts/check_frontend_scripts.py
       - name: Validate deployment scripts and package release
         run: |
           bash -n deploy/vm/install.sh
           bash -n deploy/vm/activate-release.sh
           bash -n deploy/vm/enable-https.sh
+          bash -n deploy/vm/configure-proxy.sh
+          bash -n deploy/vm/enable-domain.sh
           python scripts/package_release.py
       - name: Verify deployment identity context
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

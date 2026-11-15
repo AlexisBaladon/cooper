@@ -72,6 +72,7 @@ class SlideText(BaseModel):
 
 class NarrateRequest(BaseModel):
     slides: list[SlideText] = Field(..., min_length=1, max_length=12)
+    language: Literal["en", "es"] = "en"
 
 
 @app.post("/api/narrate")
@@ -80,7 +81,7 @@ def narrate(req: NarrateRequest) -> dict:
     slides = [s.model_dump() for s in req.slides]
     if any(len(t) > 600 for s in slides for t in s["narration"]):
         raise HTTPException(400, "Sentence too long")
-    return narrator.rewrite(slides)
+    return narrator.rewrite(slides, language=req.language)
 
 
 @app.get("/health")
@@ -140,10 +141,14 @@ def get_catalog() -> dict:
 def analyze(req: AnalyzeRequest) -> dict:
     if req.rotacion_actual not in catalog.rotations:
         raise HTTPException(400, f"Unknown rotation: {req.rotacion_actual}")
+    if not any(req.prioridades.model_dump().values()):
+        raise HTTPException(400, "Choose at least one priority above zero.")
     try:
         raw, meta = power.fetch_daily(req.lat, req.lon)
     except (httpx.HTTPError, KeyError, ValueError) as exc:
         raise HTTPException(502, f"Could not fetch NASA POWER data: {exc}") from exc
+    except OSError as exc:
+        raise HTTPException(503, "Climate data storage is temporarily unavailable. Please try again.") from exc
 
     base = climate.derive_daily(raw, req.lat)
     esc = req.escenario
@@ -167,7 +172,7 @@ def analyze(req: AnalyzeRequest) -> dict:
             c = terrain.c_factor(rot, catalog.crops, r_frac)
             erosion_maps[rid] = terrain.erosion_map(terr, r_annual, c)
         erosion = {rid: terrain.erosion_summary(a) for rid, a in erosion_maps.items()}
-    except (httpx.HTTPError, ValueError, KeyError) as exc:
+    except (httpx.HTTPError, ValueError, KeyError, OSError) as exc:
         warnings.append(f"Could not get SRTM elevation ({exc}); erosion is estimated without the slope.")
 
     rotations = engine.compare(req.rotacion_actual, req.prioridades.model_dump(), monthly,

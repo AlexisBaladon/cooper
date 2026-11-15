@@ -11,7 +11,7 @@ python3 -m venv /opt/nasa2026-certbot
 /opt/nasa2026-certbot/bin/certbot certonly --non-interactive --agree-tos \
   --register-unsafely-without-email --webroot --webroot-path /var/www/acme \
   --ip-address "$public_ip" --preferred-profile shortlived --cert-name "$public_ip"
-sed "s/PUBLIC_IP/$public_ip/g" /opt/nasa2026/deploy/vm/nginx-https.conf.template > /etc/nginx/sites-available/default
+bash /opt/nasa2026/deploy/vm/configure-proxy.sh "$public_ip"
 nginx -t
 systemctl reload nginx
 install -m 644 /opt/nasa2026/deploy/vm/nasa2026-certbot.service /etc/systemd/system/nasa2026-certbot.service

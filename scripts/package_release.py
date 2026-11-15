@@ -14,7 +14,7 @@ def main() -> None:
         path for path in (root / "backend" / "app").rglob("*")
         if path.is_file() and "__pycache__" not in path.parts and path.suffix not in {".pyc", ".pyo"}
     )
-    files.extend(path for path in web.rglob("*") if path.is_file())
+    files.extend(path for path in web.rglob("*") if path.is_file() and "tests" not in path.relative_to(web).parts)
     files.extend((root / "data").glob("*.json"))
     files.extend(path for path in (root / "deploy" / "vm").iterdir() if path.is_file())
     output = root / "dist" / "nasa2026-release.tar.gz"

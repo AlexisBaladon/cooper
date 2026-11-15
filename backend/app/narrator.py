@@ -24,6 +24,8 @@ import hashlib
 import json
 import os
 import re
+from collections import OrderedDict
+from threading import Lock
 from pathlib import Path
 
 import httpx
@@ -60,14 +62,16 @@ Mandatory rules:
 
 Reply with JSON only: {"slides": [{"key": "...", "headline": "...", "narration": ["...", "..."]}]}"""
 
-_NUM = re.compile(r"\d+(?:\.\d+)?")
+_NUM = re.compile(r"[+-]?\d+(?:\.\d+)?")
 _THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}\b)")
-_cache: dict[str, dict] = {}
+MAX_CACHE_ENTRIES = 64
+_cache: OrderedDict[str, dict] = OrderedDict()
+_cache_lock = Lock()
 
 
 def _numbers(text: str) -> list[str]:
     """Números de una frase; en inglés la coma es separador de miles ("1,308" = "1308")."""
-    return sorted(_NUM.findall(_THOUSANDS.sub("", text)))
+    return sorted(_NUM.findall(_THOUSANDS.sub("", text.replace("−", "-"))))
 
 
 def validate_slide(original: dict, new: dict) -> str | None:
@@ -92,13 +96,14 @@ def validate_slide(original: dict, new: dict) -> str | None:
     return None
 
 
-def _call_groq(slides: list[dict], api_key: str, model: str) -> list[dict]:
+def _call_groq(slides: list[dict], api_key: str, model: str, language: str = "en") -> list[dict]:
     payload = {
         "model": model,
         "temperature": 0.4,
+        "max_completion_tokens": 4096,
         "response_format": {"type": "json_object"},
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": SYSTEM_PROMPT.replace("Plain, friendly English", "Plain, friendly Spanish" if language == "es" else "Plain, friendly English")},
             {"role": "user", "content": json.dumps({"slides": slides}, ensure_ascii=False)},
         ],
     }
@@ -112,12 +117,12 @@ def _call_groq(slides: list[dict], api_key: str, model: str) -> list[dict]:
     return out
 
 
-def _call_with_retry(slides: list[dict], api_key: str, model: str, attempts: int = 2) -> list[dict]:
+def _call_with_retry(slides: list[dict], api_key: str, model: str, attempts: int = 2, language: str = "en") -> list[dict]:
     """Reintenta cuando el modelo devuelve un JSON mal formado (falla intermitente)."""
     for attempt in range(attempts):
         last = attempt == attempts - 1
         try:
-            return _call_groq(slides, api_key, model)
+            return _call_groq(slides, api_key, model, language)
         except httpx.HTTPStatusError as exc:
             # 400 = Groq no pudo validar el JSON generado; otros códigos (401, 404, 429) no se arreglan reintentando.
             if last or exc.response.status_code != 400:
@@ -128,7 +133,7 @@ def _call_with_retry(slides: list[dict], api_key: str, model: str, attempts: int
     raise RuntimeError("no attempts")  # pragma: no cover
 
 
-def rewrite(slides: list[dict]) -> dict:
+def rewrite(slides: list[dict], language: str = "en") -> dict:
     """slides: [{key, headline, narration: [str]}]. Devuelve los textos finales y su origen."""
     template = {"fuente": "plantilla", "modelo": None, "slides": slides, "reescritas": 0}
     api_key = os.environ.get("GROQ_API_KEY", "").strip()
@@ -136,12 +141,15 @@ def rewrite(slides: list[dict]) -> dict:
         return {**template, "motivo": "GROQ_API_KEY is missing in backend/.env"}
     model = os.environ.get("GROQ_MODEL", "").strip() or DEFAULT_MODEL
 
-    key = hashlib.sha256(json.dumps([model, slides], ensure_ascii=False, sort_keys=True).encode()).hexdigest()
-    if key in _cache:
-        return _cache[key]
+    key = hashlib.sha256(json.dumps([model, language, slides], ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+    with _cache_lock:
+        cached = _cache.get(key)
+        if cached is not None:
+            _cache.move_to_end(key)
+            return cached
 
     try:
-        generated = _call_with_retry(slides, api_key, model)
+        generated = _call_with_retry(slides, api_key, model, language=language)
     except httpx.HTTPStatusError as exc:
         try:   # código de error de Groq (p. ej. model_not_found, json_validate_failed), sin el cuerpo completo
             code = exc.response.json().get("error", {}).get("code") or ""
@@ -166,5 +174,9 @@ def rewrite(slides: list[dict]) -> dict:
     result = {"fuente": "groq" if ok else "plantilla", "modelo": model if ok else None,
               "slides": final, "reescritas": ok, "rechazadas": rejected}
     if ok:
-        _cache[key] = result
+        with _cache_lock:
+            _cache[key] = result
+            _cache.move_to_end(key)
+            while len(_cache) > MAX_CACHE_ENTRIES:
+                _cache.popitem(last=False)
     return result

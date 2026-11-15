@@ -6,6 +6,30 @@ import pytest
 from app import engine, terrain
 
 
+def test_dem_uses_persistent_cache(monkeypatch, tmp_path):
+    """A fresh worker writes outside the release, and another worker reuses it."""
+    import os
+    import subprocess
+    import sys
+
+    cache = tmp_path / "persistent" / "terrain"
+    env = {**os.environ, "NASA_CACHE_DIR": str(cache)}
+    code = """
+import os
+from pathlib import Path
+from app import terrain
+def download(*_):
+    return [80.0] * terrain.GRID_N ** 2
+terrain._download_dem = download
+result = terrain.fetch_dem(-32.62, -57.75, 100)
+assert result['z'].shape == (terrain.GRID_N, terrain.GRID_N)
+assert list(Path(os.environ['NASA_CACHE_DIR']).glob('dem_*.json'))
+"""
+    subprocess.run([sys.executable, "-c", code], env=env, check=True)
+    code = code.replace("return [80.0] * terrain.GRID_N ** 2", "raise AssertionError('Should reuse disk cache')")
+    subprocess.run([sys.executable, "-c", code], env=env, check=True)
+
+
 @pytest.fixture(scope="module")
 def cat():
     return engine.load_catalog()
