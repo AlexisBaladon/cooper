@@ -22,7 +22,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import assistant, climate, engine, jarvis, narrator, power, soil, terrain, voice, weather
+from . import assistant, climate, engine, jarvis, narrator, power, soil, terrain, voice, weather, whatsapp
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -39,7 +39,8 @@ DEMO_FIELDS = [
      "rotacion": "trigo_soja2", "tiene_ganado": True},
 ]
 
-app = FastAPI(title="Cooper", version="0.6.0")
+app = FastAPI(title="Cooper", version="0.6.0", lifespan=whatsapp.lifespan)
+app.include_router(whatsapp.router)
 catalog = engine.load_catalog()
 
 
