@@ -3,6 +3,7 @@ limit_req_zone $binary_remote_addr zone=nasa_per_ip:1m rate=2r/s;
 limit_req_zone $binary_remote_addr zone=nasa_narration_ip:1m rate=5r/m;
 limit_req_zone $server_addr zone=nasa_narration_global:1m rate=10r/m;
 limit_req_zone $server_name zone=nasa_global:1m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=nasa_assistant_ip:1m rate=12r/m;
 limit_conn_zone $binary_remote_addr zone=nasa_connections:1m;
 limit_conn_zone $server_addr zone=nasa_backend_connections:1m;
 # "Ask Cooper": chat and voice notes use the Groq key, so they get their own limits.

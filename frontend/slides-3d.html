@@ -8,6 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
   <link rel="apple-touch-icon" href="assets/cooper-logo.png">
   <meta name="theme-color" content="#1b5e20">
+  <script>if (new URLSearchParams(location.search).has("embed")) document.documentElement.classList.add("embed");</script>
 
   <link rel="stylesheet" href="slides.css?v=1">
   <style>
@@ -141,7 +142,8 @@ if (window.parent !== window) document.addEventListener("keydown", (e) => {
     const source = sample ? "DEMONSTRATION ONLY · Sample field near Young, not your field." : CooperWorkflow.sourceNote(data);
     document.getElementById("data-source").textContent = source;
 
-  if (!data.terreno) { location.replace("slides.html?analysis=1"); return; }
+  const embed = document.documentElement.classList.contains("embed");
+  if (!data.terreno) { location.replace("slides.html?analysis=1" + (embed ? "&embed=1" : "")); return; }
   const { start3D } = await import("./slides3d.js?v=3");
   const root = document.getElementById("player");
   const only = new URLSearchParams(location.search).get("slide");
@@ -194,7 +196,10 @@ if (window.parent !== window) document.addEventListener("keydown", (e) => {
     const params = new URLSearchParams(location.search);
     const aiSource = document.getElementById("ai-source"), startBtn = document.getElementById("start-btn");
     const setNote = (t) => { aiSource.textContent = t; document.getElementById("ai-note").textContent = t; };
-    if (params.get("ai") === "0") setNote("Template text (AI turned off).");
+    let markReady;
+    window.cooperReady = new Promise((r) => { markReady = r; });
+    if (embed) document.getElementById("start").hidden = true;
+    if (params.get("ai") === "0") { setNote("Template text (AI turned off)."); markReady(); }
     else {
       startBtn.disabled = true;
       startBtn.textContent = "Preparing the explanation…";
@@ -211,12 +216,13 @@ if (window.parent !== window) document.addEventListener("keydown", (e) => {
         setNote(`AI narration ready for ${res.reescritas} of ${res.slides.length} slides; the other slides keep their original text. The numbers come from your analysis.`);
         if (only) showStatic(); else if (!player.playing) player.show(player.i);
       }).catch(() => setNote("Template text, no AI (couldn't connect)."))
-        .finally(() => { clearTimeout(timer); startBtn.disabled = false; startBtn.textContent = "▶ Start"; });
+        .finally(() => { clearTimeout(timer); startBtn.disabled = false; startBtn.textContent = "▶ Start"; markReady(); });
     }
 
   }
   }
   initialize().catch(() => {
+    if (document.documentElement.classList.contains("embed")) { location.replace("slides.html?analysis=1&embed=1"); return; }
     document.getElementById("start").innerHTML = '<h2>Use the charts explanation</h2><p>The 3D view could not load on this connection or device. Your analysis is still available.</p><a href="slides.html?analysis=1">Open charts for this analysis</a>';
   });
 </script>

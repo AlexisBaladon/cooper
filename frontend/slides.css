@@ -197,3 +197,24 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 .language-control { display: flex; align-items: center; gap: .5rem; margin-left: auto; font-size: .8rem; }
 .language-control select { font: inherit; padding: .4rem; border-radius: 6px; }
 .embedded .language-control { display: none; }
+
+/* ---------- embebido en el reproductor de la página principal (?embed=1) ---------- */
+html.embed, html.embed body { height: 100%; overflow: hidden; background: #0d1410; }
+html.embed .player { max-width: none; height: 100%; padding: 0; margin: 0; position: relative; }
+html.embed .topbar, html.embed .controls, html.embed .player > .note, html.embed #start { display: none !important; }
+html.embed .stage { position: absolute; inset: 0; aspect-ratio: auto; border-radius: 0; box-shadow: none; }
+html.embed .subs {
+  position: absolute; left: 50%; bottom: 4.2%; transform: translateX(-50%); z-index: 6; width: min(86%, 900px);
+  max-height: none; overflow: visible; margin: 0; padding: 0; background: none; text-align: center; pointer-events: none;
+}
+html.embed .subs span { display: none; }
+html.embed .subs span.now {
+  display: inline; background: rgba(12, 16, 14, .82); color: #fff; padding: .25em .6em; border-radius: 6px;
+  font-size: clamp(.8rem, 2.2vw, 1.25rem); line-height: 1.7; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+html.embed.no-cc .subs { display: none; }
+html.embed .s3d .titles { padding: 1.1rem 1.4rem 2rem; }
+html.embed .hud-month, html.embed .hud-trucks, html.embed .hud-closing { bottom: 4.6rem; }
+html.embed .hud-bottom { bottom: 4.4rem; }
+html.embed .hud-panel { bottom: 4.6rem; }
+html.embed.no-cc .hud-month, html.embed.no-cc .hud-trucks, html.embed.no-cc .hud-closing, html.embed.no-cc .hud-bottom, html.embed.no-cc .hud-panel { bottom: 1.2rem; }
