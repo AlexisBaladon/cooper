@@ -41,7 +41,7 @@
   const SKIP = ".dlg-wrap, .wx-modal-wrap, #player-shell, #jarvis, .focus-wrap, .m3d-wrap, .menu";
   const state = new WeakMap(); // el → "hidden" | "shown"
   let queue = [], raf = 0;
-  const io = "IntersectionObserver" in window ? new IntersectionObserver(onIntersect, { threshold: 0.08, rootMargin: "0px 0px -6% 0px" }) : null;
+  const io = "IntersectionObserver" in window ? new IntersectionObserver(onIntersect, { threshold: [0, 0.01, 0.02, 0.04, 0.08], rootMargin: "0px 0px -6% 0px" }) : null;
 
   function hide(el, fromAbove = false) {
     const g = G();
@@ -52,7 +52,10 @@
   function onIntersect(entries) {
     for (const e of entries) {
       const el = e.target;
-      if (e.isIntersecting) {
+      // Enough of it is on screen: 8 % of a normal card, or ~160 px of a very tall section
+      // (a long column of cards on a phone never reaches 8 %).
+      const seen = e.isIntersecting && (e.intersectionRatio >= 0.08 || e.intersectionRect.height >= Math.min(160, e.boundingClientRect.height * 0.08));
+      if (seen) {
         if (state.get(el) === "hidden") { state.set(el, "queued"); queue.push(el); }
       } else if (state.get(el) === "shown" && e.intersectionRatio === 0) {
         // Out of sight: get ready to enter again from the side it will come back.
@@ -119,21 +122,8 @@
   }
   document.addEventListener("pointerleave", () => { if (tiltEl) untilt(tiltEl); tiltEl = null; });
 
-  /* ------------------------------------------------------- living icons */
-  const ICON_HOST = "a, button, .nav-item, .ch-title, .opt-head, .ov-score, .tile, .sum-item, .tl-ic, .choice, .prio, .ov-title, .section-head, .wx-title, .ev-item, .cal-legend span";
-  const busy = new WeakSet();
-  document.addEventListener("pointerover", (e) => {
-    const host = e.target.closest?.(ICON_HOST);
-    if (!host || host.contains(e.relatedTarget)) return;
-    const img = host.querySelector("img.i3d, .nav-ic img");
-    const g = G();
-    if (!img || !g || busy.has(img)) return;
-    busy.add(img);
-    g.timeline({ onComplete: () => busy.delete(img) })
-      .to(img, { y: -5, scale: 1.18, rotation: -10, duration: 0.18, ease: "power2.out" })
-      .to(img, { rotation: 8, duration: 0.14, ease: "sine.inOut" })
-      .to(img, { y: 0, scale: 1, rotation: 0, duration: 0.7, ease: "elastic.out(1.1, 0.4)", clearProps: "transform" });
-  });
+  /* Living icons: every illustrated icon moves all the time with its own motion (styles.css,
+     "living icons"); the sidebar menu icons stay still and move only on hover. */
 
   /* ------------------------------------------------------- focus view */
   let focus = null;

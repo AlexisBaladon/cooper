@@ -104,9 +104,10 @@
             <button id="an-run" class="btn primary lg" type="button" disabled hidden>Loading crop options…</button>
           </footer>
         </section>
-        <section class="card an-summary" id="an-summary" hidden>
-          <div class="sum-items" id="an-sum-items"></div>
-          <button type="button" class="btn ghost" id="an-edit">${icon("edit")}<span>Edit settings</span></button>
+        <section class="card an-summary" id="an-summary" hidden aria-labelledby="sum-h">
+          <header class="sum-head"><div class="sum-title"><span class="chip-ic big">${icon("settings")}</span><div><small>Analysis settings</small><h3 id="sum-h">What this comparison is based on</h3></div></div>
+            <button type="button" class="btn ghost" id="an-edit">${icon("edit")}<span>Edit settings</span></button></header>
+          <div class="sum-body" id="an-sum-items"></div>
         </section>
         <div class="an-results" id="an-results" aria-live="polite">
           <div class="results-bar card" id="an-bar" hidden>
@@ -221,21 +222,42 @@
   /* After an analysis the wizard folds into a one-line summary; "Edit settings" brings it back. */
   function summaryHTML(input) {
     const rot = S.catalog.rotaciones.find((r) => r.id === input.rotacion_actual);
+    const crops = Object.fromEntries((S.catalog.cultivos || []).map((c) => [c.id, c]));
     const field = C.fields.get(S.fieldId);
-    const top = Object.entries(input.prioridades).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k]) => C.SCORES[k].label).join(" · ");
-    return `<span class="sum-item">${icon("field")}<span><small>Field</small><strong class="notranslate">${esc(field?.nombre || "")}</strong></span></span>
-      <span class="sum-item">${icon("map")}<span><small>Size</small><strong>${fmt(input.area_ha)} ha</strong></span></span>
-      <span class="sum-item">${icon("rotation")}<span><small>Current rotation</small><strong>${esc(rot?.nombre || "")}</strong></span></span>
-      <span class="sum-item">${icon(input.tiene_ganado ? "forage" : "harvest")}<span><small>Livestock</small><strong>${input.tiene_ganado ? "Yes" : "No"}</strong></span></span>
-      <span class="sum-item">${icon("soil")}<span><small>Soil water</small><strong>${fmt(input.capacidad_suelo_mm)} mm</strong></span></span>
-      <span class="sum-item">${icon("star")}<span><small>Top priorities</small><strong>${esc(top)}</strong></span></span>`;
+    const soil = { 80: ["Little", "Shallow or sandy soil", 1], 120: ["Medium", "Most paddocks", 2], 170: ["A lot", "Deep, clayey soil", 3] }[input.capacidad_suelo_mm] || ["Medium", "Most paddocks", 2];
+    const tile = (step, ic, label, value, sub, extra = "") => `<button type="button" class="sum-tile" data-step="${step}" title="${esc(C.t("Change"))}: ${esc(C.t(label))}">
+        <span class="st-ic">${icon(ic)}</span>
+        <span class="st-txt"><small>${esc(C.t(label))}</small><strong>${value}</strong>${sub ? `<em>${sub}</em>` : ""}${extra}</span>
+        <span class="st-edit" aria-hidden="true">${icon("edit")}</span></button>`;
+    const seq = (rot?.anios || []).map((year, y) => `<span class="st-year"><b>${C.t("Year")} ${y + 1}</b>${year.map((id) => `<i style="--c:${crops[id]?.color || "var(--muted)"}">${esc(crops[id]?.nombre || id)}</i>`).join("")}</span>`).join("");
+    const lat = field?.lat != null ? `${fmt(field.lat, 3)}, ${fmt(field.lon, 3)}` : "";
+    const prios = Object.entries(input.prioridades).sort((x, y) => y[1] - x[1]);
+    return `<div class="sum-grid">
+        ${tile(0, "field", "Field", `<span class="notranslate">${esc(field?.nombre || "")}</span>`, `${fmt(input.area_ha)} ha${lat ? ` · ${lat}` : ""}`)}
+        ${tile(1, "rotation", "Current rotation", esc(rot?.nombre || ""), "", `<span class="st-seq">${seq}</span>`)}
+        ${tile(2, input.tiene_ganado ? "forage" : "harvest", "Livestock", esc(C.t(input.tiene_ganado ? "Yes, I have livestock" : "No, only crops")), esc(C.t(input.tiene_ganado ? "Fences and water points" : "Forage rotations are left out")))}
+        ${tile(2, "soil", "Soil water", `${esc(C.t(soil[0]))} <span class="st-num">· ${fmt(input.capacidad_suelo_mm)} mm</span>`, esc(C.t(soil[1])), `<span class="soil-gauge st-gauge" aria-hidden="true">${[1, 2, 3].map((x) => `<i class="${x <= soil[2] ? "on" : ""}"></i>`).join("")}</span>`)}
+      </div>
+      <button type="button" class="sum-prios" data-step="3" title="${esc(C.t("Change"))}: ${esc(C.t("Your priorities"))}">
+        <span class="sp-h"><small>${esc(C.t("Your priorities"))}</small><span>0 – 5</span></span>
+        ${prios.map(([k, v], i) => `<span class="sp-row ${i < 2 ? "top" : ""}" style="--c:var(${C.SCORES[k].color})"><span class="sp-ic">${icon(C.SCORES[k].icon)}</span>
+          <span class="sp-l">${esc(C.t(C.SCORES[k].label))}</span>
+          <span class="sp-pips" aria-label="${v} / 5">${[1, 2, 3, 4, 5].map((n) => `<i class="${n <= v ? "on" : ""}"></i>`).join("")}</span><b>${v}</b></span>`).join("")}
+      </button>`;
+  }
+  function animateSummary() {
+    const g = C.motion.gsap, root = $("#an-sum-items");
+    if (!g || !root) return;
+    g.fromTo($$(".sum-tile, .sum-prios", root), { opacity: 0, y: 22, rotationX: -12, transformPerspective: 900 }, { opacity: 1, y: 0, rotationX: 0, duration: 0.8, ease: "expo.out", stagger: 0.07, clearProps: "transform,opacity" });
+    g.fromTo($$(".st-year i", root), { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: "back.out(2.4)", stagger: 0.05, delay: 0.35 });
+    g.fromTo($$(".sp-pips i.on, .st-gauge i.on", root), { scaleX: 0, transformOrigin: "0% 50%" }, { scaleX: 1, duration: 0.4, ease: "power3.out", stagger: 0.03, delay: 0.45, clearProps: "transform" });
   }
   function foldWizard(fold, animate = true) {
     const wz = $("#an-wizard"), sum = $("#an-summary"), g = animate ? C.motion.gsap : null;
     if (fold) {
       if (S.rec) $("#an-sum-items").innerHTML = summaryHTML(S.rec.input);
-      if (wz.hidden) { sum.hidden = !S.rec; return; }
-      const done = () => { wz.hidden = true; wz.style.cssText = ""; sum.hidden = false; if (g) g.fromTo(sum, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5, ease: "expo.out" }); };
+      if (wz.hidden) { const was = sum.hidden; sum.hidden = !S.rec; if (was && !sum.hidden && g) animateSummary(); return; }
+      const done = () => { wz.hidden = true; wz.style.cssText = ""; sum.hidden = false; if (g) { g.fromTo(sum, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5, ease: "expo.out" }); animateSummary(); } };
       if (g) g.to(wz, { height: 0, opacity: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0, duration: 0.6, ease: "expo.inOut", onComplete: done }); else done();
     } else {
       sum.hidden = true; wz.hidden = false;
@@ -507,6 +529,12 @@
     $("#wz-next").addEventListener("click", () => goStep(S.step + 1));
     $("#wz-back").addEventListener("click", () => goStep(S.step - 1));
     $("#an-edit").addEventListener("click", () => { startEditing(); });
+    $("#an-sum-items").addEventListener("click", (e) => {
+      const t = e.target.closest("[data-step]"); if (!t) return;
+      const n = Number(t.dataset.step);
+      startEditing();
+      if (n) setTimeout(() => goStep(n, false), 30);
+    });
     $("#an-priorities").innerHTML = Object.entries(C.PRIORITY_HINTS).map(([k, label]) => `
       <div class="prio" style="--c:var(${C.SCORES[k].color})">
         <span class="prio-ic">${icon(C.SCORES[k].icon)}</span>

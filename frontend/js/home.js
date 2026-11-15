@@ -158,7 +158,7 @@
       ${strip(best)}
       <div class="ov-chart">
         <div class="ov-radar"><canvas role="img" aria-label="Score profile: best option compared with your current rotation"></canvas></div>
-        <div class="legend ov-legend"><span><i class="swatch" style="background:var(--brand)"></i>Best option</span>${same ? "" : `<span><i class="swatch" style="background:#9aa6a0"></i>Your current rotation</span>`}</div>
+        <div class="legend ov-legend"><span><i class="swatch" style="background:var(--brand)"></i>Best option</span>${same ? "" : `<span><i class="swatch" style="background:#8f9ca8"></i>Your current rotation</span>`}</div>
       </div>
       <div class="ov-scores">
         ${Object.entries(C.SCORES).map(([k, s]) => {
@@ -229,23 +229,49 @@
     const stage = body.querySelector(".fz-stage");
     if (!stage || !last) return;
     const sorted = bestBy(last.ranking, k).slice(0, 3);
+    /* A sliding pill under the option names follows the choice. */
+    const seg = body.querySelector(".fz-switch .seg");
+    let ink = null;
+    if (seg) { ink = document.createElement("span"); ink.className = "fz-ink"; ink.setAttribute("aria-hidden", "true"); seg.prepend(ink); seg.classList.add("has-ink"); }
+    const moveInk = (n, animate) => {
+      const btn = seg?.querySelector(`[data-n="${n}"]`); if (!btn || !ink) return;
+      const to = { x: btn.offsetLeft, width: btn.offsetWidth, height: btn.offsetHeight, y: btn.offsetTop };
+      const g = C.motion.gsap;
+      if (g && animate) g.to(ink, { ...to, duration: 0.6, ease: "expo.out", overwrite: true }); else if (g) g.set(ink, to);
+      else Object.assign(ink.style, { transform: `translate(${to.x}px, ${to.y}px)`, width: to.width + "px", height: to.height + "px" });
+    };
+    requestAnimationFrame(() => moveInk(Number(stage.dataset.n), false));
+    let busy = null;
+    /* Real carousel: the current option slides out while the next one slides in beside it,
+       both moving together; the stage height morphs between them. */
     const go = (n, dir) => {
+      busy?.progress(1);
       const cur = Number(stage.dataset.n);
       n = (n + sorted.length) % sorted.length;
       if (n === cur) return;
       dir = dir || (n > cur ? 1 : -1);
       stage.dataset.n = n;
       body.querySelectorAll(".fz-switch [data-n]").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.n) === n)));
+      moveInk(n, true);
       const old = stage.firstElementChild;
       stage.insertAdjacentHTML("beforeend", optionPanel(k, sorted[n], n, last.current));
       const nu = stage.lastElementChild;
       const g = C.motion.gsap;
       if (!g) { old.remove(); C.fx.liven(nu); return; }
-      stage.style.height = old.offsetHeight + "px";
-      g.set(nu, { position: "absolute", inset: 0 });
-      g.to(old, { xPercent: -40 * dir, rotationY: -25 * dir, opacity: 0, duration: 0.55, ease: "power3.in", transformPerspective: 1400, onComplete: () => old.remove() });
-      g.fromTo(nu, { xPercent: 45 * dir, rotationY: 25 * dir, opacity: 0, transformPerspective: 1400 }, { xPercent: 0, rotationY: 0, opacity: 1, duration: 0.8, ease: "expo.out", delay: 0.2,
-        onStart: () => C.fx.liven(nu), onComplete: () => { g.set(nu, { clearProps: "all" }); stage.style.height = ""; } });
+      const h0 = old.offsetHeight;
+      stage.style.height = h0 + "px";
+      stage.classList.add("sliding");
+      g.set(nu, { position: "absolute", top: 0, left: 0, right: 0, xPercent: 104 * dir, opacity: 0.35, force3D: true });
+      g.set(old, { force3D: true });
+      requestAnimationFrame(() => {
+        const h1 = nu.offsetHeight;
+        busy = g.timeline({ defaults: { duration: 0.72, ease: "power3.inOut" },
+          onComplete: () => { old.remove(); g.set(nu, { clearProps: "all" }); stage.style.height = ""; stage.classList.remove("sliding"); busy = null; } })
+          .to(old, { xPercent: -104 * dir, opacity: 0.25, scale: 0.94 }, 0)
+          .fromTo(nu, { scale: 0.94 }, { xPercent: 0, opacity: 1, scale: 1 }, 0)
+          .to(stage, { height: h1 }, 0)
+          .add(() => C.fx.liven(nu), 0.3);
+      });
     };
     body.addEventListener("click", (e) => {
       const b = e.target.closest(".fz-switch [data-n]"); if (b) go(Number(b.dataset.n));
@@ -435,24 +461,30 @@
         const bestD = cfg.data.datasets[list.length - 1];
         bestD.borderColor = C.cssVar("--brand"); bestD.pointBackgroundColor = bestD.borderColor; bestD.borderDash = []; bestD.borderWidth = 3;
         bestD.backgroundColor = C.charts.alpha(C.cssVar("--brand").startsWith("#") ? C.cssVar("--brand") : "#2c7350", 0.2);
-        if (list.length > 1) { const d = cfg.data.datasets[0]; d.borderColor = "#9aa6a0"; d.pointBackgroundColor = "#9aa6a0"; d.backgroundColor = "rgba(154,166,160,.10)"; }
+        if (list.length > 1) { const d = cfg.data.datasets[0]; d.borderColor = "#8f9ca8"; d.pointBackgroundColor = "#8f9ca8"; d.backgroundColor = "rgba(154,166,160,.10)"; }
         return cfg;
       }, { key: "home-radar" });
-      /* a slow guided tour over the five scores until the farmer takes over */
+      /* A slow guided pulse over the five scores (no tooltip: that only appears under the
+         pointer), synced with the score list; it pauses while the farmer explores. */
       let k = 0, paused = false;
-      rc.addEventListener("pointerenter", () => { paused = true; });
-      rc.addEventListener("pointerleave", () => { paused = false; });
-      ctl.tour = setInterval(() => {
+      const clear = () => {
+        const ch2 = ctl.radar?.chart; if (!ch2) return;
+        ch2.setActiveElements([]); ch2.tooltip.setActiveElements([], { x: 0, y: 0 }); ch2.update("none");
+      };
+      rc.addEventListener("pointerenter", () => { paused = true; if (ctl.radar?.chart) ctl.radar.chart.$spot = null; });
+      rc.addEventListener("pointerleave", () => { paused = false; clear(); });
+      const step = () => {
         const ch2 = ctl.radar?.chart;
-        if (!ch2 || paused || document.hidden || C.reducedMotion()) return;
-        const di = ch2.data.datasets.length - 1;
-        const els = [{ datasetIndex: di, index: k % 5 }];
-        ch2.setActiveElements(els);
-        ch2.tooltip.setActiveElements(els, { x: 0, y: 0 });
-        ch2.update();
+        if (!ch2 || paused || document.hidden) return;
+        ch2.$spot = k % 5;
         $$(".ov-score", root).forEach((el, i) => el.classList.toggle("tour", i === k % 5));
         k++;
-      }, 2600);
+      };
+      ctl.tour = setInterval(step, 2200);
+      $$(".ov-score", root).forEach((el, i) => {
+        el.addEventListener("pointerenter", () => { paused = true; const ch2 = ctl.radar?.chart; if (ch2) ch2.$spot = i; $$(".ov-score", root).forEach((o) => o.classList.toggle("tour", o === el)); });
+        el.addEventListener("pointerleave", () => { paused = false; });
+      });
     }
 
     /* mini map */

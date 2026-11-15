@@ -235,6 +235,69 @@
   }
 
   /* --------------------------------------------------------------- render */
+  /* Score profile: a large radar next to an ordered score table (topic × rotation). */
+  const PF_COLORS = ["#8f9ca8", "var(--brand)", "#e2a93a"];
+  function profileHTML(rots) {
+    const keys = Object.keys(C.SCORES);
+    const who = (i) => (i === 0 ? C.t("Current") : `${C.t("Alternative")} ${i}`);
+    const head = rots.map((r, i) => `<button type="button" class="pf-rot" data-ds="${i}" style="--c:${PF_COLORS[i]}" aria-pressed="true" title="${esc(C.t("Show or hide on the chart"))}">
+        <i class="${i === 0 ? "dash" : ""}"></i><small>${esc(who(i))}</small><b>${esc(r.nombre)}</b></button>`).join("");
+    const rows = keys.map((k, ki) => {
+      const vals = rots.map((r) => r.puntajes[k]), top = Math.max(...vals);
+      return `<div class="pf-row" data-k="${ki}" role="row"><span class="pf-topic" role="rowheader">${icon(C.SCORES[k].icon)}<span>${esc(C.t(C.SCORES[k].label).replace(" (indicative)", ""))}</span></span>
+        ${rots.map((r, i) => `<span class="pf-cell ${vals[i] === top ? "top" : ""}" role="cell" style="--c:${PF_COLORS[i]}"><b data-count="${vals[i]}">${vals[i]}</b><span class="pf-bar"><em data-w="${vals[i]}"></em></span></span>`).join("")}</div>`;
+    }).join("");
+    const totals = rots.map((r) => r.total), topT = Math.max(...totals);
+    return `<div class="pf-head"><h3>${icon("compare")}Score profile</h3>
+        <p class="hint">Each axis is one topic: 0 at the centre, 100 at the edge, with a ring every 25 points. The dashed shape is your current rotation. Point at a topic or a rotation to highlight it.</p></div>
+      <div class="pf-body">
+        <div class="radar-box pf-radar"><canvas role="img" aria-label="Score profile of the three rotations"></canvas><span class="pf-scale"><b>Rings</b><i>0</i><i>25</i><i>50</i><i>75</i><i>100</i></span></div>
+        <div class="pf-matrix" role="table" aria-label="Scores by topic" style="--n:${rots.length}">
+          <div class="pf-row pf-top" role="row"><span class="pf-topic" role="columnheader">${esc(C.t("Topic"))}</span>${head}</div>
+          ${rows}
+          <div class="pf-row pf-total" role="row"><span class="pf-topic" role="rowheader">${esc(C.t("Total for your priorities"))}</span>
+            ${rots.map((r, i) => `<span class="pf-cell ${totals[i] === topT ? "top" : ""}" role="cell" style="--c:${PF_COLORS[i]}"><strong data-count="${Math.round(r.total)}">${fmt(r.total)}</strong></span>`).join("")}</div>
+        </div>
+      </div>`;
+  }
+  function bindProfile(card, ctl) {
+    const chart = () => ctl?.chart;
+    /* the table follows the chart colours (palette menu) */
+    card.querySelector("canvas")?.addEventListener("cooper-chart", (e) => {
+      e.detail.data.datasets.forEach((d, i) => {
+        const c = Array.isArray(d.borderColor) ? d.borderColor[0] : d.borderColor;
+        card.querySelectorAll(`.pf-rot[data-ds="${i}"], .pf-row > .pf-cell:nth-child(${i + 2})`).forEach((el) => el.style.setProperty("--c", c));
+      });
+    });
+    card.addEventListener("pointerover", (e) => {
+      const row = e.target.closest(".pf-row[data-k]"), ch = chart();
+      if (!row || !ch) return;
+      const k = Number(row.dataset.k);
+      card.querySelectorAll(".pf-row[data-k]").forEach((r) => r.classList.toggle("hl", r === row));
+      const els = ch.data.datasets.map((_, d) => ({ datasetIndex: d, index: k })).filter((x) => ch.isDatasetVisible(x.datasetIndex));
+      ch.$spot = k;
+      ch.setActiveElements(els);
+      ch.update("none");
+    });
+    card.querySelector(".pf-matrix")?.addEventListener("pointerleave", () => {
+      const ch = chart();
+      card.querySelectorAll(".pf-row.hl").forEach((r) => r.classList.remove("hl"));
+      if (!ch) return;
+      ch.$spot = null;
+      ch.setActiveElements([]); ch.tooltip.setActiveElements([], { x: 0, y: 0 });
+      ch.update("none");
+    });
+    card.addEventListener("click", (e) => {
+      const b = e.target.closest(".pf-rot"), ch = chart();
+      if (!b || !ch) return;
+      const d = Number(b.dataset.ds), on = !ch.isDatasetVisible(d);
+      ch.setDatasetVisibility(d, on);
+      b.setAttribute("aria-pressed", String(on));
+      card.querySelectorAll(`.pf-cell:nth-child(${d + 2})`).forEach((c) => c.classList.toggle("off", !on));
+      ch.update();
+    });
+  }
+
   function render(container, analysis, opts = {}) {
     const { result: data, input } = analysis;
     const prio = input.prioridades;
@@ -293,13 +356,7 @@
       <section data-rev>
         <div class="section-head"><span class="chip-ic big">${icon("rotation")}</span><div><h2>Three rotations side by side</h2>
           <p class="hint">Scores go from 0 to 100. The total weights each score by what matters to you. Months marked ! are critical crop stages. Scroll each crop calendar sideways to see the full year.</p></div></div>
-        <div class="card profile-card" data-rev>
-          <div class="profile-grid">
-            <div><h3>${icon("compare")}Score profile</h3><p class="hint">Each axis is one topic, from 0 at the centre to 100 at the edge. The dashed shape is your current rotation. Click a name in the legend to hide or show it.</p>
-              <ul class="profile-list">${data.rotaciones.map((r, i) => `<li><i style="--c:${["#9aa6a0", "var(--brand)", "#e2a93a"][i]}"></i><span>${esc(r.nombre)}</span><strong>${fmt(r.total)}</strong></li>`).join("")}</ul></div>
-            <div class="radar-box"><canvas role="img" aria-label="Score profile of the three rotations"></canvas></div>
-          </div>
-        </div>
+        <div class="card profile-card pf" data-rev>${profileHTML(data.rotaciones)}</div>
         <div class="legend crop-legend">${[...crops.values()].map((c) =>
           `<span><i class="swatch" style="background:${c.color}"></i>${esc(c.nombre)}</span>`).join("")}<span><i class="swatch" style="background:var(--bare)"></i>No crop</span></div>
         <div class="rotations" style="--cal-rows:${Math.max(...data.rotaciones.map((r) => r.calendario.length))}">${data.rotaciones.map((r) => rotationCard(r, prio, best, labels)).join("")}</div>
@@ -373,7 +430,12 @@
     $(".show-dry", container).addEventListener("change", drawChart);
     const radarCanvas = $(".radar-box canvas", container);
     radarCanvas.dataset.rec = analysis.id || "";
-    state.radarCtl = typeof Chart !== "undefined" ? C.charts.lazy(radarCanvas, () => C.charts.radar(data.rotaciones.map((r, i) => ({ ...r, labelPrefix: i === 0 ? "Current" : "" })))) : null;
+    state.radarCtl = typeof Chart !== "undefined" ? C.charts.lazy(radarCanvas, () => {
+      const cfg = C.charts.radar(data.rotaciones.map((r, i) => ({ ...r, labelPrefix: i === 0 ? "Current" : "" })), { big: true });
+      cfg.data.datasets.forEach((d, i) => { if (i === 1) { const b = C.cssVar("--brand"); d.borderColor = b; d.pointBackgroundColor = b; d.backgroundColor = C.charts.alpha(b.startsWith("#") ? b : "#2c7350", 0.16); } });
+      return cfg;
+    }, { key: "profile-radar" }) : null;
+    bindProfile($(".profile-card", container), state.radarCtl);
 
     /* zones */
     function drawZones() {
