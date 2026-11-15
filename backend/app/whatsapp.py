@@ -10,7 +10,8 @@ import os
 from pathlib import Path
 import sqlite3
 import time
-from contextlib import contextmanager
+import asyncio
+from contextlib import contextmanager, asynccontextmanager, suppress
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -23,6 +24,17 @@ from . import jarvis
 router = APIRouter()
 log = logging.getLogger(__name__)
 EMPTY = '<Response></Response>'
+
+
+@asynccontextmanager
+async def lifespan(app):
+    task = asyncio.create_task(worker())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
 
 
 def enabled():
@@ -145,7 +157,6 @@ def process_one():
 
 
 async def worker():
-    import asyncio
     while True:
         if enabled():
             try:
