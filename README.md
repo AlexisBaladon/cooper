@@ -123,6 +123,22 @@ The first query for a new point takes about 15 to 20 seconds while it downloads 
 POWER series and the SRTM elevation into `data/cache/`, which is not committed. Later queries for the same point are
 instant. The map and the page's libraries load from the internet.
 
+## Offline use
+
+Cooper installs a service worker (`frontend/sw.js`), so after one visit with a connection the
+app opens without signal and shows what is on the device: fields, saved analyses and the latest
+result of each field, with their charts, zone maps, glossary and exports. **Settings → Offline
+use** shows what is saved and has a button that stores, for every field, the map tiles around it,
+the latest weather and the soil data. Offline, the weather chip shows when it was saved.
+
+A new analysis or a new climate scenario still needs the server (the comparison runs in Python);
+a comparison already made with exactly the same settings is shown again from the device. The AI
+narration and Jarvis fall back to their template and guided answers.
+
+`frontend/sw-files.js` lists the files to store. Regenerate it after adding or renaming frontend
+files with `python scripts/make_offline_manifest.py`; packaging a release does it automatically.
+Service workers need `https` or `localhost`.
+
 ## Project layout
 
 ```

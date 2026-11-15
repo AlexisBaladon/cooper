@@ -365,18 +365,6 @@
         <p class="sub">Every rotation in Cooper's library that fits your farm, ordered by the total for your priorities.</p></div></div></div>
         </summary>${rankingTable(data.ranking, currentId)}</details></section>` : ""}
       <section class="card method" data-rev>
-        <details><summary><h2>${icon("help")}Glossary</h2></summary>
-        <dl class="glossary">
-          <dt>Evapotranspiration (ET)</dt><dd>The water that leaves the field for the atmosphere: what evaporates from the soil plus what plants transpire. <em>Reference ET</em> (ET0) is the value for well-watered grass; each crop uses a fraction of it.</dd>
-          <dt>Water deficit</dt><dd>The water a crop would need but can't find, either in the rain or in the soil.</dd>
-          <dt>Cover crop</dt><dd>A crop sown to protect and improve the soil rather than to sell, such as black oat or vetch.</dd>
-          <dt>First-crop and second-crop</dt><dd>A first crop is sown on its normal date; a second crop (for example second-crop soybean) is sown later, right after harvesting a winter crop, so one paddock gives two harvests in a year.</dd>
-          <dt>Erosion (RUSLE)</dt><dd>A formula used worldwide (and in Uruguay's Erosión 6.0 tool from MGAP) to estimate how many tonnes of soil per hectare are lost each year. It combines rainfall strength, soil type, slope and slope length, and how long the soil stays covered.</dd>
-          <dt>Relative wetness (TWI)</dt><dd>An index of where water runs and collects based on the shape of the land: low spots and drainage lines collect water, while hilltops dry out first. It's relative within your field.</dd>
-          <dt>Root-zone soil moisture</dt><dd>How full of water the soil is, from 0 (dry) to 1 (saturated). It comes from a NASA model (MERRA-2) that combines satellites and weather stations.</dd>
-          <dt>Frost risk</dt><dd>Days when the minimum air temperature is 2 °C or lower. We use 2 °C instead of 0 °C because the ground and leaves get colder than the air 2 m above them.</dd>
-          <dt>Dry year</dt><dd>A bad year that comes about once every five. For rainfall, it's the amount exceeded in 4 out of 5 years; for the crops' water deficit, the amount exceeded in only 1 out of 5 years.</dd>
-        </dl></details>
         <details><summary><h2>${icon("info")}How it works and where the data comes from</h2></summary>
         <ul>
           <li><strong>Climate:</strong> NASA POWER daily data, 1996–2025 (temperature, rainfall corrected with GPM-IMERG, MERRA-2 soil moisture).</li>

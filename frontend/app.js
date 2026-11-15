@@ -20,6 +20,8 @@
       const r = await fetch(`/api/weather?lat=${field.lat}&lon=${field.lon}`, { signal: AbortSignal.timeout(15000) });
       if (!r.ok) throw new Error(String(r.status));
       const v = await r.json();
+      const saved = r.headers.get("X-Cooper-Saved"); // set by sw.js when this is the saved copy
+      if (saved) v.guardado = saved;
       wcache.set(key, { t: Date.now(), v });
       return (this.last = v);
     },

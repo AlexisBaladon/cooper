@@ -1,0 +1,14 @@
+{
+  "name": "Cooper · Crop rotations with NASA data",
+  "short_name": "Cooper",
+  "description": "Compare crop rotations for your field using 30 years of NASA data. Saved fields and analyses work offline.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0c120e",
+  "theme_color": "#10261a",
+  "icons": [
+    { "src": "assets/brand/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/brand/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

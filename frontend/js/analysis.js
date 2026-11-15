@@ -390,6 +390,7 @@
         body: JSON.stringify(body), signal: AbortSignal.timeout(185000) });
       const data = await CooperWorkflow.readResponse(resp);
       if (!S.queue.isCurrent(runTok)) return;
+      if (resp.headers.get("X-Cooper-Saved")) C.toast(C.t("No connection: this is the comparison saved on this device for these same settings."), "info", 5200);
       const rec = { id: C.uid(), fieldId: field.id, fecha: context.generatedAt, input: body, context, result: data, saved: false };
       { const m = clearedIds(); delete m[field.id]; C.storage.set("cooper-cleared", m); }
       await C.db.put("drafts", rec);
@@ -398,7 +399,7 @@
       if (first) { $("#an-results-title").focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: C.reducedMotion() ? "auto" : "smooth" }); }
     } catch (err) {
       if (!S.queue.isCurrent(runTok)) return;
-      showError(err.name === "TimeoutError" ? "This analysis took too long. Please try again; downloaded data may already be cached." : `Could not run the analysis: ${err.message}`);
+      showError(navigator.onLine === false ? "You're offline. A new comparison needs a connection; your saved analyses and the latest result for this field are still available." : err.name === "TimeoutError" ? "This analysis took too long. Please try again; downloaded data may already be cached." : `Could not run the analysis: ${err.message}`);
       if (!S.rec) foldWizard(false);
     } finally {
       showLoading(false);
