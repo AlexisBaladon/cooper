@@ -920,6 +920,15 @@ function closeEmbed() {
   stopTalk();
   parent.postMessage({ type: "jarvis:close" }, location.origin);
 }
+// Contexto que no es parte del análisis: el tiempo (Open-Meteo) y el suelo (SoilGrids) del campo.
+// Si no llegan, Jarvis sigue igual y dice que no tiene ese dato.
+async function loadExtras(a, lat, lon) {
+  const get = (path) => fetch(`${path}?lat=${lat}&lon=${lon}`, { signal: AbortSignal.timeout(35000) })
+    .then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  a.extras = {};
+  get("/api/weather").then((w) => { a.extras.weather = w; });
+  get("/api/soil").then((s) => { a.extras.soil = s; });
+}
 function loadFromCooper({ rec, field, lang } = {}) {
   if (lang) convLang = lang;
   if (!rec || !rec.input || !rec.result) {             // sin análisis: al menos el campo que tiene abierto
@@ -939,6 +948,7 @@ function loadFromCooper({ rec, field, lang } = {}) {
   form.lluvia_pct = esc.lluvia_pct || 0;
   form.temp_delta = esc.temp_delta || 0;
   analysis = { ...rec.result, campo: rec.field || "" };
+  loadExtras(analysis, q.lat, q.lon);
   reportReady = false;
   renderDash();
   sync();

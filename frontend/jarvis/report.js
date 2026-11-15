@@ -15,6 +15,11 @@ const ROLE_INDEX = { current: 0, alt1: 1, alt2: 2 };
 const SCORE_KEYS = ["agua", "suelo", "ingreso", "forraje", "clima"];
 const SCORE_LABELS = { agua: "Water saving", suelo: "Soil health", ingreso: "Income (indicative)", forraje: "Forage", clima: "Climate resilience" };
 const AMBER = "#ffb347", GREEN = "#3dffc2", CYAN = "#4fd8ff";
+// Clases de textura del USDA (las que devuelve backend/app/soil.py), en español.
+const TEXTURE_ES = { "Clay": "arcilloso", "Silty clay": "arcillo limoso", "Sandy clay": "arcillo arenoso", "Clay loam": "franco arcilloso",
+  "Silty clay loam": "franco arcillo limoso", "Sandy clay loam": "franco arcillo arenoso", "Loam": "franco", "Silt loam": "franco limoso",
+  "Sandy loam": "franco arenoso", "Silt": "limoso", "Loamy sand": "arenoso franco", "Sand": "arenoso" };
+const texture = (name, lang) => (lang === "es" && TEXTURE_ES[name]) || name;
 
 const UI = {
   en: {
@@ -24,6 +29,12 @@ const UI = {
     level: { fuerte: "Good", medio: "Fair", flojo: "Weak" },
     diagnosis: "Strengths and weaknesses", ideas: "Ideas to improve", risks: "Review with your agronomist",
     why: "Why it scores better", noIdeas: "No weak points in what matters to you.",
+    ranking: "All rotations, for your priorities", rankingBy: "Rotations ranked by", you: "today",
+    scoreNames: { agua: "water saving", suelo: "soil health", ingreso: "income (indicative)", forraje: "forage", clima: "climate resilience" },
+    forecast: "Rain forecast (mm) · Open-Meteo", noForecast: "Forecast not available", week: "Next days",
+    soil: "Soil at the surface (%) · SoilGrids, modelled", noSoil: "Soil data not available", soilPanel: "Soil reference (0–5 cm)",
+    soilRows: { clay: "Clay", silt: "Silt", sand: "Sand", texture: "Texture", soc: "Organic carbon", ph: "pH", nitrogen: "Nitrogen" },
+    soilNote: "Modelled at 250 m: a reference, not a lab test. It doesn't change Cooper's scores.",
     chapters: ["Your field", "Climate", "Your rotation today", "Strengths and weaknesses", "A better option", "Before you decide"],
   },
   es: {
@@ -33,6 +44,12 @@ const UI = {
     level: { fuerte: "Bien", medio: "Regular", flojo: "Flojo" },
     diagnosis: "Lo bueno y lo flojo", ideas: "Ideas para mejorar", risks: "Para revisar con tu agrónomo",
     why: "Por qué puntúa mejor", noIdeas: "Sin puntos flojos en lo que te importa.",
+    ranking: "Todas las rotaciones, según tus prioridades", rankingBy: "Rotaciones ordenadas por", you: "hoy",
+    scoreNames: { agua: "ahorro de agua", suelo: "salud del suelo", ingreso: "ingreso (indicativo)", forraje: "forraje", clima: "resiliencia al clima" },
+    forecast: "Pronóstico de lluvia (mm) · Open-Meteo", noForecast: "Pronóstico no disponible", week: "Próximos días",
+    soil: "Suelo en superficie (%) · SoilGrids, modelado", noSoil: "Datos de suelo no disponibles", soilPanel: "Referencia del suelo (0–5 cm)",
+    soilRows: { clay: "Arcilla", silt: "Limo", sand: "Arena", texture: "Textura", soc: "Carbono orgánico", ph: "pH", nitrogen: "Nitrógeno" },
+    soilNote: "Modelado a 250 m: una referencia, no un análisis de laboratorio. No cambia los puntajes de Cooper.",
     chapters: ["Tu campo", "Clima", "Tu rotación hoy", "Lo bueno y lo flojo", "Una opción mejor", "Antes de decidir"],
   },
 };
@@ -83,7 +100,7 @@ const threeLabels = (a, u) => a.rotaciones.map((r, i) => (i === 0 ? u.today : `$
 const threeColors = (a) => a.rotaciones.map((_, i) => [AMBER, GREEN, CYAN][i]);
 
 /* ================================================================ vistas */
-// Cada vista: (análisis, rol, { t, lang }) → { show, label, …parámetros del visual, panel? }.
+// Cada vista: (análisis, rol, { t, lang }, segmento) → { show, label, …parámetros del visual, panel? }.
 export const VIEWS = {
   location: (a, role, { t }) => ({ show: "globe", label: t(a.campo || "Your field") }),
 
@@ -168,7 +185,46 @@ export const VIEWS = {
     const items = rot.explicacion.riesgos.slice(0, 6).map((r) => env.t(shortRisk(r)));
     return { ...VIEWS.rotation(a, role, env), panel: { title: u.risks, items } };
   },
+
+  // Toda la librería de rotaciones elegibles (no solo las tres del reporte), por puntaje total.
+  ranking: (a, role, env) => rankChart(a, env, (r) => r.total, ui(env.lang).ranking),
+
+  // Lo mismo, ordenado por uno de los cinco puntajes (seg.score: agua, suelo, ingreso, forraje, clima).
+  score_ranking: (a, role, env, seg = {}) => {
+    const k = SCORE_KEYS.includes(seg.score) ? seg.score : "agua", u = ui(env.lang);
+    return rankChart(a, env, (r) => r.puntajes[k], `${u.rankingBy} ${u.scoreNames[k]}`);
+  },
+
+  // Contexto, fuera del análisis: el pronóstico de Open-Meteo y el suelo de SoilGrids (a.extras).
+  forecast: (a, role, { lang }) => {
+    const u = ui(lang), days = (a.extras?.weather?.diario || []).filter((d) => d.lluvia_mm != null).slice(0, 7);
+    if (days.length < 2) return { show: "rain", label: u.noForecast };
+    const day = (d) => new Date(`${d.fecha}T12:00`).toLocaleDateString(lang === "es" ? "es" : "en", { weekday: "short" }).replace(".", "");
+    return { show: "chart", lang, values: days.map((d) => Number(d.lluvia_mm.toFixed(1))), labels: days.map(day), label: u.forecast,
+      panel: { title: u.week, items: days.map((d) => `${cap(day(d))}: ${nf(d.lluvia_mm, 1)} mm · ${nf(d.tmin)}–${nf(d.tmax)} °C`) } };
+  },
+
+  soil_data: (a, role, { lang }) => {
+    const u = ui(lang), s = a.extras?.soil, top = (k) => s?.propiedades?.[k]?.por_profundidad?.["0-5cm"];
+    const tex = ["clay", "silt", "sand"].map(top);
+    if (tex.some((v) => v == null)) return { show: "soil", variant: "healthy", label: u.noSoil };
+    const row = (k, label, d = 1) => (top(k) == null ? [] : [`${label}: ${nf(top(k), d)} ${s.propiedades[k].unidad}`.trim()]);
+    return { show: "chart", lang, values: tex.map((v) => Number(v.toFixed(1))), labels: [u.soilRows.clay, u.soilRows.silt, u.soilRows.sand],
+      colors: ["#c98b5c", "#e0b98a", "#f2dba8"], label: u.soil,
+      panel: { title: u.soilPanel, items: [
+        ...(s.textura_superficial ? [`${u.soilRows.texture}: ${texture(s.textura_superficial, lang)}`] : []),
+        ...row("soc", u.soilRows.soc), ...row("phh2o", u.soilRows.ph), ...row("nitrogen", u.soilRows.nitrogen, 2), u.soilNote] } };
+  },
 };
+
+/* Barras de las rotaciones elegibles ordenadas por un valor; al costado, la lista con los nombres. */
+function rankChart(a, { t, lang }, value, title) {
+  const u = ui(lang), cur = a.rotaciones[0];
+  const all = (a.ranking && a.ranking.length ? a.ranking : a.rotaciones).slice().sort((x, y) => value(y) - value(x)).slice(0, 6);
+  return { show: "chart", lang, values: all.map((r) => Math.round(value(r))), labels: all.map((_, i) => String(i + 1)),
+    colors: all.map((r, i) => (r.id === cur.id ? AMBER : i === 0 ? GREEN : CYAN)), label: title,
+    panel: { title, items: all.map((r, i) => `${i + 1} · ${t(r.nombre)}: ${nf(value(r))}${r.id === cur.id ? ` (${u.you})` : ""}`) } };
+}
 
 function trendChart(tr, title, t, lang) {
   const short = (p) => p.split("–").map((y) => y.slice(2)).join("–");
@@ -182,8 +238,8 @@ function monthChart(a, key, title, t, lang) {
 /* Convierte un segmento { say, view, rot } en lo que entiende la página. */
 export function resolve(seg, a, env) {
   if (!seg.view || !a || !VIEWS[seg.view]) return seg;
-  const { view, rot, ...rest } = seg;
-  return { ...rest, ...VIEWS[view](a, rot || "current", env) };
+  const { view, rot, score, ...rest } = seg;
+  return { ...rest, ...VIEWS[view](a, rot || "current", env, { score }) };
 }
 
 /* ================================================================ guion */
@@ -284,25 +340,28 @@ function calendarText(row) {
   return parts.join("; ");
 }
 
-/* Mismo resumen que "Ask Cooper" (~1.500 tokens): el plan gratuito de Groq da 8.000 por minuto. */
+/* Resumen del análisis para el modelo, sin coordenadas. Compacto a propósito: el plan gratuito de
+   Groq da 8.000 tokens por minuto por modelo, y cada pregunta manda este resumen entero. */
 export function buildContext(a, form) {
   if (!a) return null;
   const z = a.zonas, months = a.clima.mensual;
   const col = (k, dec = 0) => months.map((m) => Number(m[k].toFixed(dec)));
   const roles = ["current", "alt1", "alt2"];
-  return {
-    field: a.campo || "A point marked on the globe",
+  const scores = (r) => SCORE_KEYS.map((k) => Math.round(r.puntajes[k])).join("/");
+  const shown = new Set(a.rotaciones.map((r) => r.id));
+  const ranking = a.ranking || [];
+  const ctx = {
+    field: a.campo || "The user's field",
     inputs: {
-      current_rotation: a.rotaciones[0].nombre,
       has_livestock: form.ganado,
       soil_water_capacity_mm: form.suelo_mm,
       field_size_ha: form.area_ha,
       priorities_0_to_5: Object.fromEntries(Object.entries(form.prioridades).map(([k, v]) => [SCORE_LABELS[k] || k, v])),
-      climate_scenario: a.escenario.activo ? `rainfall ${a.escenario.lluvia_pct}%, temperature +${a.escenario.temp_delta} °C` : "none (historical climate)",
+      climate_scenario: a.escenario.activo ? `rainfall ${a.escenario.lluvia_pct}%, temperature +${a.escenario.temp_delta} °C (a what-if simulation, not a forecast)` : "none (historical climate)",
     },
-    warnings: a.advertencias,
+    warnings: a.advertencias.length ? a.advertencias : undefined,
     climate: {
-      source: `NASA POWER daily ${a.meta.periodo}, ~50 km grid`,
+      source: `NASA POWER daily ${a.meta.periodo}, ~50 km grid (describes the area, not the field)`,
       months: UI.en.months.join(","),
       rain_mm: col("lluvia_mm"),
       et0_mm: col("et0_mm"),
@@ -311,27 +370,66 @@ export function buildContext(a, form) {
       trends: a.clima.tendencias.indicadores.map((t) =>
         `${t.nombre}: ${Math.round(t.valor_1)} (${t.periodo_1}) → ${Math.round(t.valor_2)} ${t.unidad} (${t.periodo_2}), ${t.cambio_pct > 0 ? "+" : ""}${t.cambio_pct}%`),
     },
-    terrain: z ? `height difference ${z.resumen.desnivel_m} m, mean slope ${z.resumen.pendiente_media_pct}%, max slope ${z.resumen.pendiente_max_pct}%, low spots ${z.resumen.area_baja_pct}% of field, erosion tolerance ${z.tolerancia_t_ha} t/ha/yr`
+    terrain: z ? `NASA SRTM 30 m: height difference ${z.resumen.desnivel_m} m, mean slope ${z.resumen.pendiente_media_pct}%, max slope ${z.resumen.pendiente_max_pct}%, low spots ${z.resumen.area_baja_pct}% of field, tolerable erosion ${z.tolerancia_t_ha} t/ha/yr`
       : "not available",
-    rotations: a.rotaciones.concat(a.custom ? [a.custom] : []).map((r, idx) => {
+    legend: "scores are 0-100 in this order: " + SCORE_KEYS.map((k) => SCORE_LABELS[k]).join(" / ")
+      + ". deficit_year_mm = the crops' water deficit over the whole year; deficit_critical_mm = only during critical crop stages; each as [average year, dry year (1 in 5)]."
+      + " Income is a relative score: there are no prices, costs or yields.",
+    rotations: a.rotaciones.map((r, idx) => {
       const ind = r.indicadores, isCur = idx === 0;
+      const items = r.diagnostico ? r.diagnostico.items : [];
       return {
-        role: roles[idx] || "custom (built by the user)",
+        role: roles[idx],
         name: r.nombre,
-        total_score: r.total,
-        scores: Object.fromEntries(SCORE_KEYS.map((k) => [SCORE_LABELS[k], r.puntajes[k]])),
-        figures: `${ind.meses_descubiertos} months without a crop per year; crops use ${Math.round(ind.uso_agua_mm)} mm of water per year; whole-year crop water deficit: ${Math.round(ind.deficit_mm)} mm in an average year, ${Math.round(ind.deficit_seco_mm)} mm in a dry year (1 in 5); water deficit during critical crop stages only: ${Math.round(ind.deficit_critico_mm)} mm in an average year, ${Math.round(ind.deficit_critico_seco_mm)} mm in a dry year`
-          + (ind.erosion_t_ha != null ? `; erosion ${ind.erosion_t_ha} t/ha/yr, ${Math.round(ind.erosion_area_alta_pct)}% of field above tolerance` : `; ${Math.round(ind.lluvia_suelo_desnudo_mm)} mm of rain on bare soil/yr`),
-        calendar: r.calendario.map((row, i) => `Year ${i + 1}: ${calendarText(row)}`),
+        total: r.total,
+        scores: scores(r),
+        bare_months: ind.meses_descubiertos,
+        water_use_mm: Math.round(ind.uso_agua_mm),
+        deficit_year_mm: [Math.round(ind.deficit_mm), Math.round(ind.deficit_seco_mm)],
+        deficit_critical_mm: [Math.round(ind.deficit_critico_mm), Math.round(ind.deficit_critico_seco_mm)],
+        ...(ind.erosion_t_ha != null
+          ? { erosion_t_ha_yr: ind.erosion_t_ha, field_pct_over_tolerance: Math.round(ind.erosion_area_alta_pct) }
+          : { rain_on_bare_soil_mm: Math.round(ind.lluvia_suelo_desnudo_mm) }),
+        calendar: r.calendario.map((row, i) => (r.calendario.length > 1 ? `Y${i + 1} ` : "") + calendarText(row)).join(" | "),
         why: isCur ? undefined : r.explicacion.por_que.filter((x) => !x.startsWith("You gave")),
         // Clima promedio de los meses críticos (lluvia menos evapotranspiración), no el déficit del cultivo.
         critical_stage_climate: r.explicacion.evidencia.filter((e) => e.includes("critical stage")).map((e) => e.replace(/\s*\([^)]*\)/, "")),
-        assessment: (r.diagnostico ? r.diagnostico.items : []).map((i) =>
-          `${i.etiqueta}: ${UI.en.level[i.nivel].toLowerCase()} (${i.puntaje}), ${i.por_que}` + (i.recomendaciones[0] ? `. Idea: ${i.recomendaciones[0]}` : "")),
+        // De la actual, todo el diagnóstico con una idea; de las alternativas, solo lo fuerte y lo flojo.
+        assessment: items.filter((i) => isCur || i.nivel !== "medio").map((i) =>
+          `${i.etiqueta}: ${UI.en.level[i.nivel].toLowerCase()}, ${i.por_que}` + (isCur && i.recomendaciones[0] ? `. Idea: ${i.recomendaciones[0]}` : "")),
         risks: isCur ? undefined : r.explicacion.riesgos.filter((x) => !/general literature/.test(x)).slice(0, 3).map((x) => x.split(/:\s/)[0]),
       };
     }),
   };
+  const w = a.extras?.weather, s = a.extras?.soil;
+  if (w?.actual) {
+    ctx.weather_now = `${nf(w.actual.temp)} °C, ${w.actual.estado}, humidity ${nf(w.actual.humedad)}% (Open-Meteo; context only, not part of the analysis)`;
+    const days = (w.diario || []).filter((d) => d.lluvia_mm != null).slice(0, 7);
+    const wd = (d) => new Date(`${d.fecha}T12:00`).toLocaleDateString("en", { weekday: "long" });
+    // Con el día ya nombrado y el total ya sumado: el modelo no tiene que hacer cuentas.
+    if (days.length) ctx.forecast = {
+      days: days.map((d) => `${wd(d)} ${d.fecha}: rain ${nf(d.lluvia_mm, 1)} mm, ${Math.round(d.tmin)} to ${Math.round(d.tmax)} °C`),
+      rain_total_mm: Number(days.reduce((s, d) => s + d.lluvia_mm, 0).toFixed(1)),
+      rainy_days: days.filter((d) => d.lluvia_mm >= 1).length,
+    };
+  }
+  const top = (k) => s?.propiedades?.[k]?.por_profundidad?.["0-5cm"];
+  if (top("clay") != null) {
+    ctx.soil_reference = `SoilGrids, modelled at 250 m, surface 0-5 cm (a reference: it does not change Cooper's scores): `
+      + `texture ${s.textura_superficial || "unknown"}${TEXTURE_ES[s.textura_superficial] ? ` (in Spanish: ${TEXTURE_ES[s.textura_superficial]})` : ""}, clay ${nf(top("clay"), 1)}%, silt ${nf(top("silt"), 1)}%, sand ${nf(top("sand"), 1)}%`
+      + (top("soc") != null ? `, organic carbon ${nf(top("soc"), 1)} g/kg` : "") + (top("phh2o") != null ? `, pH ${nf(top("phh2o"), 1)}` : "")
+      + (top("nitrogen") != null ? `, total nitrogen ${nf(top("nitrogen"), 2)} g/kg` : "");
+  }
+  if (ranking.length) {
+    // El resto de la librería (todas las rotaciones elegibles), y la mejor en cada puntaje.
+    ctx.other_rotations = ranking.filter((r) => !shown.has(r.id)).slice(0, 5)
+      .map((r) => `${r.nombre}: total ${Math.round(r.total)}, scores ${scores(r)}`);
+    ctx.best_by_score = Object.fromEntries(SCORE_KEYS.map((k) => {
+      const b = ranking.reduce((x, y) => (y.puntajes[k] > x.puntajes[k] ? y : x));
+      return [SCORE_LABELS[k], `${b.nombre} (${Math.round(b.puntajes[k])})`];
+    }));
+  }
+  return ctx;
 }
 
 /* Cifras clave para el tablero. */
