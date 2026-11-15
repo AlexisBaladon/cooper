@@ -15,11 +15,11 @@ from pathlib import Path
 from typing import Literal
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import climate, engine, narrator, power, terrain
+from . import assistant, climate, engine, narrator, power, terrain
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -88,6 +88,42 @@ def narrate(req: NarrateRequest) -> dict:
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(..., min_length=1, max_length=1500)
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage] = Field(..., min_length=1, max_length=20)
+    contexto: dict | None = None
+
+
+@app.post("/api/chat")
+def chat(req: ChatRequest) -> dict:
+    """"Ask Cooper": respuesta breve sobre el análisis que manda la página."""
+    if req.messages[-1].role != "user":
+        raise HTTPException(400, "The last message must come from the user")
+    try:
+        answer = assistant.chat([m.model_dump() for m in req.messages], req.contexto)
+    except assistant.AssistantError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+    return {"respuesta": answer}
+
+
+@app.post("/api/transcribe")
+async def transcribe(request: Request) -> dict:
+    """Nota de voz (cuerpo crudo, Content-Type audio/*) → texto con Whisper de Groq."""
+    size = int(request.headers.get("content-length") or 0)
+    if size > assistant.MAX_AUDIO_BYTES:
+        raise HTTPException(413, "The recording is too long. Please keep it under a minute.")
+    audio = await request.body()
+    try:
+        text = assistant.transcribe(audio, request.headers.get("content-type", ""))
+    except assistant.AssistantError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+    return {"texto": text}
 
 
 @app.get("/api/catalog")

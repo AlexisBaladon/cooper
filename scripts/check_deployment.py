@@ -51,6 +51,13 @@ def main() -> None:
     code, _ = request("/api/narrate", b"{}")
     assert code == 422, (code, "narration route")
     checks["narration_request_validation"] = code
+    # "Ask Cooper": both routes reach the backend, which rejects these without calling Groq.
+    code, _ = request("/api/chat", b"{}")
+    assert code == 422, (code, "chat route")
+    checks["chat_request_validation"] = code
+    code, _ = request("/api/transcribe", b"{}")  # JSON is not an audio format
+    assert code == 415, (code, "voice route")
+    checks["voice_request_validation"] = code
     if args.analyze_sample:
         field = catalog["campos_demo"][0]
         body = json.dumps({"lat": field["lat"], "lon": field["lon"], "rotacion_actual": field["rotacion"], "tiene_ganado": field["tiene_ganado"]}).encode()

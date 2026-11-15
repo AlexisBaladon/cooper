@@ -315,3 +315,46 @@ input[type="number"] { width: 100%; padding: .6rem; border: 1px solid var(--axis
 .pdf-button { display: inline-flex; align-items: center; gap: .55rem; border: 1px solid var(--accent); border-radius: 999px; padding: .6rem 1rem; color: var(--accent); background: var(--surface); cursor: pointer; font-weight: 600; }
 .pdf-button:hover { background: var(--page); box-shadow: 0 2px 8px var(--border); }
 :root.printing { color-scheme: light; --page: white; --surface: white; --text: #111; --text-2: #444; --muted: #555; --grid: #ddd; --axis: #888; --accent: #1b5e20; --border: #ddd; --warning-bg: #fff6e0; --bare: #ecebe6; --series-1: #2a78d6; --series-2: #eb6834; --seq-0:#f3f7fd; --seq-1:#cde2fb; --seq-2:#86b6ef; --seq-3:#3987e5; --seq-4:#1c5cab; --seq-5:#0d366b; }
+/* "Ask Cooper": asistente fijo en la esquina */
+.ask { position: fixed; right: 1.2rem; bottom: 1.2rem; z-index: 1500; display: flex; flex-direction: column; align-items: flex-end; gap: 0.7rem; }
+.ask-fab {
+  display: inline-flex; align-items: center; gap: 0.5rem; border: 0; border-radius: 999px; padding: 0.75rem 1.1rem;
+  background: var(--accent); color: var(--surface); font: inherit; font-weight: 600; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); transition: transform 0.15s;
+}
+.ask-fab:hover { transform: translateY(-2px); }
+.ask-fab-ic { font-size: 1.2rem; }
+.ask.open .ask-fab-label { display: none; }
+.ask-panel {
+  order: -1; width: min(380px, calc(100vw - 2.4rem)); height: min(540px, calc(100vh - 7rem));
+  display: flex; flex-direction: column; background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28); overflow: hidden;
+}
+.ask-panel[hidden] { display: none; }
+.ask-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.8rem 1rem; background: var(--accent); color: var(--surface); }
+.ask-head small { display: block; opacity: 0.85; font-size: 0.75rem; }
+.ask-x { border: 0; background: transparent; color: inherit; font-size: 1rem; cursor: pointer; padding: 0.2rem 0.4rem; }
+.ask-log { flex: 1; overflow-y: auto; padding: 0.9rem; display: flex; flex-direction: column; gap: 0.55rem; }
+.ask-msg { max-width: 85%; padding: 0.55rem 0.8rem; border-radius: 14px; font-size: 0.9rem; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ask-msg.assistant { align-self: flex-start; background: var(--page); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.ask-msg.user { align-self: flex-end; background: var(--accent); color: var(--surface); border-bottom-right-radius: 4px; }
+.ask-msg.typing { opacity: 0.7; font-style: italic; }
+.ask-msg.error { border-color: #d03b3b; color: #b42f2f; }
+.ask-sugg { display: flex; flex-wrap: wrap; gap: 0.35rem; padding: 0 0.9rem 0.6rem; }
+.ask-sugg[hidden] { display: none; }
+.ask-chip { border: 1px solid var(--accent); background: transparent; color: var(--accent); border-radius: 999px; padding: 0.3rem 0.7rem; font: inherit; font-size: 0.78rem; cursor: pointer; }
+.ask-form { display: flex; align-items: flex-end; gap: 0.4rem; padding: 0.6rem; border-top: 1px solid var(--border); }
+.ask-form textarea {
+  flex: 1; resize: none; font: inherit; font-size: 0.9rem; padding: 0.55rem 0.7rem; border-radius: 12px;
+  border: 1px solid var(--axis); background: var(--surface); color: var(--text); max-height: 110px;
+}
+.ask-mic, .ask-send {
+  width: 2.4rem; height: 2.4rem; border-radius: 50%; border: 0; cursor: pointer; font-size: 1rem; flex: none;
+  background: var(--page); color: var(--text); border: 1px solid var(--axis);
+}
+.ask-send { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+.ask-mic.recording { background: #d03b3b; color: #fff; border-color: #d03b3b; animation: ask-pulse 1.2s infinite; }
+.ask-mic:disabled, .ask-send:disabled { opacity: 0.5; cursor: wait; }
+@keyframes ask-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(208, 59, 59, 0.5); } 50% { box-shadow: 0 0 0 8px rgba(208, 59, 59, 0); } }
+.ask-foot { margin: 0; padding: 0 0.9rem 0.6rem; font-size: 0.7rem; color: var(--muted); }
+@media (max-width: 520px) { .ask { right: 0.7rem; bottom: 0.7rem; } }

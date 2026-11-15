@@ -21,9 +21,10 @@ review.
 and thresholds written in the code, which anyone can review. Cooper helps farmers think;
 the decision belongs to the farmer and their agronomist.
 
-The only use of AI is optional and narrow: a Groq language model can rewrite the text the
-voice reads in "Explain it simply". It doesn't calculate anything, doesn't pick
-rotations and can't change any number (see below).
+AI is optional and limited to language. A Groq language model can rewrite the text the
+voice reads in "Explain it simply", and it powers "Ask Cooper", a chat that answers short
+questions about the analysis on screen. In both cases it doesn't calculate anything, doesn't
+pick rotations and works only from numbers Cooper already computed (see below).
 
 ## Minimal vocabulary
 
@@ -292,6 +293,31 @@ whole presentation uses the templates and the screen says so.
 - **What Groq doesn't do:** it doesn't write code, calculate indicators, choose or rank
   rotations, or touch the 3D model.
 
+### "Ask Cooper": chat and voice notes
+
+A button in the bottom-right corner opens a chat panel. The farmer can type a question or
+record a voice note of up to a minute.
+
+- **Voice notes** are recorded in the browser and sent to `/api/transcribe`, which passes them
+  to Groq Whisper (`whisper-large-v3-turbo`). The text appears in the chat as the farmer's
+  question. The language is detected automatically.
+- **Questions** go to `/api/chat` with the short conversation history and a compact summary of
+  the current analysis: inputs, monthly climate, trends, terrain, and for each rotation its
+  scores, key figures, calendar, reasons, critical stages, strengths and weaknesses, and main
+  risks. Coordinates are not sent.
+- **The model** (`openai/gpt-oss-120b` by default) is told to answer in at most about 60 words,
+  use only numbers from the summary, say so when the data doesn't have the answer, keep each
+  number with its own meaning and avoid markdown. Cooper detects whether the question is in
+  English or Spanish and tells the model which language to answer in.
+- **Limits:** questions up to 1,500 characters, the last 6 messages as history, a summary of
+  about 7,000 characters and voice notes up to 3 MB. When Groq's per-minute limit is hit and it
+  asks to wait 15 seconds or less, Cooper waits and retries once.
+- **When the analysis changes**, the conversation starts over, because the data behind it is
+  different.
+
+The chat can still be wrong: the panel says so, and suggests checking important decisions
+with an agronomist. It never makes decisions or changes the analysis.
+
 ## The API
 
 | Route | Returns |
@@ -299,6 +325,8 @@ whole presentation uses the templates and the screen says so.
 | `GET /api/catalog` | Crops, rotations, sample fields and score names |
 | `POST /api/analyze` | The full analysis for a point |
 | `POST /api/narrate` | The slides' text rewritten by Groq, or the templates if that wasn't possible |
+| `POST /api/chat` | A short "Ask Cooper" answer about the analysis summary sent with the question |
+| `POST /api/transcribe` | The text of a voice note (raw audio body, `Content-Type: audio/*`) |
 
 Input to `/api/analyze`:
 
@@ -330,6 +358,7 @@ backend/app/climate.py    climate indicators and trends
 backend/app/terrain.py    SRTM, slope, water flow, RUSLE, zones
 backend/app/engine.py     water balance, scores, selection, explanations and diagnosis
 backend/app/narrator.py   narration rewriting with Groq, and its validation
+backend/app/assistant.py  "Ask Cooper" chat and voice-note transcription with Groq
 backend/app/main.py       API and web server
 backend/tests/            tests with synthetic data and a simulated Groq (no internet needed)
 backend/.env.example      template for the Groq key
@@ -338,6 +367,7 @@ data/rotations.json       rotation library
 data/recommendations.json ideas to improve, per problem
 data/cache/               downloaded data (not committed)
 frontend/index.html, app.js, styles.css       main screen
+frontend/assistant.js                         the "Ask Cooper" chat button and panel
 frontend/slides*.html, slides*.js, slides.css "Explain it simply" (charts and 3D)
 scripts/make_slides_sample.py                 rebuilds the slides' sample analysis
 legacy/                                       the team's earlier scaffold

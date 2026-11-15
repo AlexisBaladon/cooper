@@ -261,6 +261,9 @@ async function analyze() {
     $("#stale-results").hidden = true; $("#explain").disabled = false; $("#print-report").disabled = false;
     // Reach results on a phone without scrolling past the complete input form.
     if (matchMedia("(max-width: 900px)").matches) { $("#results-title").focus(); $("#results-title").scrollIntoView({ block: "start" }); }
+    // Para "Ask Cooper": el último análisis y lo que pidió el productor.
+    window.cooperAnalysis = { data, request: body, campo: context.field };
+    window.dispatchEvent(new Event("cooper:analysis"));
   } catch (err) {
     if (!state.queue.isCurrent(run)) return;
     $("#error").textContent = err.name === "TimeoutError"
