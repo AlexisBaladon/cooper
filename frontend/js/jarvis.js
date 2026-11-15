@@ -6,7 +6,9 @@
   const C = window.Cooper;
   const { esc, fmt, icon, $, $$ } = C;
 
-  const S = { el: null, open: false, history: [], busy: false, rec: null, field: null, core: null, tl: null };
+  const S = { el: null, open: false, history: [], busy: false, rec: null, field: null, core: null, tl: null, full: null };
+  // En pantallas anchas el orbe se expande a Jarvis completo (frontend/jarvis/); en el celular, el panel de chat.
+  const FULL_MIN_WIDTH = 900;
 
   /* --------------------------------------------------------- WebGL core */
   function plasma(canvas) {
@@ -94,7 +96,7 @@
     S.core = plasma($(".jv-core", el));
     if (!S.core) el.classList.add("no-gl");
     const orb = $(".jv-orb", el);
-    orb.addEventListener("click", () => toggle());
+    orb.addEventListener("click", () => (canFull() ? openFull() : toggle()));
     orb.addEventListener("pointerenter", () => { S.core?.set(0.5); speed(3); });
     orb.addEventListener("pointerleave", () => { S.core?.set(S.busy ? 1 : 0); speed(1); });
     el.addEventListener("click", (e) => {
@@ -117,6 +119,74 @@
       g.to($(".jv-glow", el), { scale: 1.12, opacity: 0.85, duration: 2.4, ease: "sine.inOut", yoyo: true, repeat: -1 });
     } else el.classList.add("css-spin");
   }
+  /* ------------------------------------------- Jarvis a pantalla completa */
+  // Un círculo crece desde el orbe hasta cubrir la pantalla y adentro carga frontend/jarvis/ (iframe del
+  // mismo origen). Jarvis pide el análisis abierto con "jarvis:ready" y avisa "jarvis:close" al salir.
+  const canFull = () => matchMedia(`(min-width: ${FULL_MIN_WIDTH}px)`).matches;
+  function orbCircle() {
+    const r = $(".jv-orb", S.el).getBoundingClientRect();
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    return { x, y, r: r.width / 2, cover: Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) + 2 };
+  }
+  function openFull() {
+    if (S.full) return;
+    toggle(false);
+    $(".jv-bubble", S.el).hidden = true;
+    const c = orbCircle();
+    const wrap = document.createElement("div");
+    wrap.className = "jv-full";
+    wrap.setAttribute("role", "dialog");
+    wrap.setAttribute("aria-label", C.t("Jarvis assistant"));
+    wrap.innerHTML = '<iframe title="Jarvis" src="jarvis/index.html" allow="microphone; camera; autoplay"></iframe>';
+    document.body.appendChild(wrap);
+    const frame = wrap.firstChild;
+    S.full = { wrap, frame, prevFocus: document.activeElement };
+    document.documentElement.classList.add("jv-full-open");
+    $(".jv-orb", S.el).setAttribute("aria-expanded", "true");
+    S.core?.set(1); speed(6);
+    frame.addEventListener("load", () => frame.focus({ preventScroll: true }), { once: true });
+    const g = C.motion.gsap;
+    if (g && !C.reducedMotion()) {
+      g.fromTo(wrap, { clipPath: `circle(${c.r}px at ${c.x}px ${c.y}px)` },
+        { clipPath: `circle(${c.cover}px at ${c.x}px ${c.y}px)`, duration: 0.9, ease: "expo.inOut", onComplete: () => { wrap.style.clipPath = "none"; } });
+      g.fromTo(frame, { opacity: 0 }, { opacity: 1, duration: 0.6, delay: 0.55 });
+    }
+  }
+  function closeFull() {
+    const f = S.full;
+    if (!f) return;
+    S.full = null;
+    const orb = $(".jv-orb", S.el);
+    orb.setAttribute("aria-expanded", "false");
+    S.core?.set(0); speed(1);
+    const done = () => {
+      f.wrap.remove();
+      document.documentElement.classList.remove("jv-full-open");
+      (f.prevFocus && f.prevFocus.isConnected ? f.prevFocus : orb).focus({ preventScroll: true });
+    };
+    const g = C.motion.gsap, c = orbCircle();
+    if (!g || C.reducedMotion()) { done(); return; }
+    g.to(f.frame, { opacity: 0, duration: 0.25 });
+    g.fromTo(f.wrap, { clipPath: `circle(${c.cover}px at ${c.x}px ${c.y}px)` },
+      { clipPath: `circle(${c.r}px at ${c.x}px ${c.y}px)`, duration: 0.7, ease: "expo.inOut", delay: 0.1, onComplete: done });
+  }
+  // Lo que Jarvis necesita para arrancar: el análisis abierto (datos de entrada y resultado) o el campo.
+  function fullContext() {
+    const f = S.field;
+    return {
+      type: "cooper:context",
+      lang: C.lang(),
+      field: f && Number.isFinite(f.lat) && Number.isFinite(f.lon) ? { nombre: f.nombre, lat: f.lat, lon: f.lon, area_ha: f.area_ha } : null,
+      rec: S.rec ? { input: S.rec.input, result: S.rec.result, field: S.rec.context?.field || f?.nombre || "" } : null,
+    };
+  }
+  window.addEventListener("message", (e) => {
+    if (!S.full || e.origin !== location.origin || e.source !== S.full.frame.contentWindow || !e.data) return;
+    if (e.data.type === "jarvis:ready") e.source.postMessage(fullContext(), location.origin);
+    if (e.data.type === "jarvis:close") closeFull();
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.full) closeFull(); });
+
   function speed(k) { const g = C.motion.gsap; if (!g || !S.tl) return; S.tl.forEach((t) => g.to(t, { timeScale: k, duration: 0.6 })); }
 
   function entrance() {
@@ -289,5 +359,5 @@
     if (S.el) suggestions();
   }
 
-  C.jarvis = { mount() { build(); entrance(); }, setContext, toggle, context, intent };
+  C.jarvis = { mount() { build(); entrance(); }, setContext, toggle, context, intent, openFull, closeFull };
 })();

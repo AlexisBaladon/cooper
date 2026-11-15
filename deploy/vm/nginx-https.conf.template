@@ -18,6 +18,9 @@ map $uri $nasa_frame_options {
     default DENY;
     /slides-3d.html SAMEORIGIN;
     /slides.html SAMEORIGIN;
+    # Jarvis a pantalla completa, dentro de Cooper.
+    /jarvis/ SAMEORIGIN;
+    /jarvis/index.html SAMEORIGIN;
 }
 
 server {

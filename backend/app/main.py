@@ -18,10 +18,11 @@ from typing import Literal
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import assistant, climate, engine, narrator, power, soil, terrain, weather
+from . import assistant, climate, engine, jarvis, narrator, power, soil, terrain, weather
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -163,6 +164,48 @@ async def transcribe(request: Request) -> dict:
     except assistant.AssistantError as exc:
         raise HTTPException(exc.status, str(exc)) from exc
     return {"texto": text}
+
+
+async def _json_body(request: Request) -> dict:
+    try:
+        data = await request.json()
+    except ValueError:
+        raise HTTPException(400, "Invalid JSON") from None
+    if not isinstance(data, dict):
+        raise HTTPException(400, "Invalid request")
+    return data
+
+
+@app.post("/api/jarvis/chat")
+async def jarvis_chat(request: Request) -> dict:
+    """Jarvis a pantalla completa: frases + vista a mostrar, datos de la ficha y acción."""
+    data = await _json_body(request)
+    try:
+        return await run_in_threadpool(jarvis.chat, data)
+    except assistant.AssistantError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+
+
+@app.post("/api/jarvis/transcribe")
+async def jarvis_transcribe(request: Request) -> dict:
+    """Nota de voz de Jarvis → {text, lang}."""
+    if int(request.headers.get("content-length") or 0) > assistant.MAX_AUDIO_BYTES:
+        raise HTTPException(413, "The recording is too long. Please keep it under a minute.")
+    audio = await request.body()
+    try:
+        return await run_in_threadpool(jarvis.transcribe, audio, request.headers.get("content-type", ""))
+    except assistant.AssistantError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+
+
+@app.post("/api/jarvis/translate")
+async def jarvis_translate(request: Request) -> dict:
+    """Traducción del reporte de Jarvis, verificando que cada texto conserve sus números."""
+    data = await _json_body(request)
+    try:
+        return await run_in_threadpool(jarvis.translate, data)
+    except assistant.AssistantError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
 
 
 @app.get("/api/catalog")
