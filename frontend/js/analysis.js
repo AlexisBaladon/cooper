@@ -34,6 +34,11 @@
       </div>
       <div class="tab-panel" id="panel-new" role="tabpanel" aria-labelledby="tab-new">
         <section class="card wizard" id="an-wizard" aria-label="New analysis">
+          <header class="wz-top">
+            <div class="wz-top-txt"><small id="wz-kicker">New analysis</small><h2 id="wz-heading">Tell Cooper about your field</h2>
+              <p id="wz-help">Four quick steps, about a minute. Cooper then reads 30 years of NASA data for your field and compares every rotation.</p></div>
+            <span class="wz-badge" id="wz-badge">${icon("satellite")}<span>NASA POWER · SRTM</span></span>
+          </header>
           <ol class="wz-steps">
             <span class="wz-line" aria-hidden="true"><i></i></span>
             ${steps.map(([ic, t, d], i) => `<li><button type="button" class="wz-step ${i === 0 ? "active" : ""}" data-step="${i}" aria-current="${i === 0 ? "step" : "false"}">
@@ -97,11 +102,16 @@
             </section>
           </div>
           <footer class="wz-foot">
-            <button type="button" class="btn ghost" id="wz-back" hidden>${icon("right", "flip-x")}<span>Back</span></button>
-            <span class="wz-count" id="wz-count">Step 1 of 4</span>
-            <button type="button" class="btn primary" id="wz-next"><span>Next</span>${icon("right")}</button>
-            <span class="wz-status" id="wz-status" role="status" hidden></span>
-            <button id="an-run" class="btn primary lg" type="button" disabled hidden>Loading crop options…</button>
+            <div class="wz-f-left"><button type="button" class="btn ghost" id="wz-back" hidden>${icon("right", "flip-x")}<span>Back</span></button></div>
+            <div class="wz-f-mid">
+              <span class="wz-dots" aria-hidden="true">${[0, 1, 2, 3].map((i) => `<i class="${i === 0 ? "on" : ""}"></i>`).join("")}</span>
+              <span class="wz-count" id="wz-count">Step 1 of 4</span>
+              <span class="wz-status" id="wz-status" role="status" hidden></span>
+            </div>
+            <div class="wz-f-right">
+              <button type="button" class="btn primary" id="wz-next"><span>Next</span>${icon("right")}</button>
+              <button id="an-run" class="btn primary lg" type="button" disabled hidden>Loading crop options…</button>
+            </div>
           </footer>
         </section>
         <section class="card an-summary" id="an-summary" hidden aria-labelledby="sum-h">
@@ -115,10 +125,11 @@
             <div class="rb-actions">
               <button type="button" class="btn ghost" id="an-explain">${icon("play")}<span>Explain it simply</span></button>
               <button type="button" class="btn ghost" id="an-pdf">${icon("reports")}<span>Export PDF</span></button>
+              <span class="save-hint" id="an-save-hint" hidden>${icon("info")}<span>Press Done in the settings to save</span></span>
               <button type="button" class="btn primary" id="an-save">${icon("save")}<span>Save analysis</span></button>
             </div>
           </div>
-          <div id="an-stale" class="notice warn" role="status" hidden>${icon("alert")}<span>Settings changed. Run the analysis again to update these results.</span></div>
+          <div id="an-stale" class="notice info updating" role="status" hidden><i class="spin" aria-hidden="true"></i><span>Updating every result and chart with your changes…</span></div>
           <div class="loading card" id="an-loading" role="status" hidden>
             <div class="ld-orbit" aria-hidden="true"><img src="assets/icons/satellite.webp" alt=""><i></i><i></i></div>
             <h2>Comparing rotations with historical NASA data…</h2>
@@ -159,6 +170,7 @@
     $("#wz-next").hidden = n === 3;
     $("#an-run").hidden = n !== 3 && !S.editing;
     $("#wz-count").textContent = `${C.t("Step")} ${n + 1} ${C.t("of")} 4`;
+    $$(".wz-dots i", S.root).forEach((d, i) => { d.classList.toggle("on", i === n); d.classList.toggle("done", i < n); });
     if (n === 0) setTimeout(() => S.map?.invalidateSize(), 60);
     if (focus) setTimeout(() => (to.querySelector(".choice[aria-checked=true], select, input[type=range], .choice, button") || to).focus?.({ preventScroll: true }), 300);
   }
@@ -197,18 +209,32 @@
   }
 
   /* Editing an existing analysis: every change updates the results below, the editor stays open. */
+  /* Wizard header and buttons for "new analysis" vs "editing an analysis". */
+  function editUI(on) {
+    $("#an-wizard")?.classList.toggle("is-editing", on);
+    const nx = $("#wz-next");
+    if (nx) { nx.classList.toggle("primary", !on); nx.classList.toggle("ghost", on); }
+    $("#wz-kicker").textContent = C.t(on ? "Editing your analysis" : "New analysis");
+    $("#wz-heading").textContent = C.t(on ? "Change any setting" : "Tell Cooper about your field");
+    $("#wz-help").textContent = C.t(on ? "Every change recalculates all the results and charts below and on Home. Press Done when you finish; then you can save it."
+      : "Four quick steps, about a minute. Cooper then reads 30 years of NASA data for your field and compares every rotation.");
+  }
   function startEditing() {
     S.editing = true;
+    editUI(true);
     foldWizard(false); goStep(0, false);
     $("#an-run").hidden = false; $("#an-run").disabled = false; $("#an-run").textContent = C.t("Done");
     setStatus("");
+    updateStale();
   }
   function stopEditing() {
     S.editing = false;
+    editUI(false);
     setStatus("");
     $("#an-run").textContent = C.t("Analyze my field");
     $("#an-run").hidden = S.step !== 3;
     foldWizard(true);
+    updateStale();
   }
   function setStatus(kind) {
     const el = $("#wz-status");
@@ -229,7 +255,7 @@
         <span class="st-ic">${icon(ic)}</span>
         <span class="st-txt"><small>${esc(C.t(label))}</small><strong>${value}</strong>${sub ? `<em>${sub}</em>` : ""}${extra}</span>
         <span class="st-edit" aria-hidden="true">${icon("edit")}</span></button>`;
-    const seq = (rot?.anios || []).map((year, y) => `<span class="st-year"><b>${C.t("Year")} ${y + 1}</b>${year.map((id) => `<i style="--c:${crops[id]?.color || "var(--muted)"}">${esc(crops[id]?.nombre || id)}</i>`).join("")}</span>`).join("");
+    const seq = (rot?.anios || []).map((year, y) => `<span class="st-year"><b>${C.t("Year")} ${y + 1}</b><span class="st-crops">${year.map((id) => `<span class="st-crop"><i style="--c:${crops[id]?.color || "var(--muted)"}"></i>${esc(crops[id]?.nombre || id)}</span>`).join(`<em aria-hidden="true">→</em>`)}</span></span>`).join("");
     const lat = field?.lat != null ? `${fmt(field.lat, 3)}, ${fmt(field.lon, 3)}` : "";
     const prios = Object.entries(input.prioridades).sort((x, y) => y[1] - x[1]);
     return `<div class="sum-grid">
@@ -249,7 +275,7 @@
     const g = C.motion.gsap, root = $("#an-sum-items");
     if (!g || !root) return;
     g.fromTo($$(".sum-tile, .sum-prios", root), { opacity: 0, y: 22, rotationX: -12, transformPerspective: 900 }, { opacity: 1, y: 0, rotationX: 0, duration: 0.8, ease: "expo.out", stagger: 0.07, clearProps: "transform,opacity" });
-    g.fromTo($$(".st-year i", root), { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: "back.out(2.4)", stagger: 0.05, delay: 0.35 });
+    g.fromTo($$(".st-crop", root), { x: -8, opacity: 0 }, { x: 0, opacity: 1, duration: 0.45, ease: "expo.out", stagger: 0.04, delay: 0.35, clearProps: "transform,opacity" });
     g.fromTo($$(".sp-pips i.on, .st-gauge i.on", root), { scaleX: 0, transformOrigin: "0% 50%" }, { scaleX: 1, duration: 0.4, ease: "power3.out", stagger: 0.03, delay: 0.45, clearProps: "transform" });
   }
   function foldWizard(fold, animate = true) {
@@ -338,18 +364,27 @@
   }
   const current = () => !!S.rec && JSON.stringify(readRequest()) === JSON.stringify(S.rec.input);
 
+  /* Every change recalculates the whole analysis (results, charts, Home) a moment later. */
   function markChanged() {
     S.queue.invalidate();
     updateStale();
     clearTimeout(S.autoTimer);
-    if (S.rec && !S.rec.saved) S.autoTimer = setTimeout(run, 650);
+    if (!S.rec) return;
+    if (S.editing) setStatus("busy");
+    S.autoTimer = setTimeout(run, 600);
   }
   /* Only the visual state: never touches the analysis queue. */
   function updateStale() {
     const ok = current();
     $("#an-stale").hidden = !S.rec || ok;
-    for (const id of ["#an-save", "#an-explain", "#an-pdf"]) { const b = $(id); if (b) b.disabled = !ok; }
-    if (S.rec && ok) $("#an-save").disabled = !!S.rec.saved;
+    for (const id of ["#an-explain", "#an-pdf"]) { const b = $(id); if (b) b.disabled = !ok; }
+    // Saving is possible once the settings are closed with "Done" and the results are up to date.
+    const sv = $("#an-save");
+    if (sv) {
+      sv.disabled = !ok || S.editing || !!S.rec?.saved;
+      sv.title = S.editing ? C.t("Press Done to save this analysis") : "";
+    }
+    $("#an-save-hint")?.toggleAttribute("hidden", !S.editing);
   }
 
   /* -------------------------------------------------------------- run */
@@ -368,7 +403,7 @@
 
   async function run(fromButton) {
     // While editing an analysis, the main button just closes the editor once results are up to date.
-    if (fromButton === true && S.editing && current()) { stopEditing(); return; }
+    if (fromButton === true && S.editing) { if (current()) { stopEditing(); return; } S.closeAfter = true; }
     if (S.queue.active) { S.queue.queued = true; return; }
     const body = readRequest();
     try { CooperWorkflow.validate(body); } catch (err) { showError(err.message); return; }
@@ -396,6 +431,7 @@
       await C.db.put("drafts", rec);
       showResult(rec, true);
       C.emit("analysis", rec);
+      if (S.closeAfter && current()) { S.closeAfter = false; stopEditing(); }
       if (first) { $("#an-results-title").focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: C.reducedMotion() ? "auto" : "smooth" }); }
     } catch (err) {
       if (!S.queue.isCurrent(runTok)) return;
@@ -405,7 +441,7 @@
       showLoading(false);
       $("#an-results").classList.remove("is-busy");
       $("#an-run").disabled = false; $("#an-run").textContent = C.t(S.editing ? "Done" : "Analyze my field");
-      if (S.editing && S.queue && !S.queue.queued) setStatus(current() ? "done" : "");
+      if (S.editing) setStatus(current() ? "done" : $("#an-error").hidden ? "busy" : "");
       $("#an-results").setAttribute("aria-busy", "false");
       if (S.queue.finish()) setTimeout(run, 500);
     }
@@ -473,7 +509,7 @@
     clearTimeout(S.autoTimer);
     const g = C.motion.gsap, body = $("#an-results");
     const done = () => {
-      S.rec = null; S.ctl?.destroy(); S.ctl = null; S.editing = false; setStatus("");
+      S.rec = null; S.ctl?.destroy(); S.ctl = null; S.editing = false; setStatus(""); editUI(false);
       $("#an-bar").hidden = true; $("#an-stale").hidden = true; $("#an-error").hidden = true;
       $("#an-summary").hidden = true; $("#an-wizard").hidden = false;
       $("#an-run").textContent = C.t("Analyze my field");
@@ -601,7 +637,7 @@
     const sameField = S.fieldId === field.id;
     fillForm(field);
     if (sameField && S.rec) { updateStale(); return; }
-    S.rec = null; S.ctl?.destroy(); S.ctl = null; S.editing = false; setStatus("");
+    S.rec = null; S.ctl?.destroy(); S.ctl = null; S.editing = false; setStatus(""); editUI(false);
     $("#an-run").textContent = C.t("Analyze my field");
     $("#an-bar").hidden = true; $("#an-stale").hidden = true; $("#an-error").hidden = true;
     $("#an-summary").hidden = true; $("#an-wizard").hidden = false;
