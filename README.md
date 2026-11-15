@@ -32,7 +32,7 @@ The team's earlier scaffold (FastAPI API, Next.js web app and first documents) i
 
 The public app is [https://52.71.101.193](https://52.71.101.193). Pushes and merges to
 **`main`** run the backend tests, check the frontend and automatically deploy to the
-existing AWS Lightsail server. See [GitHub Actions](https://github.com/AlexisBaladon/nasa2026/actions)
+existing AWS Lightsail server. See [GitHub Actions](https://github.com/AlexisBaladon/cooper/actions)
 and the [deployment guide](docs/AUTODEPLOY.md). Other branches run checks through pull
 requests. Server-side API keys and the NASA cache persist outside application releases.
 

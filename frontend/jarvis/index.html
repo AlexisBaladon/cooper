@@ -3,7 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cooper · Assistant core (lab)</title>
+<title>Cooper · Jarvis field assistant</title>
+<script>
+  try {
+    const mode = JSON.parse(localStorage.getItem("cooper-theme") || '"system"');
+    if (JSON.parse(localStorage.getItem("cooper-reduce-motion") || "false")) document.documentElement.classList.add("reduce-motion");
+    document.documentElement.dataset.theme = mode === "light" || mode === "dark" ? mode : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  } catch (_) { document.documentElement.dataset.theme = "dark"; }
+</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
   :root { --c: #4fd8ff; --dim: rgba(79, 216, 255, 0.55); --bg0: #02060b; --bg1: #061521; }
   * { box-sizing: border-box; }
@@ -112,11 +120,12 @@
   body.embed .close-embed:hover { background: rgba(79, 216, 255, 0.22); box-shadow: 0 0 14px rgba(79, 216, 255, 0.45); }
   .boot { position: fixed; inset: 0; z-index: 4; display: grid; place-items: center; pointer-events: none; font-size: 13px; letter-spacing: 0.4em; color: var(--c); text-shadow: 0 0 10px var(--c); }
 </style>
+<link rel="stylesheet" href="theme.css?v=orbital2">
 </head>
 <body>
 <div class="scan"></div>
 <div class="vignette"></div>
-<div id="globe"></div>
+<section id="scene-region" class="scene-region" aria-label="Interactive field visualization"><div class="scene-frame-corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div id="globe"></div><div class="vlabel" id="vlabel"></div></section>
 <div id="hand-cursor"></div>
 <canvas id="hand-preview" width="192" height="144" hidden></canvas>
 <div class="boot" id="boot"></div>
@@ -125,10 +134,8 @@
 <div class="hud" id="hud">
   <span class="bracket a"></span><span class="bracket b"></span><span class="bracket c"></span><span class="bracket d"></span>
   <div class="corner tl">
-    <div class="title">COOPER</div>
-    <div>Assistant core <b>v0.2</b></div>
-    <div>State <b id="hud-state">BOOT</b></div>
-    <div>Uplink <b>NASA POWER · SRTM</b></div>
+    <div class="title"><img src="../assets/brand/logo-mark.webp" alt="Cooper"><span>Jarvis<small id="assistant-subtitle">Cooper field assistant</small></span></div>
+    <div class="assistant-status"><span class="sr-label">State</span><b id="hud-state">BOOT</b></div>
   </div>
   <div class="corner tr">
     <div>Frame rate <b id="hud-fps">--</b></div>
@@ -140,21 +147,27 @@
   <div class="corner bl">
     <div>Lat <b id="hud-lat">--</b> · Lon <b id="hud-lon">--</b></div>
     <div>Field <b id="hud-field">not marked yet</b></div>
+    <div class="data-source">Data <b>NASA POWER · SRTM</b></div>
   </div>
   <div class="corner br">
     <div>Hold <b>Space</b> to talk · <b>M</b> talk on/off</div>
-    <div><b>G</b> globe · <b>R</b> report · <b>H</b> hands · <b>Esc</b> core</div>
+    <div><b>G</b> globe · <b>R</b> report · <b>H</b> hands · <b>Esc</b> back</div>
   </div>
 
+
+
+  <section class="conversation" aria-label="Conversation with Jarvis">
+    <header class="conversation-head"><h2 id="conversation-title">Let’s talk about your field</h2><p id="conversation-description">Ask a question while you explore the visuals.</p></header>
+    <div class="conversation-content">
+      <p class="question" id="current-question" hidden></p>
+      <div class="caption" id="caption" aria-live="polite"></div>
   <aside class="side right" id="dash" hidden>
     <div id="figures-wrap"><h4>Key figures</h4><div id="figures"></div></div>
     <div id="info" hidden><h4 id="info-title"></h4><ul id="info-list"></ul></div>
     <div class="sub">Report</div>
     <div id="chapters"></div>
   </aside>
-
-  <div class="vlabel" id="vlabel"></div>
-  <div class="caption" id="caption"></div>
+    </div>
   <div class="controls">
     <button data-state="idle">Idle</button>
     <button data-state="listening">Listening</button>
@@ -162,10 +175,13 @@
     <button data-state="speaking">Speaking</button>
     <span class="sep"></span>
     <button id="btn-demo">Auto demo</button>
-    <button id="btn-mic">Hold to talk</button>
-    <button id="btn-hands">Hands</button>
-    <input type="text" id="ask" placeholder="…or type here and press Enter" maxlength="600" autocomplete="off">
+    <div class="voice-controls"><button id="btn-mic">Hold to talk</button>
+    <button id="btn-hands">Hands</button></div>
+    <div class="message-composer"><input type="text" id="ask" aria-label="Ask Jarvis about your field" placeholder="Ask about your field…" maxlength="600" autocomplete="off">
+    <button type="button" class="ask-send" id="ask-send">Send</button></div>
   </div>
+  <p class="assistant-note" id="assistant-note">Your field, explained. Review important decisions with your agronomist.</p>
+  </section>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
@@ -185,14 +201,17 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
 /* =========================================================== escena */
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+const sceneRegion = document.getElementById("scene-region");
+const sceneSize = () => ({ width: Math.max(1, sceneRegion.clientWidth), height: Math.max(1, sceneRegion.clientHeight) });
+const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
-renderer.setSize(innerWidth, innerHeight);
+renderer.setSize(sceneSize().width, sceneSize().height);
 renderer.setClearColor(0x000000, 0);
-document.body.prepend(renderer.domElement);
+renderer.domElement.classList.add("scene-canvas");
+sceneRegion.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(45, sceneSize().width / sceneSize().height, 0.1, 100);
 // Aleja la cámara lo justo para que el anillo exterior (~4.6 de radio) entre con margen,
 // tanto en pantallas anchas como verticales.
 function fitCamera() {
@@ -210,14 +229,14 @@ scene.add(rig);
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 // El brillo se calcula a media resolución: casi no cambia la imagen y ahorra mucha GPU.
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 1.1, 0.65, 0.05);
+const bloom = new UnrealBloomPass(new THREE.Vector2(sceneSize().width / 2, sceneSize().height / 2), 1.1, 0.65, 0.05);
 composer.addPass(bloom);
 // Brillo = el del estado × un factor que baja cuando hay un visual (si no, se satura).
-const fx = { bloom: 1.1, k: 1 };
+const fx = { bloom: 1.0, k: 1 };
 composer.addPass(new OutputPass());
 
 const params = { speed: 1, intensity: 1, audio: 0 };
-const color = new THREE.Color("#4fd8ff");
+const color = new THREE.Color("#58d8c8");
 const tinted = [];                       // materiales que siguen el color del estado
 
 /* ------------------------------------------------------------ núcleo */
@@ -389,6 +408,11 @@ tinted.push(dustMat);
 const dust = new THREE.Points(dustGeo, dustMat);
 dust.rotation.x = 0.35;
 rig.add(dust);
+// Orbital comparison: restore the original 3D rings, voice bars and star field
+// inside the dedicated visual pane, leaving the conversation unobstructed.
+ringHolder.visible = true;
+dust.visible = true;
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.classList.contains("reduce-motion");
 
 function applyColor() {
   tinted.forEach((m) => m.color.copy(color));
@@ -401,22 +425,22 @@ function applyColor() {
 
 /* =========================================================== estados */
 const STATES = {
-  idle:      { color: "#4fd8ff", speed: 1.0, intensity: 1.0, bloom: 1.1, caption: "Standing by. Ask me about your field." },
-  listening: { color: "#3dffc2", speed: 0.55, intensity: 1.25, bloom: 1.3, caption: "Listening…" },
-  thinking:  { color: "#ffb347", speed: 3.4, intensity: 1.45, bloom: 1.55, caption: "Cross-checking 30 years of NASA climate data…" },
-  speaking:  { color: "#8be9ff", speed: 1.4, intensity: 1.4, bloom: 1.3, caption: "Alternative 1 keeps your soil covered eleven months a year and cuts erosion by about a third." },
+  idle:      { color: "#58d8c8", speed: 1.0, intensity: 1.0, bloom: 1.0, caption: "Standing by. Ask me about your field." },
+  listening: { color: "#7cecc7", speed: 0.55, intensity: 1.2, bloom: 1.15, caption: "Listening…" },
+  thinking:  { color: "#edb85a", speed: 2.4, intensity: 1.3, bloom: 1.25, caption: "Cross-checking 30 years of NASA climate data…" },
+  speaking:  { color: "#93dfe6", speed: 1.4, intensity: 1.25, bloom: 1.1, caption: "Alternative 1 keeps your soil covered eleven months a year and cuts erosion by about a third." },
 };
 let current = "boot";
-let pulse = null, typer = null;
+let typer = null, pulse = null;
 const $ = (id) => document.getElementById(id);
 
-function typeText(el, text, perChar = 0.028) {
+// Show complete sentences immediately; narration and data should be easy to
+// scan, without waiting for a simulated terminal to finish typing.
+function typeText(el, text) {
   if (typer) typer.kill();
-  const o = { n: 0 };
-  typer = gsap.to(o, {
-    n: text.length, duration: Math.max(0.3, text.length * perChar), ease: "none",
-    onUpdate: () => { const k = Math.round(o.n); el.textContent = text.slice(0, k) + (k < text.length ? "▌" : ""); },
-  });
+  el.textContent = text;
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.classList.contains("reduce-motion");
+  typer = gsap.fromTo(el, { opacity: 0, y: reduced ? 0 : 8 }, { opacity: 1, y: 0, duration: reduced ? 0 : 0.35, ease: "power2.out", overwrite: true });
   return typer;
 }
 
@@ -433,15 +457,11 @@ function setState(name, caption) {
   gsap.to(fx, { bloom: cfg.bloom, duration: 1, ease: "power2.out" });
   gsap.to(coreUniforms.uIntensity, { value: cfg.intensity, duration: 1 });
 
-  // Pequeño "golpe" de escala al cambiar de estado.
-  gsap.fromTo(core.scale, { x: 0.9, y: 0.9, z: 0.9 }, { x: 1, y: 1, z: 1, duration: 0.9, ease: "elastic.out(1, 0.4)" });
-
-  if (pulse) { pulse.kill(); pulse = null; rings.forEach((r) => gsap.to(r.scale, { x: 1, y: 1, z: 1, duration: 0.5 })); }
-  if (name === "thinking") {
-    pulse = gsap.timeline({ repeat: -1 });
-    rings.forEach((r, i) => pulse.to(r.scale, { x: 1.06, y: 1.06, z: 1.06, duration: 0.45, yoyo: true, repeat: 1, ease: "sine.inOut" }, i * 0.08));
+  if (pulse) { pulse.kill(); pulse = null; }
+  rings.forEach((r) => gsap.to(r.scale, { x: 1, y: 1, z: 1, duration: 0.4 }));
+  if (name === "thinking" && !reducedMotion()) {
+    pulse = gsap.to(rings.map((r) => r.scale), { x: 1.035, y: 1.035, z: 1.035, duration: 0.9, stagger: 0.06, yoyo: true, repeat: -1, ease: "sine.inOut" });
   }
-  if (name === "listening") gsap.fromTo(barGroup.scale, { x: 0.92, y: 0.92 }, { x: 1, y: 1, duration: 0.6, ease: "back.out(2)" });
   if (caption !== null) typeText($("caption"), caption ?? cfg.caption, name === "speaking" ? 0.045 : 0.03);
 }
 
@@ -581,7 +601,9 @@ async function askTyped(text) {
 
 // Pregunta (dictada o escrita) → modelo → ficha, voz y visuales.
 async function ask(text, lang) {
-  setState("thinking", `“${text}”`);
+  $("current-question").textContent = text;
+  $("current-question").hidden = false;
+  setState("thinking", "Looking at your analysis…");
   history.push({ role: "user", content: text });
   let res;
   try {
@@ -800,27 +822,29 @@ async function speak(segments, lang, { then = null } = {}) {
 const vis = await import("./visuals.js").catch((e) => { console.warn("visuals.js not loaded", e); return null; });
 const stage = vis ? vis.createStage(rig) : { show: () => false, hide() {}, update() {}, root: new THREE.Group() };
 stage.root.scale.setScalar(1.3);                         // los visuales miden ~1.9 de radio; los anillos se abren a 1.22
-const GLOBE_RING = 1.75;                                 // cuánto se abren los anillos para rodear el globo
-const globeMod = await import("./globe.js").catch((e) => { console.warn("globe.js not loaded", e); return null; });
+const GLOBE_RING = 1.32;                                 // cuánto se abren los anillos para rodear el globo
+const globeMod = await import("./globe.js?v=2").catch((e) => { console.warn("globe.js not loaded", e); return null; });
 // El globo solo muestra el campo y la celda de clima: el campo se elige en Cooper.
 const globe = globeMod ? globeMod.createGlobe($("globe"), { onPick() {}, onPickDemo() {} }) : null;
 let center = "core";                                     // "core" | "visual" | "globe"
 let hideTimer = null, tourTimer = null, galleryIndex = -1;
 const cancelVisualHide = () => { if (hideTimer) hideTimer.kill(); hideTimer = null; };
 
-function sizeGlobe() {                                   // el globo ocupa el hueco del anillo interior
+function sizeGlobe() {
   if (!globe) return;
-  camera.updateMatrixWorld();
-  const px = Math.round(new THREE.Vector3(2.05 * GLOBE_RING * 0.93, 0, 0).project(camera).x * innerWidth);
+  const { width, height } = sceneSize();
+  const px = Math.floor(Math.min(width * 0.74, height * 0.74));
   $("globe").style.width = $("globe").style.height = `${px}px`;
   globe.size(px);
 }
 function setCenter(mode) {
   center = mode;
-  const k = mode === "core" ? 1 : 0.001, r = mode === "globe" ? GLOBE_RING : mode === "visual" ? 1.22 : 1;
-  gsap.to(fx, { k: mode === "core" ? 1 : mode === "globe" ? 0.6 : 0.45, duration: 0.8, overwrite: "auto" });
+  document.body.dataset.view = mode;
+  const k = mode === "core" ? 1 : 0.001;
+  const ringScale = mode === "globe" ? GLOBE_RING : mode === "visual" ? 1.12 : 1;
+  gsap.to(ringHolder.scale, { x: ringScale, y: ringScale, z: ringScale, duration: 0.9, ease: "power3.inOut", overwrite: true });
+  gsap.to(fx, { k: mode === "core" ? 1 : mode === "globe" ? 0.75 : 0.55, duration: 0.8, overwrite: "auto" });
   gsap.to(coreHolder.scale, { x: k, y: k, z: k, duration: 0.8, ease: "power3.inOut", overwrite: true });
-  gsap.to(ringHolder.scale, { x: r, y: r, z: r, duration: 0.9, ease: "power3.inOut", overwrite: true });
   if (mode !== "visual") {                              // al salir de un visual, vuelve a su posición (la mano lo pudo girar o agrandar)
     stage.hide();
     gsap.to(stage.root.rotation, { x: 0, y: 0, duration: 0.6, overwrite: true });
@@ -851,15 +875,15 @@ function showGlobe({ label = "", tour = false } = {}) {
     tourTimer = gsap.delayedCall(3.6, () => globe.fly("field", 2800));
   }
 }
-function hideVisual() {                                  // vuelve al núcleo
+function hideVisual() {                                  // return to the field context
   cancelVisualHide();
-  setCenter("core");
-  setLabel("");
+  setCenter(globe ? "globe" : "core");
+  setLabel(globe && form.campo ? shortName(form.campo) : "");
   setInfo(null);
 }
-// Inicio: con análisis, el núcleo; sin análisis, el globo.
+// Keep the field in view between answers, including when an analysis exists.
 function goHome() {
-  if (analysis || !globe) hideVisual();
+  if (!globe) hideVisual();
   else { showGlobe({ label: form.campo ? shortName(form.campo) : "" }); setInfo(null); }
 }
 // Tecla V: recorre la librería con datos de ejemplo, sin pasar por el modelo.
@@ -876,8 +900,8 @@ function placeLabel() {
   labelAnchor.set(0, center === "globe" ? 2.72 : 2.05, 0);
   stage.root.localToWorld(labelAnchor).project(camera);
   const el = $("vlabel");
-  el.style.left = `${(labelAnchor.x * 0.5 + 0.5) * innerWidth}px`;
-  el.style.top = `${(-labelAnchor.y * 0.5 + 0.5) * innerHeight}px`;
+  el.style.left = `${(labelAnchor.x * 0.5 + 0.5) * sceneSize().width}px`;
+  el.style.top = `${(-labelAnchor.y * 0.5 + 0.5) * sceneSize().height}px`;
 }
 
 /* ------------------------------------------------ control con las manos */
@@ -903,8 +927,6 @@ const hands = gestureMod ? gestureMod.createGestures({
     handCursor.classList.toggle("pinch", pinching);
     handCursor.style.transform = `translate(${x}px, ${y}px)`;
     if (!handMode) hoverHand(touchable(document.elementFromPoint(x, y)));
-    tiltY((x / innerWidth - 0.5) * 0.5);                 // el holograma se inclina con la mano, como con el mouse
-    tiltX((y / innerHeight - 0.5) * 0.35);
   },
   onPinchStart(x, y) {
     const el = document.elementFromPoint(x, y);
@@ -946,7 +968,7 @@ function startIntake() {
     return;
   }
   setState("idle", "Run an analysis in Cooper first and I'll explain it here. Meanwhile, ask me how Cooper works.");
-  if (globe) { showGlobe(); globe.fly("country", 2600); }
+  if (globe) { showGlobe({ label: form.campo ? shortName(form.campo) : "" }); globe.fly("country", 2600); }
 }
 /* ---------------------------------------------- dentro de Cooper (iframe) */
 // Cooper abre esta página a pantalla completa y le pasa el análisis que el productor tiene abierto.
@@ -967,8 +989,21 @@ async function loadExtras(a, lat, lon) {
   get("/api/weather").then((w) => { a.extras.weather = w; });
   get("/api/soil").then((s) => { a.extras.soil = s; });
 }
-function loadFromCooper({ rec, field, lang } = {}) {
-  if (lang) convLang = lang;
+function loadFromCooper({ rec, field, lang, theme, reducedMotion } = {}) {
+  document.documentElement.classList.toggle("reduce-motion", !!reducedMotion);
+  if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+  if (lang) {
+    convLang = lang;
+    document.documentElement.lang = lang;
+    const spanish = lang === "es";
+    $("conversation-title").textContent = spanish ? "Conversemos sobre tu campo" : "Let’s talk about your field";
+    $("conversation-description").textContent = spanish ? "Preguntá mientras explorás los visuales." : "Ask a question while you explore the visuals.";
+    $("assistant-subtitle").textContent = spanish ? "Asistente de Cooper para tu campo" : "Cooper field assistant";
+    $("assistant-note").textContent = spanish ? "Tu campo, explicado. Revisá las decisiones importantes con tu agrónomo." : "Your field, explained. Review important decisions with your agronomist.";
+    $("ask-send").textContent = spanish ? "Enviar" : "Send";
+    $("ask").placeholder = spanish ? "Preguntá sobre tu campo…" : "Ask about your field…";
+    $("ask").setAttribute("aria-label", spanish ? "Preguntale a Jarvis sobre tu campo" : "Ask Jarvis about your field");
+  }
   if (!rec || !rec.input || !rec.result) {             // sin análisis: al menos el campo que tiene abierto
     if (field && Number.isFinite(field.lat) && Number.isFinite(field.lon)) {
       setPoint(field.lat, field.lon, { name: field.nombre || "" });
@@ -998,6 +1033,7 @@ if (EMBED) {
   addEventListener("message", (e) => {
     if (e.origin !== location.origin || e.source !== parent || !e.data) return;
     if (e.data.type === "cooper:context") loadFromCooper(e.data);
+    if (e.data.type === "cooper:theme" && ["light", "dark"].includes(e.data.theme)) document.documentElement.dataset.theme = e.data.theme;
   });
   parent.postMessage({ type: "jarvis:ready" }, location.origin);   // Cooper responde con el análisis
 }
@@ -1067,7 +1103,7 @@ addEventListener("keydown", (e) => {
   if (e.key.toLowerCase() === "d" && !EMBED) demo ? stopDemo() : startDemo();
   if (e.key.toLowerCase() === "v" && !EMBED) nextSample();
   if (e.key === "Escape") {
-    if (EMBED && center === "core") { closeEmbed(); return; }
+    if (EMBED && center !== "visual") { closeEmbed(); return; }
     hideVisual();
   }
   if (e.key.toLowerCase() === "g") showGlobe({ label: form.campo ? shortName(form.campo) : "" });
@@ -1076,28 +1112,35 @@ addEventListener("keydown", (e) => {
   if (e.key.toLowerCase() === "m") recorder || starting ? stopTalk() : startTalk();
 });
 addEventListener("keyup", (e) => { if (e.code === "Space" && !typing(e)) { e.preventDefault(); stopTalk(); } });
-$("ask").addEventListener("keydown", (e) => {
-  if (e.key !== "Enter") return;
-  const text = e.target.value;
-  e.target.value = "";
+function submitQuestion() {
+  const input = $("ask");
+  const text = input.value.trim();
+  if (!text || busy) return;
+  input.value = "";
   askTyped(text);
+}
+$("ask-send").addEventListener("click", submitQuestion);
+$("ask").addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && EMBED) { e.preventDefault(); closeEmbed(); return; }
+  if (e.key !== "Enter" || e.isComposing) return;
+  e.preventDefault();
+  submitQuestion();
 });
 addEventListener("blur", stopTalk);                      // si cambia de ventana con Space apretado
-const tiltX = gsap.quickTo(rig.rotation, "x", { duration: 1.4, ease: "power3.out" });
-const tiltY = gsap.quickTo(rig.rotation, "y", { duration: 1.4, ease: "power3.out" });
-addEventListener("pointermove", (e) => {
-  tiltY(((e.clientX / innerWidth) - 0.5) * 0.5);
-  tiltX(((e.clientY / innerHeight) - 0.5) * 0.35);
-});
-addEventListener("resize", () => {
-  camera.aspect = innerWidth / innerHeight;
+// Models stay stable while reading; intentional hand or globe dragging still
+// changes the view, without moving it just because the pointer crosses a button.
+function resizeScene() {
+  const { width, height } = sceneSize();
+  camera.aspect = width / height;
   camera.updateProjectionMatrix();
   fitCamera();
-  renderer.setSize(innerWidth, innerHeight);
-  composer.setSize(innerWidth, innerHeight);
-  bloom.resolution.set(innerWidth / 2, innerHeight / 2);
+  renderer.setSize(width, height);
+  composer.setSize(width, height);
+  bloom.resolution.set(width / 2, height / 2);
   sizeGlobe();
-});
+}
+new ResizeObserver(resizeScene).observe(sceneRegion);
+addEventListener("resize", resizeScene);
 
 /* ================================================= encendido (GSAP) */
 core.scale.setScalar(0.001);
@@ -1107,34 +1150,35 @@ barGroup.scale.setScalar(0.001);
 const boot = gsap.timeline({ delay: 0.3 });
 const bootEl = $("boot");
 boot
-  .add(typeText(bootEl, "INITIALIZING ASSISTANT CORE", 0.04))
+  .add(typeText(bootEl, "CONNECTING TO YOUR FIELD", 0.04))
   .to(shellUniforms.uOpacity, { value: 1, duration: 1.4, ease: "power2.out" }, 0.4)
-  .to(dustMat, { opacity: 0.45, duration: 2, ease: "power1.out" }, 0.4)
-  .to(core.scale, { x: 1, y: 1, z: 1, duration: 1.6, ease: "elastic.out(1, 0.45)" }, 0.6)
-  .fromTo(fx, { bloom: 2.4 }, { bloom: 1.1, duration: 1.8, ease: "power3.out" }, 0.6)
-  .to(rings.map((r) => r.scale), { x: 1, y: 1, z: 1, duration: 1.1, stagger: 0.12, ease: "expo.out" }, 0.9)
-  .from(rings.map((r) => r.rotation), { z: "-=2.5", duration: 1.6, stagger: 0.12, ease: "expo.out" }, 0.9)
-  .to(barGroup.scale, { x: 1, y: 1, z: 1, duration: 0.9, ease: "back.out(1.6)" }, 1.6)
+  .to(dustMat, { opacity: 0.38, duration: 1.5, ease: "power2.out" }, 0.2)
+  .to(rings.map((r) => r.scale), { x: 1, y: 1, z: 1, duration: 1.1, stagger: 0.08, ease: "expo.out" }, 0.35)
+  .to(barGroup.scale, { x: 1, y: 1, z: 1, duration: 0.8, ease: "power2.out" }, 0.8)
+  .to(core.scale, { x: 1, y: 1, z: 1, duration: 1.6, ease: "power2.out" }, 0.6)
+  .fromTo(fx, { bloom: 1.6 }, { bloom: 1.0, duration: 1.8, ease: "power3.out" }, 0.6)
   .to(bootEl, { opacity: 0, duration: 0.6 }, 2.4)
   .to("#hud", { opacity: 1, duration: 0.8 }, 2.4)
-  .call(startIntake, null, 2.6);
+  .call(startIntake, null, 1.4);
 
 /* ================================================= bucle */
 const clock = new THREE.Clock();
 let frames = 0, fpsT = 0;
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
-  const level = audioFrame(t);
+  const motionDt = reducedMotion() ? 0 : dt;
+  const sceneTime = reducedMotion() ? 0 : t;
+  const level = audioFrame(sceneTime);
   params.audio += (level - params.audio) * 0.25;
 
-  coreUniforms.uTime.value = t; coreUniforms.uAudio.value = params.audio;
-  shellUniforms.uTime.value = t; shellUniforms.uAudio.value = params.audio;
-  core.rotation.y += dt * 0.25 * params.speed;
-  core.rotation.x = Math.sin(t * 0.3) * 0.15;
-  wire.rotation.y -= dt * 0.4 * params.speed;
-  wireMat.opacity = 0.25 + 0.2 * Math.sin(t * 2) * 0.5 + params.audio * 0.4;
-  rings.forEach((r) => { r.rotation.z += dt * r.userData.spin * params.speed; });
-  dust.rotation.y += dt * 0.02 * params.speed;
+  coreUniforms.uTime.value = sceneTime; coreUniforms.uAudio.value = params.audio;
+  shellUniforms.uTime.value = sceneTime; shellUniforms.uAudio.value = params.audio;
+  core.rotation.y += motionDt * 0.25 * params.speed;
+  core.rotation.x = Math.sin(sceneTime * 0.3) * 0.15;
+  wire.rotation.y -= motionDt * 0.4 * params.speed;
+  wireMat.opacity = 0.25 + 0.2 * Math.sin(sceneTime * 2) * 0.5 + params.audio * 0.4;
+  rings.forEach((r) => { r.rotation.z += motionDt * r.userData.spin * params.speed; });
+  dust.rotation.y += motionDt * 0.02 * params.speed;
   updateBars(levels);
   stage.update(dt);
   bloom.strength = fx.bloom * fx.k;

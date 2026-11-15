@@ -1,6 +1,6 @@
 # Actualización automática desde GitHub
 
-La rama de publicación es **`main`**. Cada `git push` a esa rama ejecuta [Check and deploy demo](https://github.com/AlexisBaladon/nasa2026/actions). Los pull requests ejecutan las verificaciones sin publicar. Para compartir una función, integrar el trabajo en esa rama y esperar que el run termine en verde.
+La rama de publicación es **`main`**. Cada `git push` a esa rama ejecuta [Check and deploy demo](https://github.com/AlexisBaladon/cooper/actions). Los pull requests ejecutan las verificaciones sin publicar. Para compartir una función, integrar el trabajo en esa rama y esperar que el run termine en verde.
 
 ## Flujo
 

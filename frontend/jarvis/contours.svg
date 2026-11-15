@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 520" preserveAspectRatio="none" fill="none" stroke="#9cc599" stroke-opacity=".36" stroke-width="1.2">
+  <!-- Decorative contours extend past every edge. This is one scalable surface,
+       not a repeating tile: there is no internal boundary to reveal as it moves. -->
+  <path d="M-100 90C100-60 170 290 390 150S650 20 860 150
+           M-100 120C100-30 170 320 390 180S650 50 860 180
+           M-100 150C100 0 170 350 390 210S650 80 860 210
+           M-100 180C100 30 170 380 390 240S650 110 860 240
+           M-80 350C120 190 300 600 550 350S740 260 860 370
+           M-80 380C120 220 300 630 550 380S740 290 860 400
+           M-80 410C120 250 300 660 550 410S740 320 860 430"/>
+</svg>
