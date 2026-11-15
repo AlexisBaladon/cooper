@@ -1,4 +1,4 @@
-/* Cooper · Jarvis, the floating assistant. HUD rings (jarvis image) around a WebGL plasma core.
+/* Cooper · Jarvis, reached through the application navigation.
  * Answers questions about the open analysis: Groq when the server has a key, otherwise guided
  * answers built from the same numbers. It explains; it never decides. */
 (function () {
@@ -6,60 +6,17 @@
   const C = window.Cooper;
   const { esc, fmt, icon, $, $$ } = C;
 
-  const S = { el: null, open: false, history: [], busy: false, rec: null, field: null, core: null, tl: null, full: null };
-  // En pantallas anchas el orbe se expande a Jarvis completo (frontend/jarvis/); en el celular, el panel de chat.
+  const S = { el: null, open: false, history: [], busy: false, rec: null, field: null, trigger: null, full: null };
+  // Desktop opens the field workspace; smaller screens use the compact chat panel.
   const FULL_MIN_WIDTH = 900;
 
-  /* --------------------------------------------------------- WebGL core */
-  function plasma(canvas) {
-    const gl = canvas.getContext("webgl", { premultipliedAlpha: true, alpha: true, antialias: true });
-    if (!gl) return null;
-    const vs = "attribute vec2 p;varying vec2 v;void main(){v=p;gl_Position=vec4(p,0.,1.);}";
-    const fs = `precision mediump float;varying vec2 v;uniform float t;uniform float e;uniform float dk;
-      float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-      float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
-      float fbm(vec2 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*n(p);p*=2.03;a*=.5;}return s;}
-      void main(){
-        vec2 uv=v;float r=length(uv);float a=atan(uv.y,uv.x);
-        float w=fbm(vec2(a*1.6+t*.35,r*4.-t*.9))*.55+fbm(uv*3.5+vec2(t*.2,-t*.15))*.45;
-        float pulse=.5+.5*sin(t*(2.2+e*5.));
-        float core=smoothstep(.62,.0,r+w*.18-.06*pulse*(.4+e));
-        float rim=smoothstep(.02,.0,abs(r-(.5+.04*sin(a*6.+t*2.))))*(.55+e*.6);
-        float sp=0.;
-        for(int k=0;k<14;k++){float fk=float(k);float ang=t*(.5+.07*fk)*(mod(fk,2.)<.5?1.:-1.)+fk*2.399;float rad=.33+.24*fract(fk*.618+t*.03);
-          vec2 q=vec2(cos(ang),sin(ang))*rad;sp+=.0016/(.0009+dot(uv-q,uv-q))*(.35+.65*h(vec2(fk,1.)));}
-        vec3 deep=vec3(.02,.26,.42),cy=vec3(.18,.85,1.),wh=vec3(.85,1.,1.);
-        vec3 col=deep*core*1.2+cy*pow(core,1.6)*(.9+e*.6)+wh*pow(core,5.)*.9+cy*rim+cy*sp*.05;
-        float al=clamp(core*.95+rim*.8+sp*.04,0.,1.)*smoothstep(.98,.7,r);
-        gl_FragColor=vec4(col*al,al);
-      }`;
-    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null; };
-    const v = sh(gl.VERTEX_SHADER, vs), f = sh(gl.FRAGMENT_SHADER, fs);
-    if (!v || !f) return null;
-    const pr = gl.createProgram(); gl.attachShader(pr, v); gl.attachShader(pr, f); gl.linkProgram(pr);
-    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return null;
-    gl.useProgram(pr);
-    const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-    const loc = gl.getAttribLocation(pr, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-    const ut = gl.getUniformLocation(pr, "t"), ue = gl.getUniformLocation(pr, "e");
-    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    let energy = 0, target = 0, raf = 0, start = performance.now(), running = true;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const resize = () => { const s = canvas.clientWidth * dpr; if (canvas.width !== s) { canvas.width = canvas.height = s; gl.viewport(0, 0, s, s); } };
-    const reduce = C.reducedMotion();
-    const frame = (now) => {
-      raf = 0;
-      resize();
-      energy += (target - energy) * 0.06;
-      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.uniform1f(ut, reduce ? 3 : (now - start) / 1000); gl.uniform1f(ue, energy);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      if (running && !reduce) raf = requestAnimationFrame(frame);
-    };
-    raf = requestAnimationFrame(frame);
-    document.addEventListener("visibilitychange", () => { running = !document.hidden; if (running && !raf) raf = requestAnimationFrame(frame); });
-    return { set(e) { target = e; if (reduce && !raf) raf = requestAnimationFrame(frame); } };
+  const launchers = () => [...document.querySelectorAll("[data-jarvis-launch]")];
+  const launcher = () => S.trigger?.isConnected ? S.trigger : launchers().find((b) => b.getClientRects().length);
+  function markOpen(open, full = false) {
+    launchers().forEach((b) => {
+      b.setAttribute("aria-expanded", String(open));
+      b.setAttribute("aria-controls", full ? "jarvis-workspace" : "jv-panel");
+    });
   }
 
   /* --------------------------------------------------------------- DOM */
@@ -67,17 +24,15 @@
     const el = document.createElement("div");
     el.id = "jarvis";
     el.innerHTML = `
-      <div class="jv-bubble" role="status" hidden><strong>Hi, I'm Jarvis.</strong> Ask me about your analysis.</div>
-      <button type="button" class="jv-orb" aria-label="Open Jarvis, the Cooper assistant" aria-expanded="false" aria-controls="jv-panel">
-        <span class="jv-glow" aria-hidden="true"></span>
-        <canvas class="jv-core" aria-hidden="true"></canvas>
-        <img class="jv-ring a" src="assets/brand/jarvis-256.webp" alt="" aria-hidden="true" width="256" height="256">
-        <img class="jv-ring b" src="assets/brand/jarvis-256.webp" alt="" aria-hidden="true" width="256" height="256">
-        <svg class="jv-arcs" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="47" class="arc1"/><circle cx="50" cy="50" r="41" class="arc2"/></svg>
+      <button type="button" class="jarvis-fab" data-jarvis-launch aria-label="Open Jarvis" title="Open Jarvis" aria-expanded="false" aria-controls="jv-panel">
+        <span class="jarvis-fab-core" aria-hidden="true"></span>
+        <img class="jarvis-fab-ring outer" src="assets/brand/jarvis-256.webp" width="88" height="88" alt="" aria-hidden="true">
+        <img class="jarvis-fab-ring inner" src="assets/brand/jarvis-256.webp" width="88" height="88" alt="" aria-hidden="true">
+        <svg class="jarvis-fab-arcs" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46"/><circle cx="50" cy="50" r="39"/></svg>
       </button>
       <section class="jv-panel" id="jv-panel" role="dialog" aria-label="Jarvis assistant" hidden>
         <header class="jv-head">
-          <span class="jv-mini" aria-hidden="true"><img src="assets/brand/jarvis-256.webp" alt=""></span>
+          <span class="jv-mini jv-brand" aria-hidden="true"><img src="assets/brand/logo-mark.webp" alt=""></span>
           <div><strong>Jarvis</strong><small class="jv-status">Cooper assistant</small></div>
           <button type="button" class="icon-btn" data-jv="clear" title="New conversation" aria-label="New conversation">${icon("reset")}</button>
           <button type="button" class="icon-btn" data-jv="close" aria-label="Close">${icon("close")}</button>
@@ -93,12 +48,10 @@
       </section>`;
     document.body.appendChild(el);
     S.el = el;
-    S.core = plasma($(".jv-core", el));
-    if (!S.core) el.classList.add("no-gl");
-    const orb = $(".jv-orb", el);
-    orb.addEventListener("click", () => (canFull() ? openFull() : toggle()));
-    orb.addEventListener("pointerenter", () => { S.core?.set(0.5); speed(3); });
-    orb.addEventListener("pointerleave", () => { S.core?.set(S.busy ? 1 : 0); speed(1); });
+    launchers().forEach((button) => button.addEventListener("click", () => {
+      S.trigger = button;
+      canFull() ? openFull() : toggle();
+    }));
     el.addEventListener("click", (e) => {
       const b = e.target.closest("[data-jv]");
       if (b?.dataset.jv === "close") toggle(false);
@@ -109,66 +62,50 @@
       if (a) act(a.dataset.action);
     });
     $(".jv-input", el).addEventListener("submit", (e) => { e.preventDefault(); const i = $("#jv-text"); const q = i.value.trim(); if (q) { i.value = ""; ask(q); } });
-    el.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.open) { toggle(false); $(".jv-orb", el).focus(); } });
-    // Rings spin with GSAP so their speed can change smoothly.
-    const g = C.motion.gsap;
-    if (g) {
-      S.tl = [g.to($(".jv-ring.a", el), { rotation: 360, duration: 26, ease: "none", repeat: -1 }),
-        g.to($(".jv-ring.b", el), { rotation: -360, duration: 17, ease: "none", repeat: -1 }),
-        g.to($(".jv-arcs", el), { rotation: 360, duration: 9, ease: "none", repeat: -1, transformOrigin: "50% 50%" })];
-      g.to($(".jv-glow", el), { scale: 1.12, opacity: 0.85, duration: 2.4, ease: "sine.inOut", yoyo: true, repeat: -1 });
-    } else el.classList.add("css-spin");
+    el.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.open) { toggle(false); launcher()?.focus(); } });
   }
   /* ------------------------------------------- Jarvis a pantalla completa */
-  // Un círculo crece desde el orbe hasta cubrir la pantalla y adentro carga frontend/jarvis/ (iframe del
-  // mismo origen). Jarvis pide el análisis abierto con "jarvis:ready" y avisa "jarvis:close" al salir.
+  // Open the field workspace from the same navigation as the rest of Cooper.
   const canFull = () => matchMedia(`(min-width: ${FULL_MIN_WIDTH}px)`).matches;
-  function orbCircle() {
-    const r = $(".jv-orb", S.el).getBoundingClientRect();
-    const x = r.left + r.width / 2, y = r.top + r.height / 2;
-    return { x, y, r: r.width / 2, cover: Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) + 2 };
-  }
   function openFull() {
     if (S.full) return;
     toggle(false);
-    $(".jv-bubble", S.el).hidden = true;
-    const c = orbCircle();
     const wrap = document.createElement("div");
     wrap.className = "jv-full";
+    wrap.id = "jarvis-workspace";
+    wrap.setAttribute("aria-modal", "true");
     wrap.setAttribute("role", "dialog");
     wrap.setAttribute("aria-label", C.t("Jarvis assistant"));
-    wrap.innerHTML = '<iframe title="Jarvis" src="jarvis/index.html" allow="microphone; camera; autoplay"></iframe>';
+    wrap.innerHTML = '<iframe title="Jarvis" src="jarvis/index.html?v=59" allow="microphone; camera; autoplay"></iframe>';
     document.body.appendChild(wrap);
     const frame = wrap.firstChild;
     S.full = { wrap, frame, prevFocus: document.activeElement };
+    $("#app").inert = true;
     document.documentElement.classList.add("jv-full-open");
-    $(".jv-orb", S.el).setAttribute("aria-expanded", "true");
-    S.core?.set(1); speed(6);
+    markOpen(true, true);
     frame.addEventListener("load", () => frame.focus({ preventScroll: true }), { once: true });
     const g = C.motion.gsap;
     if (g && !C.reducedMotion()) {
-      g.fromTo(wrap, { clipPath: `circle(${c.r}px at ${c.x}px ${c.y}px)` },
-        { clipPath: `circle(${c.cover}px at ${c.x}px ${c.y}px)`, duration: 0.9, ease: "expo.inOut", onComplete: () => { wrap.style.clipPath = "none"; } });
-      g.fromTo(frame, { opacity: 0 }, { opacity: 1, duration: 0.6, delay: 0.55 });
+      g.fromTo(wrap, { opacity: 0, clipPath: "inset(3% 3% round 24px)" },
+        { opacity: 1, clipPath: "inset(0% 0% round 0px)", duration: 0.65, ease: "power3.out", onComplete: () => { wrap.style.clipPath = "none"; } });
+      g.fromTo(frame, { opacity: 0 }, { opacity: 1, duration: 0.45, delay: 0.15 });
     }
   }
   function closeFull() {
     const f = S.full;
     if (!f) return;
     S.full = null;
-    const orb = $(".jv-orb", S.el);
-    orb.setAttribute("aria-expanded", "false");
-    S.core?.set(0); speed(1);
+    const trigger = launcher();
+    markOpen(false);
     const done = () => {
       f.wrap.remove();
+      $("#app").inert = false;
       document.documentElement.classList.remove("jv-full-open");
-      (f.prevFocus && f.prevFocus.isConnected ? f.prevFocus : orb).focus({ preventScroll: true });
+      (f.prevFocus && f.prevFocus.isConnected ? f.prevFocus : trigger)?.focus({ preventScroll: true });
     };
-    const g = C.motion.gsap, c = orbCircle();
+    const g = C.motion.gsap;
     if (!g || C.reducedMotion()) { done(); return; }
-    g.to(f.frame, { opacity: 0, duration: 0.25 });
-    g.fromTo(f.wrap, { clipPath: `circle(${c.cover}px at ${c.x}px ${c.y}px)` },
-      { clipPath: `circle(${c.r}px at ${c.x}px ${c.y}px)`, duration: 0.7, ease: "expo.inOut", delay: 0.1, onComplete: done });
+    g.to(f.wrap, { opacity: 0, scale: 0.985, duration: 0.25, ease: "power2.in", onComplete: done });
   }
   // Lo que Jarvis necesita para arrancar: el análisis abierto (datos de entrada y resultado) o el campo.
   function fullContext() {
@@ -176,6 +113,8 @@
     return {
       type: "cooper:context",
       lang: C.lang(),
+      theme: C.theme.effective(),
+      reducedMotion: C.reducedMotion(),
       field: f && Number.isFinite(f.lat) && Number.isFinite(f.lon) ? { nombre: f.nombre, lat: f.lat, lon: f.lon, area_ha: f.area_ha } : null,
       rec: S.rec ? { input: S.rec.input, result: S.rec.result, field: S.rec.context?.field || f?.nombre || "" } : null,
     };
@@ -187,29 +126,17 @@
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.full) closeFull(); });
 
-  function speed(k) { const g = C.motion.gsap; if (!g || !S.tl) return; S.tl.forEach((t) => g.to(t, { timeScale: k, duration: 0.6 })); }
-
-  function entrance() {
-    const g = C.motion.gsap, orb = $(".jv-orb", S.el);
-    if (g) g.fromTo(orb, { scale: 0, rotation: -120, opacity: 0 }, { scale: 1, rotation: 0, opacity: 1, duration: 1.2, ease: "expo.out", delay: 0.4 });
-    if (C.storage.get("cooper-jarvis-greeted")) return;
-    setTimeout(() => {
-      const b = $(".jv-bubble", S.el); if (S.open) return;
-      b.hidden = false;
-      if (g) g.fromTo(b, { opacity: 0, y: 8, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "expo.out" });
-      setTimeout(() => { if (g) g.to(b, { opacity: 0, duration: 0.4, onComplete: () => { b.hidden = true; } }); else b.hidden = true; }, 6500);
-      C.storage.set("cooper-jarvis-greeted", true);
-    }, 2200);
-  }
+  C.listen("theme", (theme) => {
+    S.full?.frame.contentWindow?.postMessage({ type: "cooper:theme", theme }, location.origin);
+  });
 
   function toggle(force) {
     const open = force ?? !S.open;
     if (open === S.open) return;
     S.open = open;
-    const panel = $(".jv-panel", S.el), orb = $(".jv-orb", S.el);
-    orb.setAttribute("aria-expanded", String(open));
+    const panel = $(".jv-panel", S.el);
+    markOpen(open);
     S.el.classList.toggle("is-open", open);
-    $(".jv-bubble", S.el).hidden = true;
     const g = C.motion.gsap;
     if (open) {
       panel.hidden = false;
@@ -218,10 +145,8 @@
         g.fromTo(panel, { opacity: 0, y: 24, scale: 0.92, transformOrigin: "100% 100%" }, { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: "expo.out" });
         g.fromTo($$(".jv-msg, .jv-suggest button", panel), { opacity: 0, y: 8 }, { opacity: 1, y: 0, stagger: 0.04, duration: 0.4, delay: 0.15 });
       }
-      S.core?.set(0.35);
       setTimeout(() => $("#jv-text")?.focus(), 80);
     } else {
-      S.core?.set(0);
       if (g) g.to(panel, { opacity: 0, y: 16, scale: 0.95, duration: 0.25, ease: "power2.in", onComplete: () => { panel.hidden = true; } });
       else panel.hidden = true;
     }
@@ -260,7 +185,7 @@
     say("user", q);
     const local = intent(q);
     if (local?.immediate) { setTimeout(() => say("assistant", local.text, local.actions, local.source), 250); return; }
-    S.busy = true; S.core?.set(1); speed(4);
+    S.busy = true;
     const typing = document.createElement("div");
     typing.className = "jv-msg assistant typing"; typing.innerHTML = "<span></span><span></span><span></span>";
     $(".jv-log", S.el).appendChild(typing);
@@ -272,7 +197,7 @@
       if (r.ok) { const d = await r.json(); if (d.fuente === "groq" && d.respuesta) answer = { text: d.respuesta, actions: local?.actions, source: "AI answer from your analysis data" }; }
     } catch (_) { /* guided answer below */ }
     typing.remove();
-    S.busy = false; S.core?.set(S.open ? 0.35 : 0); speed(1);
+    S.busy = false;
     const out = answer || local || { text: helpText(), actions: [] };
     say("assistant", out.text, out.actions, answer ? out.source : (local ? "Guided answer from your analysis data" : null));
     $(".jv-status", S.el).textContent = C.t(answer ? "Cooper assistant · AI on" : "Cooper assistant");
@@ -324,7 +249,7 @@
   function act(a) {
     if (a === "new" || a === "analysis") { C.go("analysis"); if (a === "new") C.analysis.selectTab("new"); }
     if (a === "history") { C.go("analysis/history"); }
-    if (a === "play" && S.rec) C.player.open(S.rec, $(".jv-orb", S.el));
+    if (a === "play" && S.rec) C.player.open(S.rec, launcher());
     if (a === "save") C.saveCurrent?.();
     if (a === "pdf" && S.rec) C.exporter.pdf(S.rec);
     if (a === "rain-20") C.simulateRain?.(-20);
@@ -364,5 +289,5 @@
     toggle(true);
     setTimeout(() => ask(q), C.motion.gsap ? 380 : 0);
   }
-  C.jarvis = { mount() { build(); entrance(); }, setContext, toggle, context, intent, askAbout, openFull, closeFull };
+  C.jarvis = { mount() { build(); }, setContext, toggle, context, intent, askAbout, openFull, closeFull };
 })();
