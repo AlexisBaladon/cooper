@@ -104,7 +104,25 @@
     mic: '<rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5"/>',
     star: '<path d="m12 3.8 2.5 5.3 5.7.7-4.2 4 1.1 5.7L12 16.7l-5.1 2.8L8 13.8l-4.2-4 5.7-.7z"/>',
   };
-  C.icon = (name, cls = "") => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${P[name] || P.info}</svg>`;
+  /* Concepts drawn with Cooper's illustrated icon set (assets/icons): the same concept always
+     uses the same picture across the system. Functional controls keep the line icons. */
+  const IMG = {
+    home: "home", analysis: "analysis", field: "field", settings: "settings",
+    agua: "water", suelo: "soil", ingreso: "income", forraje: "forage", clima: "climate",
+    overall: "overall", star: "best", weather: "weather", calendar: "calendar", pin: "map", map: "map",
+    harvest: "harvest", sowing: "sowing", critical: "critical", images: "images", satellite: "satellite",
+    rotation: "rotation", leaf: "rotation", simulation: "simulation", thermo: "simulation", file: "reports", reports: "reports",
+    layers: "layers", alert: "alerts", alerts: "alerts", notifications: "notifications", profile: "profile",
+    download: "export", export: "export", compare: "compare", info: "info", help: "help", search: "search",
+    reset: "reset", history: "calendar",
+  };
+  for (const f of ["harvest", "sowing", "critical", "water", "soil", "income", "forage", "climate", "home", "analysis", "field", "overall", "best",
+    "weather", "calendar", "map", "images", "satellite", "rotation", "simulation", "reports", "layers", "alerts", "notifications",
+    "settings", "profile", "export", "compare", "info", "help", "search", "reset"]) IMG[f] ||= f;
+  C.ICONS = IMG;
+  C.img = (name, cls = "") => `<img class="ic i3d ${cls}" src="assets/icons/${IMG[name] || name}.webp" alt="" aria-hidden="true" draggable="false" loading="lazy" decoding="async">`;
+  C.line = (name, cls = "") => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${P[name] || P.info}</svg>`;
+  C.icon = (name, cls = "") => (IMG[name] ? C.img(name, cls) : C.line(name, cls));
 
   /* Score metadata shared by every view (labels stay in English; language.js translates). */
   C.SCORES = {
@@ -150,6 +168,7 @@
       g.to(o, { v: to, duration, ease: "power3.out", onUpdate: () => out(o.v) });
     },
     bars(root) {
+      if (Array.isArray(root)) { root.forEach((r) => this.bars(r)); return; }
       const els = C.$$("[data-w]", root);
       const g = G();
       els.forEach((el, i) => {
@@ -162,16 +181,24 @@
 
   /* --------------------------------------------------------------- theme */
   C.theme = {
-    get() { return C.storage.get("cooper-theme", "system"); },
+    /* "auto" follows the sky at the field: dark at night, light otherwise. */
+    get() { return C.storage.get("cooper-theme", "auto"); },
     effective() {
       const t = this.get();
+      if (t === "auto") return document.documentElement.dataset.scene === "noche" ? "dark" : "light";
       return t === "system" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : t;
+    },
+    applyAuto() {
+      const want = this.effective();
+      if (document.documentElement.getAttribute("data-theme") === want) return;
+      document.documentElement.setAttribute("data-theme", want);
+      C.emit("theme", want);
     },
     set(t) {
       C.storage.set("cooper-theme", t);
       const root = document.documentElement;
       const apply = () => {
-        if (t === "system") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", t);
+        if (t === "system") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", this.effective());
         document.querySelector('meta[name="theme-color"]')?.setAttribute("content", this.effective() === "dark" ? "#0b120e" : "#10261a");
         C.emit("theme", this.effective());
       };

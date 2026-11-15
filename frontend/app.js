@@ -136,16 +136,51 @@
     if (!el || !f) return;
     try {
       const w = await C.weather.get(f);
-      const a = w.actual, d0 = w.diario[0];
-      el.innerHTML = `${icon(a.icono, "wx")}<span class="wp-t">${fmt(a.temp, 0)}°</span>
-        <span class="wp-txt"><strong>${esc(C.t(a.estado))}</strong><small>${d0 ? `H ${fmt(d0.tmax, 0)}° · L ${fmt(d0.tmin, 0)}° · ${fmt(d0.prob_lluvia ?? 0)}% rain` : ""}</small></span>`;
-      el.title = `${w.fuente} · ${C.t("Humidity")} ${fmt(a.humedad)}% · ${C.t("Wind")} ${fmt(a.viento)} km/h`;
       state.tz = w.zona_horaria || null;
-      el.classList.remove("is-off");
+      C.scene.update(w);
+      C.wx.chip(el, w);
+      el.title = `${w.fuente} · ${C.t("Humidity")} ${fmt(w.actual.humedad)}% · ${C.t("Wind")} ${fmt(w.actual.viento)} km/h`;
     } catch (_) {
-      el.innerHTML = `${icon("cloudy", "wx")}<span class="wp-txt"><strong>Weather</strong><small>Unavailable right now</small></span>`;
-      el.classList.add("is-off");
+      C.scene.update(null);
+      C.wx.chip(el, null);
     }
+  }
+  function bindWeather() {
+    $("#weather-pill").addEventListener("click", async () => {
+      const f = C.fields.active();
+      try { C.wx.expand($("#weather-pill"), f, await C.weather.get(f)); } catch (_) { C.toast(C.t("Live weather is unavailable right now."), "info"); }
+    });
+    document.addEventListener("click", async (e) => {
+      const b = e.target.closest(".wx-expand");
+      if (!b) return;
+      const f = C.fields.active();
+      try { C.wx.expand(b.closest(".wx-card"), f, await C.weather.get(f)); } catch (_) { /* card shows the message */ }
+    });
+  }
+  /* The menu can be hidden to a slim rail and brought back. */
+  function bindSidebar() {
+    const btn = $("#sb-toggle");
+    const sync = () => {
+      const c = document.documentElement.classList.contains("sb-collapsed");
+      btn.setAttribute("aria-expanded", String(!c));
+      btn.setAttribute("aria-label", C.t(c ? "Show the menu" : "Collapse the menu"));
+      btn.title = btn.getAttribute("aria-label");
+      $(".nav-label", btn).textContent = C.t(c ? "Show menu" : "Hide menu");
+    };
+    btn.addEventListener("click", () => {
+      const root = document.documentElement, g = C.motion.gsap;
+      const collapse = !root.classList.contains("sb-collapsed");
+      C.storage.set("cooper-sidebar-collapsed", collapse);
+      if (g) {
+        const from = $(".sidebar").offsetWidth;
+        root.classList.toggle("sb-collapsed", collapse);
+        const to = $(".sidebar").offsetWidth;
+        g.fromTo(".app", { "--sidebar-anim": from + "px" }, { "--sidebar-anim": to + "px", duration: 0.55, ease: "expo.inOut", clearProps: "--sidebar-anim", onUpdate: () => window.dispatchEvent(new Event("resize")) });
+        g.fromTo(".sidebar .nav-label, .sb-note, .sb-logo img", { opacity: 0 }, { opacity: 1, duration: 0.4, delay: 0.25 });
+      } else root.classList.toggle("sb-collapsed", collapse);
+      sync(); setTimeout(moveIndicator, 600);
+    });
+    sync();
   }
   function clock() {
     const now = new Date();
@@ -220,6 +255,11 @@
       const go = e.target.closest("[data-go]");
       if (go) { e.preventDefault(); C.go(go.dataset.go); return; }
       if (e.target.closest('[data-act="save-current"]')) { C.saveCurrent(); return; }
+      if (e.target.closest('[data-act="open-analysis"]')) {
+        const rec = await homeRecord(C.fields.active());
+        if (rec?.saved) { C.history.reveal(rec.id); C.go("analysis/history"); } else C.go("analysis");
+        return;
+      }
       const play = e.target.closest(".ex-play, [data-chapter]");
       if (play) {
         const rec = await homeRecord(C.fields.active());
@@ -272,7 +312,10 @@
   /* ---------------------------------------------------------------- boot */
   async function boot() {
     if (C.storage.get("cooper-reduce-motion", false)) document.documentElement.classList.add("reduce-motion");
+    C.scene.init();
     bindSettings();
+    bindWeather();
+    bindSidebar();
     bindGlobal();
     bindSwitcher();
     const introP = C.intro.play();

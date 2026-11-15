@@ -56,6 +56,17 @@
       </div>`;
     document.body.append(back, el);
     S.shell = el; S.frame = $("iframe", el); S.back = back;
+    // The explanation is laid out once at 1280×720 and scaled to the player, so the
+    // mini window shows the same picture in small instead of squeezing it.
+    const fit = () => {
+      const box = $(".ps-video", el), w = box.clientWidth, h = box.clientHeight;
+      if (!w || !h) return;
+      const k = Math.min(w / 1280, h / 720);
+      Object.assign(S.frame.style, { width: "1280px", height: "720px", left: (w - 1280 * k) / 2 + "px", top: (h - 720 * k) / 2 + "px",
+        transform: `scale(${k})`, transformOrigin: "0 0" });
+    };
+    new ResizeObserver(fit).observe($(".ps-video", el));
+    S.fit = fit;
     el.addEventListener("click", onClick);
     back.addEventListener("click", () => setMode("mini"));
     const vol = $(".ps-vol input", el);
@@ -108,7 +119,17 @@
     if (S.mode === "mini" && !p.playing) return;
     pulse(p.playing ? "play" : "pause");
   }
-  function skip(d) { const p = P(); if (p && S.ready) p.seek(p.currentTime() + d); flash(d > 0 ? "+10 s" : "−10 s"); }
+  function skip(d) {
+    const p = P();
+    if (!p || !S.ready) return;
+    S.seekTarget = Math.max(0, Math.min(p.duration() - 0.1, (S.seekTarget ?? p.currentTime()) + d));
+    S.seekTotal = (S.seekTotal || 0) + d;
+    preview(S.seekTarget / p.duration());
+    $(".ps-cur", S.shell).textContent = fmtTime(S.seekTarget);
+    flash(`${S.seekTotal > 0 ? "+" : "−"}${Math.abs(S.seekTotal)} s`);
+    clearTimeout(S.seekTimer);
+    S.seekTimer = setTimeout(() => { const t = S.seekTarget; S.seekTarget = null; S.seekTotal = 0; p.seek(t); }, 320);
+  }
 
   function pulse(kind) {
     const b = $(".ps-bigplay", S.shell);
@@ -155,7 +176,7 @@
   function tick() {
     S.raf = requestAnimationFrame(tick);
     const p = P();
-    if (!p || S.dragging) return;
+    if (!p || S.dragging || S.seekTarget != null) return;
     const t = p.currentTime(), d = p.duration(), k = d ? t / d : 0;
     preview(k);
     $(".ps-mini-bar i", S.shell).style.width = `${k * 100}%`;

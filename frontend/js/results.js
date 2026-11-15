@@ -204,7 +204,7 @@
     </div>`;
     const ex = r.explicacion;
     const list = (items) => `<ul>${items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
-    const diag = r.diagnostico ? `<details ${r.rol === "actual" ? "open" : ""}><summary>Strengths and weaknesses</summary><ul class="diag-list">${
+    const diag = r.diagnostico ? `<details><summary>Strengths and weaknesses</summary><ul class="diag-list">${
       r.diagnostico.items.map((i) => `<li class="lvl-${LEVEL[i.nivel][0]}"><span class="lvl">${LEVEL[i.nivel][1]}</span><strong>${esc(i.etiqueta)}</strong> — ${esc(cap(i.por_que))}.${
         i.recomendaciones.length ? `<span class="idea">${icon("bulb")}${i.recomendaciones.map((a) => esc(cap(a))).join(". ")}.</span>` : ""}</li>`).join("")
     }</ul></details>` : "";
@@ -217,7 +217,7 @@
       ${calendarTable(r)}
       ${kpis}
       ${diag}
-      <details ${r.rol !== "actual" ? "open" : ""}><summary>Why we suggest it</summary>${list(ex.por_que)}</details>
+      <details><summary>Why we suggest it</summary>${list(ex.por_que)}</details>
       <details><summary>Supporting data</summary>${list(ex.evidencia)}</details>
       <details><summary>Possible benefits</summary>${list(ex.beneficios)}</details>
       <details><summary>What we don't know yet</summary>${list(ex.vacios)}</details>
@@ -250,8 +250,8 @@
     container.innerHTML = `
       ${data.advertencias.map((w) => `<div class="notice warn" data-rev>${icon("alert")}<span>${esc(w)}</span></div>`).join("")}
       <section class="card" data-rev>
-        <div class="card-head"><div><h2>Your area in numbers</h2>
-          <p class="sub">${esc(m.fuente)} · ${esc(m.periodo)} · ${esc(m.resolucion)} grid cell${m.elevacion_m != null ? ` · elevation ${fmt(m.elevacion_m)} m` : ""}</p></div></div>
+        <div class="card-head"><div class="ch-title"><span class="chip-ic big">${icon("weather")}</span><div><h2>Your area in numbers</h2>
+          <p class="sub">${esc(m.fuente)} · ${esc(m.periodo)} · ${esc(m.resolucion)} grid cell${m.elevacion_m != null ? ` · elevation ${fmt(m.elevacion_m)} m` : ""}</p></div></div></div>
         <div class="chart-head">
           <div><h3 class="chart-title">Rainfall and atmospheric water demand, by month</h3>
             <p class="hint chart-hint">When the orange line (evapotranspiration) rises above the blue bars (rainfall), crops depend on the water stored in the soil.</p></div>
@@ -273,8 +273,8 @@
         <div class="tiles">${trendsHTML(data.clima.tendencias.indicadores)}</div>
       </section>
       ${data.zonas ? `<section class="card zones-card" data-rev>
-        <div class="card-head"><div><h2>Zones of your field</h2>
-          <p class="sub">${fmt(data.zonas.area_ha)} ha · ${fmt(data.zonas.celda_m)} m grid · NASA SRTM 30 m · R = ${fmt(data.zonas.r_factor)} MJ·mm/ha/h/yr · K = ${data.zonas.k_factor} (typical value, not measured)</p></div></div>
+        <div class="card-head"><div class="ch-title"><span class="chip-ic big">${icon("layers")}</span><div><h2>Zones of your field</h2>
+          <p class="sub">${fmt(data.zonas.area_ha)} ha · ${fmt(data.zonas.celda_m)} m grid · NASA SRTM 30 m · R = ${fmt(data.zonas.r_factor)} MJ·mm/ha/h/yr · K = ${data.zonas.k_factor} (typical value, not measured)</p></div></div></div>
         <div class="zone-controls">
           <div class="seg" role="group" aria-label="Map layer">${Object.entries(ZONE_LAYERS).map(([k, l]) =>
             `<button type="button" data-layer="${k}" aria-pressed="${k === "erosion"}" class="${k === "erosion" ? "active" : ""}">${esc(l.label)}</button>`).join("")}</div>
@@ -288,24 +288,24 @@
       </section>` : ""}
       ${opts.scenarioSlot ? `<div class="scenario-slot"></div>` : ""}
       <section data-rev>
-        <div class="section-head"><h2>Three rotations side by side</h2>
-          <p class="hint">Scores go from 0 to 100. The total weights each score by what matters to you. Months marked ! are critical crop stages. Scroll each crop calendar sideways to see the full year.</p></div>
+        <div class="section-head"><span class="chip-ic big">${icon("rotation")}</span><div><h2>Three rotations side by side</h2>
+          <p class="hint">Scores go from 0 to 100. The total weights each score by what matters to you. Months marked ! are critical crop stages. Scroll each crop calendar sideways to see the full year.</p></div></div>
         <div class="card profile-card" data-rev>
           <div class="profile-grid">
-            <div><h3>Score profile</h3><p class="hint">Each axis is one topic, from 0 at the centre to 100 at the edge. The dashed shape is your current rotation. Click a name in the legend to hide or show it.</p>
+            <div><h3>${icon("compare")}Score profile</h3><p class="hint">Each axis is one topic, from 0 at the centre to 100 at the edge. The dashed shape is your current rotation. Click a name in the legend to hide or show it.</p>
               <ul class="profile-list">${data.rotaciones.map((r, i) => `<li><i style="--c:var(${["--muted", "--brand", "--c-ingreso"][i]})"></i><span>${esc(r.nombre)}</span><strong>${fmt(r.total)}</strong></li>`).join("")}</ul></div>
             <div class="radar-box"><canvas role="img" aria-label="Score profile of the three rotations"></canvas></div>
           </div>
         </div>
         <div class="legend crop-legend">${[...crops.values()].map((c) =>
           `<span><i class="swatch" style="background:${c.color}"></i>${esc(c.nombre)}</span>`).join("")}<span><i class="swatch" style="background:var(--bare)"></i>No crop</span></div>
-        <div class="rotations">${data.rotaciones.map((r) => rotationCard(r, prio, best, labels)).join("")}</div>
+        <div class="rotations" style="--cal-rows:${Math.max(...data.rotaciones.map((r) => r.calendario.length))}">${data.rotaciones.map((r) => rotationCard(r, prio, best, labels)).join("")}</div>
       </section>
-      ${data.ranking ? `<section class="card" data-rev><div class="card-head"><div><h2>All options for your field</h2>
-        <p class="sub">Every rotation in Cooper's library that fits your farm, ordered by the total for your priorities.</p></div></div>
-        ${rankingTable(data.ranking, currentId)}</section>` : ""}
+      ${data.ranking ? `<section class="card method ranking-card" data-rev><details><summary><div class="card-head"><div class="ch-title"><span class="chip-ic big">${icon("compare")}</span><div><h2>All options for your field</h2>
+        <p class="sub">Every rotation in Cooper's library that fits your farm, ordered by the total for your priorities.</p></div></div></div>
+        </summary>${rankingTable(data.ranking, currentId)}</details></section>` : ""}
       <section class="card method" data-rev>
-        <details><summary><h2>Glossary</h2></summary>
+        <details><summary><h2>${icon("help")}Glossary</h2></summary>
         <dl class="glossary">
           <dt>Evapotranspiration (ET)</dt><dd>The water that leaves the field for the atmosphere: what evaporates from the soil plus what plants transpire. <em>Reference ET</em> (ET0) is the value for well-watered grass; each crop uses a fraction of it.</dd>
           <dt>Water deficit</dt><dd>The water a crop would need but can't find, either in the rain or in the soil.</dd>
@@ -317,7 +317,7 @@
           <dt>Frost risk</dt><dd>Days when the minimum air temperature is 2 °C or lower. We use 2 °C instead of 0 °C because the ground and leaves get colder than the air 2 m above them.</dd>
           <dt>Dry year</dt><dd>A bad year that comes about once every five. For rainfall, it's the amount exceeded in 4 out of 5 years; for the crops' water deficit, the amount exceeded in only 1 out of 5 years.</dd>
         </dl></details>
-        <details><summary><h2>How it works and where the data comes from</h2></summary>
+        <details><summary><h2>${icon("info")}How it works and where the data comes from</h2></summary>
         <ul>
           <li><strong>Climate:</strong> NASA POWER daily data, 1996–2025 (temperature, rainfall corrected with GPM-IMERG, MERRA-2 soil moisture).</li>
           <li><strong>Evapotranspiration:</strong> Hargreaves method (FAO-56), using daily maximum and minimum temperatures.</li>

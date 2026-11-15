@@ -29,6 +29,31 @@
     },
   };
 
+  /* Ring values (25…100) drawn between two axes, where no data point can cover them. */
+  const ringLabels = {
+    id: "cooperRings",
+    afterDatasetsDraw(chart, _a, opts) {
+      if (!opts || opts.display === false) return;
+      const sc = chart.scales.r;
+      if (!sc) return;
+      const ctx = chart.ctx, n = chart.data.labels.length;
+      const ang = sc.getIndexAngle(0) - Math.PI / 2 + Math.PI / n;
+      ctx.save();
+      ctx.font = "600 10.5px IBM Plex Sans, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      for (const v of [25, 50, 75, 100]) {
+        const r = sc.getDistanceFromCenterForValue(v);
+        const x = sc.xCenter + Math.cos(ang) * r, y = sc.yCenter + Math.sin(ang) * r;
+        const t = String(v), w = ctx.measureText(t).width + 8;
+        ctx.fillStyle = opts.bg; ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(x - w / 2, y - 8, w, 16, 5); else ctx.rect(x - w / 2, y - 8, w, 16);
+        ctx.fill();
+        ctx.fillStyle = opts.color; ctx.fillText(t, x, y + 0.5);
+      }
+      ctx.restore();
+    },
+  };
+
   function theme() {
     if (typeof Chart === "undefined") return false;
     const d = Chart.defaults;
@@ -58,6 +83,7 @@
     t.caretSize = 6;
     t.displayColors = true;
     if (!Chart.registry.plugins.get("cooperCrosshair")) Chart.register(crosshair);
+    if (!Chart.registry.plugins.get("cooperRings")) Chart.register(ringLabels);
     return true;
   }
 
@@ -195,18 +221,21 @@
         label: (r.labelPrefix ? T(r.labelPrefix) + ": " : "") + T(r.nombre),
         data: keys.map((k) => r.puntajes[k]),
         borderColor: palette[i % palette.length], backgroundColor: alpha(palette[i % palette.length].startsWith("#") ? palette[i % palette.length] : "#1f5a3e", i === 0 ? 0.08 : 0.16),
-        borderWidth: i === 0 ? 2 : 2.5, borderDash: i === 0 ? [5, 4] : [], pointRadius: compact ? 2.5 : 3.5, pointHoverRadius: 6,
-        pointBackgroundColor: palette[i % palette.length], pointBorderColor: v("--surface"), pointBorderWidth: 1.5,
+        borderWidth: i === 0 ? 2 : 2.5, borderDash: i === 0 ? [5, 4] : [], pointRadius: compact ? 3 : 4.5, pointHoverRadius: 7,
+        pointBackgroundColor: palette[i % palette.length], pointBorderColor: v("--surface"), pointBorderWidth: 2, order: rotations.length - i,
       })) },
       options: {
         responsive: true, maintainAspectRatio: false,
         animation: { duration: C.reducedMotion() ? 0 : 1200, easing: "easeOutQuart" },
         animations: { r: { from: 0, duration: 1200, easing: "easeOutBack", delay: (ctx) => (ctx.type === "data" ? ctx.datasetIndex * 180 + ctx.dataIndex * 40 : 0) } },
-        plugins: { cooperCrosshair: false, legend: { display: !compact, position: "bottom" },
+        plugins: { cooperCrosshair: false, cooperRings: compact ? { display: false } : { bg: alpha(v("--surface").startsWith("#") ? v("--surface") : "#ffffff", 0.9), color: v("--text-2") },
+          legend: { display: !compact, position: "bottom" },
           tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: ${c.parsed.r} / 100` } } },
         scales: { r: { min: 0, max: 100, beginAtZero: true, angleLines: { color: v("--grid") }, grid: { color: v("--grid") },
-          ticks: { display: !compact, stepSize: 25, backdropColor: "transparent", color: v("--muted"), font: { size: 10 } },
-          pointLabels: { color: v("--text-2"), font: { size: compact ? 10.5 : 12, weight: "500" } } } },
+          ticks: { display: false, stepSize: 25, z: 2, showLabelBackdrop: true, backdropColor: alpha(v("--surface").startsWith("#") ? v("--surface") : "#ffffff", 0.92),
+            backdropPadding: { x: 4, y: 2 }, color: v("--text-2"), font: { size: 10.5, weight: "600" } },
+          pointLabels: { color: v("--text"), padding: compact ? 6 : 12, font: { size: compact ? 11 : 13, weight: "600" } } } },
+        layout: { padding: compact ? 4 : 10 },
       },
     };
   }

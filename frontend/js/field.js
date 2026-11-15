@@ -71,9 +71,9 @@
   };
 
   /* --------------------------------------------------------------- panels */
-  function imageryPanel(id, title, source, legend, note) {
+  function imageryPanel(id, title, source, legend, note, ic = "satellite") {
     return `<figure class="card img-panel" data-rev>
-      <figcaption class="ip-head"><div><h3>${esc(title)}</h3><small>${esc(source)}</small></div></figcaption>
+      <figcaption class="ip-head"><div class="ch-title"><span class="chip-ic">${icon(ic)}</span><div><h3>${esc(title)}</h3><small>${esc(source)}</small></div></div></figcaption>
       <div class="ip-map" id="${id}"><div class="ip-empty" hidden>${icon("satellite")}<strong>Image not available</strong><span>This space is ready for the image source. It will appear here when the provider responds.</span></div></div>
       ${legend ? `<div class="legend ip-legend">${legend}</div>` : ""}
       ${note ? `<p class="hint">${note}</p>` : ""}
@@ -114,7 +114,7 @@
 
     root.innerHTML = `
       <div class="page-head compact" data-rev>
-        <div><h1>My field</h1><p class="lead">Each field keeps its own location, rotation, analyses and notes.</p></div>
+        <div><h1>${icon("field", "h1-ic")}My field</h1><p class="lead">Each field keeps its own location, rotation, analyses and notes.</p></div>
         <button type="button" class="btn primary" data-act="add-field">${icon("plus")}<span>Add a field</span></button>
       </div>
       <div class="field-tabs" role="tablist" aria-label="Your fields" data-rev>
@@ -147,27 +147,27 @@
 
       <div class="tiles kpi-row" data-rev>
         ${kpi("Annual rainfall", months ? fmt(sum("lluvia_mm")) + " mm" : "–", months ? "Average 1996–2025" : "Needs an analysis", "agua")}
-        ${kpi("Reference evapotranspiration", months ? fmt(sum("et0_mm")) + " mm" : "–", "Per year", "clear")}
-        ${kpi("Hot days (≥32 °C)", months ? fmt(sum("dias_calor"), 1) : "–", "Per year", "thermo")}
-        ${kpi("Frost-risk days", months ? fmt(sum("dias_helada"), 1) : "–", "Per year", "snow")}
+        ${kpi("Reference evapotranspiration", months ? fmt(sum("et0_mm")) + " mm" : "–", "Per year", "weather")}
+        ${kpi("Hot days (≥32 °C)", months ? fmt(sum("dias_calor"), 1) : "–", "Per year", "simulation")}
+        ${kpi("Frost-risk days", months ? fmt(sum("dias_helada"), 1) : "–", "Per year", "climate")}
         ${kpi("Height difference", data?.zonas ? fmt(data.zonas.resumen.desnivel_m) + " m" : "–", data?.zonas ? `Slope ${fmt(data.zonas.resumen.pendiente_media_pct, 1)}% average` : "", "field")}
         ${kpi("Estimated erosion", curRot?.indicadores?.erosion_t_ha != null ? fmt(curRot.indicadores.erosion_t_ha, 1) + " t/ha" : "–", "Current rotation, per year", "suelo")}
       </div>
 
-      <div class="section-head" data-rev><h2>${icon("satellite")}Images of your field</h2>
-        <p class="hint">Satellite imagery, vegetation index, estimated erosion and land cover around the field outline.</p></div>
+      <div class="section-head" data-rev><span class="chip-ic big">${icon("images")}</span><div><h2>Images of your field</h2>
+        <p class="hint">Satellite imagery, vegetation index, estimated erosion and land cover around the field outline.</p></div></div>
       <div class="imagery">
         ${imageryPanel("ip-sat", "Satellite image", "Esri World Imagery (Maxar, Earthstar Geographics)", "", "Most recent cloud-free mosaic available from the provider.")}
-        ${imageryPanel("ip-ndvi", "Vegetation index (NDVI)", `NASA GIBS · MODIS Terra 8-day NDVI, 250 m · ${ndviDate()}`, swatches(NDVI_STEPS), "Greener means more active vegetation. At 250 m it describes the area around the field rather than each paddock.")}
+        ${imageryPanel("ip-ndvi", "Vegetation index (NDVI)", `NASA GIBS · MODIS Terra 8-day NDVI, 250 m · ${ndviDate()}`, swatches(NDVI_STEPS), "Greener means more active vegetation. At 250 m it describes the area around the field rather than each paddock.", "layers")}
         ${imageryPanel("ip-ero", "Erosion map", data?.zonas ? "Cooper · RUSLE with NASA SRTM 30 m" : "Cooper · needs an analysis", data?.zonas ? swatches(C.results.ZONE_LAYERS.erosion.classes(data.zonas).map((k) => [k.label, k.color])) : "",
-          data?.zonas ? `Estimated soil loss for ${esc(curRot?.nombre || "")}. Reference tolerance: ${data.zonas.tolerancia_t_ha} t/ha a year.` : "Run an analysis of this field to draw its erosion map.")}
+          data?.zonas ? `Estimated soil loss for ${esc(curRot?.nombre || "")}. Reference tolerance: ${data.zonas.tolerancia_t_ha} t/ha a year.` : "Run an analysis of this field to draw its erosion map.", "soil")}
         ${imageryPanel("ip-crop", "Crop and land cover map", "ESA WorldCover 10 m · crop of the month from your rotation", swatches(WORLDCOVER),
-          nowCrop ? `This month (${C.AG_MONTHS[nowIdx]}), your rotation calendar has <strong>${esc(nowCrop.nombre)}</strong> in year 1.` : "Cropland is shown in pink. The crop of the month comes from your rotation calendar.")}
+          nowCrop ? `This month (${C.AG_MONTHS[nowIdx]}), your rotation calendar has <strong>${esc(nowCrop.nombre)}</strong> in year 1.` : "Cropland is shown in pink. The crop of the month comes from your rotation calendar.", "rotation")}
       </div>
 
       <div class="grid-2">
         <section class="card soil-card" data-rev>
-          <div class="card-head"><div><h2>${icon("suelo")}Soil</h2><p class="sub soil-src">ISRIC SoilGrids 2.0 · modelled at 250 m</p></div></div>
+          <div class="card-head"><div><h2>${icon("soil")}Soil</h2><p class="sub soil-src">ISRIC SoilGrids 2.0 · modelled at 250 m</p></div></div>
           <div class="soil-body"><div class="skeleton" style="height:180px"></div></div>
           <dl class="kv compact">
             <div><dt>Water your soil holds (your choice)</dt><dd>${fmt(field.capacidad_suelo_mm)} mm</dd></div>
@@ -177,7 +177,7 @@
           <p class="hint">Modelled values are a reference, not a laboratory test. A soil analysis of your paddock is always more accurate.</p>
         </section>
         <section class="card climate-card" data-rev>
-          <div class="card-head"><div><h2>${icon("partly")}Climate</h2><p class="sub">${months ? `${esc(data.meta.fuente)} · ${esc(data.meta.periodo)}` : "Run an analysis to see 30 years of climate"}</p></div></div>
+          <div class="card-head"><div><h2>${icon("climate")}Climate</h2><p class="sub">${months ? `${esc(data.meta.fuente)} · ${esc(data.meta.periodo)}` : "Run an analysis to see 30 years of climate"}</p></div></div>
           ${months ? `<div class="seg fc-views" role="group" aria-label="Climate chart"><button type="button" class="active" aria-pressed="true" data-fc="rain">Rain and ET0</button><button type="button" aria-pressed="false" data-fc="temp">Temperature</button><button type="button" aria-pressed="false" data-fc="years">30 years</button></div>
           <div class="chart-box sm"><canvas role="img" aria-label="Climate of your field"></canvas></div>
           <div class="tiles compact">${data.clima.tendencias.indicadores.map((t) => `<div class="tile"><div class="label">${esc(t.nombre)}</div><div class="value">${t.cambio_pct > 0 ? "+" : ""}${fmt(t.cambio_pct)}%</div><div class="detail">${t.periodo_1} → ${t.periodo_2}</div></div>`).join("")}</div>` :
@@ -187,7 +187,7 @@
       </div>
 
       <section class="card crops-card" data-rev>
-        <div class="card-head"><div><h2>${icon("leaf")}Crops in your rotation</h2><p class="sub">${esc(rot?.nombre || "")} · ${esc(rot?.descripcion || "")}</p></div></div>
+        <div class="card-head"><div><h2>${icon("rotation")}Crops in your rotation</h2><p class="sub">${esc(rot?.nombre || "")} · ${esc(rot?.descripcion || "")}</p></div></div>
         ${curRot?.calendario ? C.calendarTable(curRot) : ""}
         <div class="crop-list">${cropsOf(rot, catalog).map((c) => `<article class="crop" style="--c:${c.color}">
           <header><i class="swatch" style="background:${c.color}"></i><strong>${esc(c.nombre)}</strong><small>${esc(c.tipo)} · ${esc(c.familia)}</small></header>
@@ -203,7 +203,7 @@
 
       <div class="grid-2">
         <section class="card terrain-card" data-rev>
-          <div class="card-head"><div><h2>${icon("layers")}Terrain</h2><p class="sub">NASA SRTM 30 m · 15 × 15 grid over the field</p></div></div>
+          <div class="card-head"><div><h2>${icon("map")}Terrain</h2><p class="sub">NASA SRTM 30 m · 15 × 15 grid over the field</p></div></div>
           ${data?.zonas ? `<div class="tiles compact">
             ${kpi("Elevation", `${fmt(data.zonas.resumen.elev_min)}–${fmt(data.zonas.resumen.elev_max)} m`, "above sea level")}
             ${kpi("Average slope", fmt(data.zonas.resumen.pendiente_media_pct, 1) + "%", `maximum ${fmt(data.zonas.resumen.pendiente_max_pct, 1)}%`)}
@@ -212,7 +212,7 @@
           </div>` : `<p class="hint">Run an analysis to read the slope, low spots and wetness of this field.</p>`}
         </section>
         <section class="card notes-card" data-rev>
-          <div class="card-head"><div><h2>${icon("edit")}Field notes</h2><p class="sub">Saved in this browser, only for this field.</p></div></div>
+          <div class="card-head"><div><h2>${icon("reports")}Field notes</h2><p class="sub">Saved in this browser, only for this field.</p></div></div>
           <label class="sr-only" for="field-notes">Field notes</label>
           <textarea id="field-notes" rows="6" placeholder="Rain gauge records, soil test results, what you sowed and when…">${esc(field.notas || "")}</textarea>
           <p class="hint notes-state" aria-live="polite"></p>

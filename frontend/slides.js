@@ -826,6 +826,7 @@ class Player {
     this.token = 0;
     this.rate = 1;
     this.volume = 1;
+    this.wps = 2.6; // words per second of the voice at normal speed, learned while it speaks
     this.voice = null;
     // Reloj tipo video: tiempo estimado por frase, para la barra de progreso y saltos de 10 s.
     this.clock = { base: 0, startedAt: 0, cap: 0 };
@@ -881,22 +882,42 @@ class Player {
     if (now) now.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 
-  say(text) {
+  /* Speaks one sentence. The timeline is the master clock: the voice follows it, and it
+     never holds the clock more than 2.5 s past the sentence's estimated length. Chrome does
+     not stop the previous sentence at once after cancel(), so the next one waits a moment. */
+  say(text, my) {
     const words = text.split(/\s+/).length;
-    const fallbackMs = Math.max(2200, (words / 2.6) * 1000 / this.rate);
-    if (!this.voiceOn || !this.voice) return new Promise((r) => setTimeout(r, fallbackMs));
+    const estMs = this.estimate(text) * 1000;
+    if (!this.voiceOn || !this.voice) return new Promise((r) => setTimeout(r, estMs));
     return new Promise((resolve) => {
-      const u = new SpeechSynthesisUtterance(text);
-      u.voice = this.voice;
-      u.lang = this.voice.lang;
-      u.rate = this.rate;
-      u.volume = this.volume;
-      let done = false;
-      const finish = () => { if (!done) { done = true; clearTimeout(guard); resolve(); } };
-      u.onend = finish;
-      u.onerror = finish;
-      const guard = setTimeout(finish, fallbackMs * 2.5 + 3000); // por si el navegador no avisa
-      speechSynthesis.speak(u);
+      let done = false, started = 0;
+      const finish = (ok) => {
+        if (done) return;
+        done = true; clearTimeout(guard);
+        if (ok && started) {
+          const dur = (performance.now() - started) / 1000;
+          if (dur > 0.8) {
+            const obs = words / (dur * this.rate);
+            this.wps = Math.min(4.2, Math.max(1.6, 0.65 * this.wps + 0.35 * obs));
+          }
+        }
+        resolve();
+      };
+      const guard = setTimeout(() => finish(false), estMs + 2500);
+      const go = () => {
+        if (my !== undefined && (my !== this.token || !this.playing)) return finish(false);
+        const u = new SpeechSynthesisUtterance(text);
+        u.voice = this.voice;
+        u.lang = this.voice.lang;
+        u.rate = this.rate;
+        u.volume = this.volume;
+        u.onstart = () => { started = performance.now(); if (this.playing && this.clock.startedAt) this.clock.startedAt = started; };
+        u.onend = () => finish(true);
+        u.onerror = () => finish(false);
+        speechSynthesis.speak(u);
+      };
+      if (speechSynthesis.speaking || speechSynthesis.pending) { speechSynthesis.cancel(); setTimeout(go, 140); }
+      else go();
     });
   }
 
@@ -913,7 +934,7 @@ class Player {
         const seg = this.segmentAt(this.i, k);
         this.clock = { base: seg.start, startedAt: performance.now(), cap: Math.max(0, seg.dur - 0.05) };
         this.emit();
-        await this.say(s.narration[k]);
+        await this.say(s.narration[k], my);
       }
       if (!alive()) return;
       this.highlight(s.narration.length);
@@ -956,11 +977,11 @@ class Player {
   /* ---- línea de tiempo (para el reproductor embebido de la página principal) ---- */
   estimate(text) {
     const words = text.split(/\s+/).length;
-    return Math.max(2.2, (words / 2.6) / this.rate);
+    return Math.max(2.2, (words / (this.wps || 2.6)) / this.rate);
   }
 
   timeline() {
-    const sig = this.rate + "|" + this.slides.map((s) => s.narration.join("\u0001")).join("\u0002");
+    const sig = this.rate + "|" + (this.wps || 2.6).toFixed(1) + "|" + this.slides.map((s) => s.narration.join("\u0001")).join("\u0002");
     if (this._tlSig === sig) return this._tl;
     let t = 0;
     const segs = [], chapters = [];
