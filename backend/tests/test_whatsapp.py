@@ -25,7 +25,7 @@ def client(monkeypatch, tmp_path):
     for key, value in {
         'WHATSAPP_ENABLED': 'true', 'TWILIO_AUTH_TOKEN': 'test-token',
         'TWILIO_ACCOUNT_SID': 'ACtest', 'TWILIO_WHATSAPP_FROM': TO,
-        'TWILIO_WHATSAPP_WEBHOOK_URL': URL, 'WHATSAPP_ALLOWED_SENDERS': FROM,
+        'TWILIO_WHATSAPP_WEBHOOK_URL': URL,
         'WHATSAPP_DB_PATH': str(tmp_path / 'messages.sqlite3'),
     }.items():
         monkeypatch.setenv(key, value)
@@ -48,10 +48,12 @@ def test_disabled_and_bad_signatures(client, monkeypatch):
 def test_signed_dedup_and_access(client):
     assert send(client).text == whatsapp.EMPTY
     assert send(client).status_code == 200
-    assert send(client, From='whatsapp:+15551234567').status_code == 403
+    assert send(client, sid='SManother', From='whatsapp:+15551234567').status_code == 200
     assert send(client, AccountSid='ACother').status_code == 403
+    assert send(client, To='whatsapp:+15550000000').status_code == 403
+    assert send(client, From='sms:+15551234567').status_code == 400
     with whatsapp.database() as db:
-        assert db.execute('SELECT count(*) FROM jobs').fetchone()[0] == 1
+        assert db.execute('SELECT count(*) FROM jobs').fetchone()[0] == 2
 
 
 def test_media_length_and_rate_limit(client):
@@ -60,6 +62,8 @@ def test_media_length_and_rate_limit(client):
     for i in range(5):
         assert send(client, sid=f'SM{i}').text == whatsapp.EMPTY
     assert 'wait a minute' in send(client, sid='SMlimit').text
+    # One busy sender does not use up another joined participant's allowance.
+    assert send(client, sid='SMother', From='whatsapp:+15551234567').text == whatsapp.EMPTY
 
 
 def test_worker_reuses_jarvis_history_and_reset(client, monkeypatch):
@@ -104,6 +108,29 @@ def test_delivery_failure_is_not_retried(client, monkeypatch):
     with whatsapp.database() as db:
         row = db.execute('SELECT state,body FROM jobs').fetchone()
         assert tuple(row) == ('failed', '')
+
+
+def test_joined_participants_keep_separate_histories(client, monkeypatch):
+    calls = []
+    def chat(data):
+        calls.append(data)
+        return {'reply': 'A reply.'}
+    class Twilio:
+        def __init__(self, *args):
+            self.messages = self
+        def create(self, **kwargs):
+            pass
+    monkeypatch.setattr(whatsapp.jarvis, 'chat', chat)
+    monkeypatch.setattr(whatsapp, 'Client', Twilio)
+    send(client, Body='First participant question')
+    whatsapp.process_one()
+    send(client, sid='SMsecond', From='whatsapp:+15551234567', Body='Second participant question')
+    whatsapp.process_one()
+    assert calls[1]['messages'] == [{'role':'user', 'content':'Second participant question'}]
+    send(client, sid='SMfollowup', Body='First participant follow-up')
+    whatsapp.process_one()
+    assert len(calls[2]['messages']) == 3
+    assert all('Second participant' not in t['content'] for t in calls[2]['messages'])
 
 
 def test_demo_uses_fixed_context_labels_reply_and_isolates_history(client, monkeypatch):
