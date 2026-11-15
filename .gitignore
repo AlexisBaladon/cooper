@@ -24,3 +24,7 @@ data/cache/
 
 # Local PDF layout review renders.
 /tmp/pdfs/
+
+# Private WhatsApp conversations and queue (never publish).
+*.sqlite3
+*.sqlite3-*

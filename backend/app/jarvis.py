@@ -363,9 +363,13 @@ def chat(data: dict) -> dict:
     if not (isinstance(lang, str) and re.fullmatch(r"[a-z]{2}", lang)):
         lang = "es" if detect_language(history[-1]["content"]) == "Spanish" else "en"
     context = context_text(data.get("context"))
+    demo = isinstance(data.get('context'), dict) and data['context'].get('demo') is True
     payload = {
         "messages": [
-            {"role": "system", "content": build_prompt(context)},
+            {"role": "system", "content": build_prompt(context) + (
+                '\nThis is a fixed DEMO analysis for the sample field near Young. Every answer must refer to '
+                'the demo/example, never claim these are measurements of the sender\'s own field. '
+                'Do not change its inputs or recompute results; say a new analysis in Cooper is needed.' if demo else '')},
             *history,
             {"role": "system", "content": f"Answer in {LANG_NAMES.get(lang, 'the language of the last user message')}."
                                           + (" Address the farmer as 'usted'." if lang == "es" else "")},
