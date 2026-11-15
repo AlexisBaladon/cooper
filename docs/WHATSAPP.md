@@ -9,6 +9,15 @@ concepts without claiming to know the user's field results.
 
 ## Start with the Sandbox
 
+The new Twilio One Console trial and the classic Sandbox have separate setup
+flows and phone numbers. The classic page is
+https://console.twilio.com/us1/develop/sms/try-it-out/whatsapp-learn.
+Join the exact number/code shown there, even if you already joined the newer
+trial. In One Console, the official trial guide puts webhook settings under
+Inbound → Auto-Reply → Custom, and documents restrictions on custom outbound
+REST messages. Do not assume generated free-form REST replies work in that
+trial. This adapter targets the classic Sandbox or a fully enabled sender.
+
 1. Create/sign into your own [Twilio account](https://console.twilio.com/).
 2. Open Messaging → Try it out → Send a WhatsApp message (WhatsApp Sandbox).
    Follow its instructions to join from each tester's phone.
@@ -34,6 +43,20 @@ concepts without claiming to know the user's field results.
    the conversation. Check Twilio message logs if a reply does not arrive.
 
 ## Operation and limits
+
+For a temporary local HTTPS tunnel, run the webhook-only app:
+
+```powershell
+cd backend
+python -m uvicorn app.whatsapp_gateway:app --host 127.0.0.1 --port 8083 --no-access-log
+```
+
+Point the tunnel at `http://127.0.0.1:8083`, not the full website's port. This app
+only exposes `/api/whatsapp/webhook`; docs, analysis and website routes return
+404. Put the tunnel's exact HTTPS callback URL into the private environment
+and Twilio Sandbox settings. A temporary tunnel URL changes when restarted.
+Keep the main local website's environment `WHATSAPP_ENABLED=false`; enable it
+only for the gateway process to avoid two workers sharing a local queue.
 
 - The webhook validates Twilio's signature with its official SDK, configured
   HTTPS URL, account, destination and tester allowlist. Phone numbers are not

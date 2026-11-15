@@ -14,8 +14,6 @@ Ejecutar desde backend/:  python -m uvicorn app.main:app --reload
 from __future__ import annotations
 
 from pathlib import Path
-import asyncio
-from contextlib import asynccontextmanager, suppress
 from typing import Literal
 
 import httpx
@@ -41,18 +39,7 @@ DEMO_FIELDS = [
      "rotacion": "trigo_soja2", "tiene_ganado": True},
 ]
 
-@asynccontextmanager
-async def lifespan(app):
-    task = asyncio.create_task(whatsapp.worker())
-    try:
-        yield
-    finally:
-        task.cancel()
-        with suppress(asyncio.CancelledError):
-            await task
-
-
-app = FastAPI(title="Cooper", version="0.6.0", lifespan=lifespan)
+app = FastAPI(title="Cooper", version="0.6.0", lifespan=whatsapp.lifespan)
 app.include_router(whatsapp.router)
 catalog = engine.load_catalog()
 

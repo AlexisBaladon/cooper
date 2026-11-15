@@ -3,10 +3,19 @@ import pytest
 from fastapi.testclient import TestClient
 from twilio.request_validator import RequestValidator
 from app import main, whatsapp
+from app.whatsapp_gateway import app as gateway
 
 URL = 'https://example.com/api/whatsapp/webhook'
 FROM = 'whatsapp:+59899123456'
 TO = 'whatsapp:+14155238886'
+
+
+def test_gateway_only_exposes_webhook(monkeypatch):
+    monkeypatch.setenv('WHATSAPP_ENABLED', 'false')
+    with TestClient(gateway) as client:
+        assert client.post('/api/whatsapp/webhook').status_code == 503
+        for route in ('/', '/docs', '/openapi.json', '/api/jarvis/chat', '/api/analyze'):
+            assert client.get(route).status_code == 404
 
 
 @pytest.fixture
