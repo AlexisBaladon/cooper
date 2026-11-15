@@ -7,15 +7,14 @@
   <meta name="description" content="Compare crop rotations for your field using 30 years of NASA data.">
   <link rel="icon" type="image/png" sizes="192x192" href="assets/brand/icon-192.png">
   <link rel="apple-touch-icon" href="assets/brand/icon-512.png">
-  <meta name="theme-color" content="#10261a">
+  <meta name="theme-color" content="#0b120e">
   <link rel="manifest" href="manifest.json">
   <script>
     (function () {
       try {
-        var t = JSON.parse(localStorage.getItem("cooper-theme") || '"auto"');
-        var h = new Date().getHours();
-        if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
-        else if (t === "auto") document.documentElement.setAttribute("data-theme", h < 6 || h >= 20 ? "dark" : "light");
+        // Two themes only; dark unless the farmer chose light.
+        var t = JSON.parse(localStorage.getItem("cooper-theme") || '"dark"');
+        document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "dark");
         if (JSON.parse(localStorage.getItem("cooper-reduce-motion") || "false")) document.documentElement.classList.add("reduce-motion");
         if (JSON.parse(localStorage.getItem("cooper-sidebar-collapsed") || "false")) document.documentElement.classList.add("sb-collapsed");
       } catch (e) { /* defaults */ }
@@ -25,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=59">
+  <link rel="stylesheet" href="styles.css?v=60">
   <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
   </script>
@@ -48,7 +47,6 @@
       <a class="nav-item" href="#home" data-nav="home" title="Home"><span class="nav-ic"><img src="assets/icons/home.webp" alt="" aria-hidden="true" width="64" height="64"></span><span class="nav-label">Home</span></a>
       <a class="nav-item" href="#analysis" data-nav="analysis" title="Analysis"><span class="nav-ic"><img src="assets/icons/analysis.webp" alt="" aria-hidden="true" width="64" height="64"></span><span class="nav-label">Analysis</span></a>
       <a class="nav-item" href="#field" data-nav="field" title="My field"><span class="nav-ic"><img src="assets/icons/field.webp" alt="" aria-hidden="true" width="64" height="64"></span><span class="nav-label">My field</span></a>
-      <button type="button" class="nav-item jarvis-launch" data-jarvis-launch title="Jarvis" aria-label="Open Jarvis, the Cooper assistant" aria-expanded="false" aria-controls="jv-panel"><span class="nav-ic"><img src="assets/brand/jarvis-256.webp" alt="" aria-hidden="true" width="64" height="64"></span><span class="nav-label">Jarvis</span></button>
     </nav>
     <div class="sb-bottom">
       <p class="sb-note"><img class="sb-nasa" src="assets/brand/nasa.webp" alt="NASA" width="160" height="135" decoding="async"><span>Data from NASA POWER and NASA SRTM</span></p>
@@ -80,12 +78,10 @@
         <div class="page-head compact"><div><h1><img class="ic i3d h1-ic" src="assets/icons/settings.webp" alt="" aria-hidden="true">Settings</h1><p class="lead">Appearance, language, motion and the data stored on this device.</p></div></div>
         <div class="settings-grid">
           <section class="card">
-            <div class="card-head"><div><h2><img class="ic i3d" src="assets/icons/weather.webp" alt="" aria-hidden="true">Appearance</h2><p class="sub">Auto changes with the real sky at your field: dark at night, light during the day.</p></div></div>
+            <div class="card-head"><div><h2><img class="ic i3d" src="assets/icons/weather.webp" alt="" aria-hidden="true">Appearance</h2><p class="sub">Choose a light or a dark interface. Cooper starts in dark mode.</p></div></div>
             <div class="seg big" id="theme-seg" role="group" aria-label="Theme">
-              <button type="button" data-theme="auto" aria-pressed="false"><img class="ic i3d" src="assets/icons/weather.webp" alt="" aria-hidden="true"><span>Auto (follows the sky)</span></button>
               <button type="button" data-theme="light" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg><span>Light</span></button>
               <button type="button" data-theme="dark" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 14.6A8 8 0 0 1 9.4 4.5a8 8 0 1 0 10.1 10.1Z"/></svg><span>Dark</span></button>
-              <button type="button" data-theme="system" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M9 20h6M12 16.5V20"/></svg><span>System</span></button>
             </div>
           </section>
           <section class="card">
@@ -136,28 +132,28 @@
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-<script src="translations-es.js?v=59"></script>
-<script src="language.js?v=59"></script>
-<script src="workflow.js?v=59"></script>
-<script src="js/core.js?v=59"></script>
-<script src="js/glossary.js?v=59"></script>
-<script src="js/fx.js?v=59"></script>
-<script src="js/scene.js?v=59"></script>
-<script src="js/wx.js?v=59"></script>
-<script src="js/charts.js?v=59"></script>
-<script src="js/results.js?v=59"></script>
-<script src="js/calendar.js?v=59"></script>
-<script src="js/home.js?v=59"></script>
-<script src="js/analysis.js?v=59"></script>
-<script src="js/history.js?v=59"></script>
-<script src="js/export.js?v=59"></script>
-<script src="js/field.js?v=59"></script>
-<script src="js/player.js?v=59"></script>
-<script src="js/jarvis.js?v=59"></script>
-<script src="js/intro.js?v=59"></script>
-<script src="js/offline.js?v=59"></script>
-<script src="app.js?v=59"></script>
-<script type="module" src="js/relief.js?v=59"></script>
-<script type="module" src="js/map3d.js?v=59"></script>
+<script src="translations-es.js?v=60"></script>
+<script src="language.js?v=60"></script>
+<script src="workflow.js?v=60"></script>
+<script src="js/core.js?v=60"></script>
+<script src="js/glossary.js?v=60"></script>
+<script src="js/fx.js?v=60"></script>
+<script src="js/scene.js?v=60"></script>
+<script src="js/wx.js?v=60"></script>
+<script src="js/charts.js?v=60"></script>
+<script src="js/results.js?v=60"></script>
+<script src="js/calendar.js?v=60"></script>
+<script src="js/home.js?v=60"></script>
+<script src="js/analysis.js?v=60"></script>
+<script src="js/history.js?v=60"></script>
+<script src="js/export.js?v=60"></script>
+<script src="js/field.js?v=60"></script>
+<script src="js/player.js?v=60"></script>
+<script src="js/jarvis.js?v=60"></script>
+<script src="js/intro.js?v=60"></script>
+<script src="js/offline.js?v=60"></script>
+<script src="app.js?v=60"></script>
+<script type="module" src="js/relief.js?v=60"></script>
+<script type="module" src="js/map3d.js?v=60"></script>
 </body>
 </html>

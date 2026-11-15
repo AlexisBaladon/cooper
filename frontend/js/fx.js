@@ -112,11 +112,12 @@
     el.style.setProperty("--my", `${(py * 100).toFixed(1)}%`);
     el.classList.add("lit");
     const g = G();
-    const strong = el.matches(".opt-card, .card.overall") ? 1 : el.matches(".rot.card") ? 0.6 : 0.35;
+    // The overall card is tall: a soft tilt only, so its lower edge never swings away from the pointer.
+    const strong = el.matches(".card.overall") ? 0.2 : el.matches(".opt-card") ? 1 : el.matches(".rot.card") ? 0.6 : 0.35;
     const big = r.width > 700 ? 0.35 : 1;
     // Option cards only catch the light; they never move under the pointer.
     if (g && !el.classList.contains("flipping") && !el.matches(".opt-card")) {
-      g.to(el, { rotationY: (px - 0.5) * 9 * strong * big, rotationX: -(py - 0.5) * 7 * strong * big, y: -4 * strong, transformPerspective: 1000,
+      g.to(el, { rotationY: (px - 0.5) * 9 * strong * big, rotationX: -(py - 0.5) * 7 * strong * big, y: el.matches(".card.overall") ? -1 : -4 * strong, transformPerspective: el.matches(".card.overall") ? 2400 : 1000,
         duration: 0.6, ease: "power3.out", overwrite: "auto" });
     }
   }, { passive: true });
