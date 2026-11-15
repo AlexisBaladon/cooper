@@ -6,7 +6,7 @@ The production webhook is `https://agrocooper.earth/api/whatsapp/webhook` (POST)
 The app reads the Twilio settings from `/etc/nasa2026/ai-keys.env`, outside Git
 and release directories. Keep `WHATSAPP_DB_PATH=/var/lib/nasa2026/whatsapp.sqlite3`
 so queued messages and history survive releases. Use `WHATSAPP_DEMO_ANALYSIS=true`
-for the labelled Young default-field example, and retain the tester allowlist.
+for the labelled Young default-field example. Any WhatsApp number may write.
 
 To migrate from a local tunnel: install the settings with `WHATSAPP_ENABLED=false`,
 deploy the integration through the main pipeline, enable WhatsApp and restart
@@ -51,8 +51,8 @@ References: [current Sandbox availability](https://www.twilio.com/docs/whatsapp/
    `backend/.env.example` in the server-only environment file. For the existing
    VM service that is `/etc/nasa2026/ai-keys.env`.
 4. Set the Account SID and Auth Token from Twilio, `TWILIO_WHATSAPP_FROM` to the
-   Sandbox's `whatsapp:+...` number, and `WHATSAPP_ALLOWED_SENDERS` to the exact
-   comma-separated `whatsapp:+...` tester numbers. Empty means deny everyone.
+   Sandbox's `whatsapp:+...` number. There is no sender allowlist: anyone who
+   can message that number gets an answer.
 5. Set `TWILIO_WHATSAPP_WEBHOOK_URL` to the exact public HTTPS callback URL,
    with no query string or trailing slash. Proposed production URL:
    `https://agrocooper.earth/api/whatsapp/webhook`. The deployed version must
@@ -108,13 +108,13 @@ Keep the main local website's environment `WHATSAPP_ENABLED=false`; enable it
 only for the gateway process to avoid two workers sharing a local queue.
 
 - The webhook validates Twilio's signature with its official SDK, configured
-  HTTPS URL, account, destination and tester allowlist. Phone numbers are not
+  HTTPS URL, account and destination. Phone numbers are not
   included in the model prompt. Keep credentials and the SQLite file private.
 - Signed text messages are committed to SQLite before the webhook acknowledges
   them. The backend worker sends the reply with Twilio's REST API, so model
   latency does not make the inbound webhook wait. Message SIDs suppress duplicate
   callbacks for 24 hours. Five accepted questions per sender per minute limits
-  model spending. The allowlist is mandatory for this first version.
+  model spending; there is no limit across senders.
 - Run **one Uvicorn worker on one machine**, as in the existing VM service.
   Histories retain at most 12 turns and expire after 24 hours. Expired records
   are removed by the worker or next accepted webhook; sent job bodies are cleared.

@@ -99,9 +99,6 @@ async def webhook(request: Request):
     source, sid = form.get('From', ''), form.get('MessageSid', '')
     if not source.startswith('whatsapp:+') or not sid or len(sid) > 64:
         raise HTTPException(400, 'Invalid message')
-    allow = [x.strip() for x in os.getenv('WHATSAPP_ALLOWED_SENDERS', '').split(',') if x.strip()]
-    if not allow or source not in allow:
-        raise HTTPException(403, 'Sender not enabled')
     body = form.get('Body', '').strip()
     if form.get('NumMedia', '0') != '0' or not body:
         return Response('<Response><Message>Please send a text message. Voice notes and attachments are not supported yet.</Message></Response>', media_type='application/xml')
