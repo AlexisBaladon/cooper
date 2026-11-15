@@ -189,6 +189,9 @@ async function analyze() {
     if (!resp.ok) throw new Error(data.detail ? JSON.stringify(data.detail) : resp.statusText);
     render(data, body.prioridades);
     state.analyzed = true;
+    // Para "Ask Cooper": el último análisis y lo que pidió el productor.
+    window.cooperAnalysis = { data, request: body, campo: document.querySelector(".chip.active")?.textContent || "" };
+    window.dispatchEvent(new Event("cooper:analysis"));
   } catch (err) {
     $("#error").textContent = `Could not run the analysis: ${err.message}`;
     $("#error").hidden = false;
