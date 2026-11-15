@@ -9,14 +9,21 @@ concepts without claiming to know the user's field results.
 
 ## Start with the Sandbox
 
-The new Twilio One Console trial and the classic Sandbox have separate setup
-flows and phone numbers. The classic page is
-https://console.twilio.com/us1/develop/sms/try-it-out/whatsapp-learn.
-Join the exact number/code shown there, even if you already joined the newer
-trial. In One Console, the official trial guide puts webhook settings under
-Inbound → Auto-Reply → Custom, and documents restrictions on custom outbound
-REST messages. Do not assume generated free-form REST replies work in that
-trial. This adapter targets the classic Sandbox or a fully enabled sender.
+New trial accounts must use Twilio One Console's Try out WhatsApp flow. Do not
+redirect new users to the classic Sandbox even if its activation page can still
+be opened: Twilio documents the classic Sandbox for legacy accounts, and new
+trial signups cannot start a legacy trial. The two flows have separate numbers.
+In One Console, Twilio's receive-message guide puts webhook settings under
+Receive a message (or Inbound) → Auto-Reply → Custom. Its trial guide also
+documents restrictions on custom outbound REST messages. This adapter uses
+free-form REST replies, so do not claim that it is compatible with a new trial
+until an end-to-end test succeeds. A legacy Sandbox or fully enabled sender is
+the original supported target. A successful default reply only proves Twilio
+received a message; it does not prove Jarvis is connected.
+
+References: [current Sandbox availability](https://www.twilio.com/docs/whatsapp/sandbox),
+[legacy trial transition](https://www.twilio.com/docs/usage/trials/legacy-console-trial-transition),
+[new trial receiving guide](https://help.twilio.com/articles/55716571409819-How-do-I-receive-WhatsApp-messages-while-testing).
 
 1. Create/sign into your own [Twilio account](https://console.twilio.com/).
 2. Open Messaging → Try it out → Send a WhatsApp message (WhatsApp Sandbox).
