@@ -255,6 +255,11 @@
       const go = e.target.closest("[data-go]");
       if (go) { e.preventDefault(); C.go(go.dataset.go); return; }
       if (e.target.closest('[data-act="save-current"]')) { C.saveCurrent(); return; }
+      if (e.target.closest('[data-act="open-analysis"]')) {
+        const rec = await homeRecord(C.fields.active());
+        if (rec?.saved) { C.history.reveal(rec.id); C.go("analysis/history"); } else C.go("analysis");
+        return;
+      }
       const play = e.target.closest(".ex-play, [data-chapter]");
       if (play) {
         const rec = await homeRecord(C.fields.active());

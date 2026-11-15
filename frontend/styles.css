@@ -1475,3 +1475,24 @@ html.sb-collapsed .nav-item .nav-ic { position: static; width: 40px; height: 40p
   .wx-card-in { padding: 16px; }
   .wx-head .wx-title span { font-size: .92rem; }
 }
+
+/* v3: exact intro, equal rotation cards, floating menus, collapsible ranking */
+.intro-video { object-fit: contain; background: #000; }
+.rotations { align-items: stretch; grid-auto-rows: auto; }
+.rotations > .rot { height: 100%; display: flex; flex-direction: column; }
+.rot .desc { min-height: 3.2em; }
+.rot h3 { min-height: 2.6em; }
+.menu.portal { position: fixed; z-index: 470; min-width: 220px; }
+.ranking-card details > summary { list-style: none; }
+.ranking-card details > summary::-webkit-details-marker { display: none; }
+.ranking-card .card-head { margin-bottom: 0; }
+.ranking-card details[open] .card-head { margin-bottom: 16px; }
+.ranking-card summary::after { display: none; }
+.ranking-card summary .card-head::after { content: "+"; font-size: 1.4rem; color: var(--muted); transition: transform .3s var(--ease); }
+.ranking-card details[open] summary .card-head::after { transform: rotate(45deg); }
+.method details > summary h2 { display: inline-flex; align-items: center; gap: 10px; }
+.method details > summary h2 img.ic { width: 30px; height: 30px; }
+.facts li { padding: 6px 14px; }
+
+.rotations .calendar-scroll { min-height: calc(34px + var(--cal-rows, 1) * 33px + 14px); }
+.rotations .kpis { grid-auto-rows: 1fr; }

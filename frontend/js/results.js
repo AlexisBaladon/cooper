@@ -204,7 +204,7 @@
     </div>`;
     const ex = r.explicacion;
     const list = (items) => `<ul>${items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
-    const diag = r.diagnostico ? `<details ${r.rol === "actual" ? "open" : ""}><summary>Strengths and weaknesses</summary><ul class="diag-list">${
+    const diag = r.diagnostico ? `<details><summary>Strengths and weaknesses</summary><ul class="diag-list">${
       r.diagnostico.items.map((i) => `<li class="lvl-${LEVEL[i.nivel][0]}"><span class="lvl">${LEVEL[i.nivel][1]}</span><strong>${esc(i.etiqueta)}</strong> — ${esc(cap(i.por_que))}.${
         i.recomendaciones.length ? `<span class="idea">${icon("bulb")}${i.recomendaciones.map((a) => esc(cap(a))).join(". ")}.</span>` : ""}</li>`).join("")
     }</ul></details>` : "";
@@ -217,7 +217,7 @@
       ${calendarTable(r)}
       ${kpis}
       ${diag}
-      <details ${r.rol !== "actual" ? "open" : ""}><summary>Why we suggest it</summary>${list(ex.por_que)}</details>
+      <details><summary>Why we suggest it</summary>${list(ex.por_que)}</details>
       <details><summary>Supporting data</summary>${list(ex.evidencia)}</details>
       <details><summary>Possible benefits</summary>${list(ex.beneficios)}</details>
       <details><summary>What we don't know yet</summary>${list(ex.vacios)}</details>
@@ -299,11 +299,11 @@
         </div>
         <div class="legend crop-legend">${[...crops.values()].map((c) =>
           `<span><i class="swatch" style="background:${c.color}"></i>${esc(c.nombre)}</span>`).join("")}<span><i class="swatch" style="background:var(--bare)"></i>No crop</span></div>
-        <div class="rotations">${data.rotaciones.map((r) => rotationCard(r, prio, best, labels)).join("")}</div>
+        <div class="rotations" style="--cal-rows:${Math.max(...data.rotaciones.map((r) => r.calendario.length))}">${data.rotaciones.map((r) => rotationCard(r, prio, best, labels)).join("")}</div>
       </section>
-      ${data.ranking ? `<section class="card" data-rev><div class="card-head"><div class="ch-title"><span class="chip-ic big">${icon("compare")}</span><div><h2>All options for your field</h2>
+      ${data.ranking ? `<section class="card method ranking-card" data-rev><details><summary><div class="card-head"><div class="ch-title"><span class="chip-ic big">${icon("compare")}</span><div><h2>All options for your field</h2>
         <p class="sub">Every rotation in Cooper's library that fits your farm, ordered by the total for your priorities.</p></div></div></div>
-        ${rankingTable(data.ranking, currentId)}</section>` : ""}
+        </summary>${rankingTable(data.ranking, currentId)}</details></section>` : ""}
       <section class="card method" data-rev>
         <details><summary><h2>${icon("help")}Glossary</h2></summary>
         <dl class="glossary">

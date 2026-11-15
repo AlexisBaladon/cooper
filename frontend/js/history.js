@@ -5,7 +5,46 @@
   const { esc, fmt, icon, $, $$ } = C;
 
   const open = new Map(); // id → results controller
-  let filter = "all", query = "";
+  let filter = "all", query = "", allRecs = [], reveal = null;
+
+  /* The export menu floats above every card (moved to <body> while open), so no card clips it. */
+  let floating = null;
+  function closeFloating() {
+    if (!floating) return;
+    const { menu, owner, home } = floating;
+    menu.hidden = true; menu.classList.remove("portal"); menu.style.cssText = "";
+    owner.setAttribute("aria-expanded", "false");
+    home.appendChild(menu);
+    floating = null;
+  }
+  function openFloating(owner) {
+    const menu = owner.nextElementSibling;
+    if (!menu) return;
+    const home = owner.parentElement;
+    menu.hidden = false; menu.classList.add("portal");
+    document.body.appendChild(menu);
+    const r = owner.getBoundingClientRect(), h = menu.offsetHeight, w = menu.offsetWidth;
+    const below = window.innerHeight - r.bottom > h + 12;
+    menu.style.top = (below ? r.bottom + 8 : r.top - h - 8) + "px";
+    menu.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w)) + "px";
+    owner.setAttribute("aria-expanded", "true");
+    floating = { menu, owner, home };
+    C.motion.reveal(menu, { y: below ? -6 : 6, duration: 0.3 });
+    menu.querySelector("button")?.focus();
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest(".menu.portal [data-export]");
+    if (b) {
+      const rec = allRecs.find((a) => a.id === b.dataset.id);
+      closeFloating();
+      if (rec) C.exporter[b.dataset.export](rec, open.get(rec.id));
+      return;
+    }
+    if (floating && !e.target.closest(".menu.portal") && !e.target.closest('[data-act="menu"]')) closeFloating();
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && floating) { const o = floating.owner; closeFloating(); o.focus(); } });
+  window.addEventListener("scroll", closeFloating, { passive: true });
+  window.addEventListener("resize", closeFloating);
 
   function exportMenu(id) {
     return `<div class="menu-wrap">
@@ -48,7 +87,9 @@
   async function render(root) {
     for (const ctl of open.values()) ctl.destroy();
     open.clear();
+    closeFloating();
     const all = (await C.db.all("analyses")).sort((a, b) => b.fecha.localeCompare(a.fecha));
+    allRecs = all;
     const fields = C.fields.list();
     const list = all.filter((a) => (filter === "all" || a.fieldId === filter) &&
       (!query || JSON.stringify([a.context?.field, a.result.rotaciones.map((r) => r.nombre)]).toLowerCase().includes(query)));
@@ -76,14 +117,14 @@
       const id = card?.dataset.id;
       if (b.dataset.act === "new") return C.analysis.selectTab("new");
       if (b.dataset.export) {
-        closeMenus(root);
+        closeFloating();
         const rec = all.find((a) => a.id === b.dataset.id);
         return C.exporter[b.dataset.export](rec, open.get(rec.id));
       }
       if (b.dataset.act === "menu") {
-        const menu = b.nextElementSibling, was = !menu.hidden;
-        closeMenus(root);
-        if (!was) { menu.hidden = false; b.setAttribute("aria-expanded", "true"); C.motion.reveal(menu, { y: -6, duration: 0.3 }); menu.querySelector("button").focus(); }
+        const same = floating?.owner === b;
+        closeFloating();
+        if (!same) openFloating(b);
         return;
       }
       const rec = all.find((a) => a.id === id);
@@ -106,12 +147,16 @@
         if (g) g.to(card, { height: 0, opacity: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0, duration: 0.4, ease: "power2.inOut", onComplete: done }); else done();
       }
     };
-    root.onkeydown = (e) => { if (e.key === "Escape") closeMenus(root); };
-    document.addEventListener("click", (e) => { if (!e.target.closest(".menu-wrap")) closeMenus(root); }, { once: true, capture: true });
-  }
-
-  function closeMenus(root) {
-    $$(".menu", root).forEach((m) => { m.hidden = true; m.previousElementSibling?.setAttribute("aria-expanded", "false"); });
+    /* Opened from Home ("Open full analysis"): unfold that analysis. */
+    if (reveal) {
+      const card = $(`.h-item[data-id="${CSS.escape(reveal)}"]`, root);
+      reveal = null;
+      if (card) {
+        const btn = $('[data-act="toggle"]', card), rec = all.find((a) => a.id === card.dataset.id);
+        toggle(card, rec, btn);
+        setTimeout(() => card.scrollIntoView({ behavior: C.reducedMotion() ? "auto" : "smooth", block: "start" }), 120);
+      }
+    }
   }
 
   function toggle(card, rec, btn) {
@@ -144,5 +189,5 @@
     </dl>`;
   }
 
-  C.history = { render, inputsSummary };
+  C.history = { render, inputsSummary, reveal(id) { reveal = id; } };
 })();

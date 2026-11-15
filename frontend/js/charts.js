@@ -205,8 +205,10 @@
         plugins: { cooperCrosshair: false, legend: { display: !compact, position: "bottom" },
           tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: ${c.parsed.r} / 100` } } },
         scales: { r: { min: 0, max: 100, beginAtZero: true, angleLines: { color: v("--grid") }, grid: { color: v("--grid") },
-          ticks: { display: !compact, stepSize: 25, backdropColor: "transparent", color: v("--muted"), font: { size: 10 } },
-          pointLabels: { color: v("--text-2"), font: { size: compact ? 10.5 : 12, weight: "500" } } } },
+          ticks: { display: !compact, stepSize: 25, z: 2, showLabelBackdrop: true, backdropColor: alpha(v("--surface").startsWith("#") ? v("--surface") : "#ffffff", 0.92),
+            backdropPadding: { x: 4, y: 2 }, color: v("--text-2"), font: { size: 10.5, weight: "600" } },
+          pointLabels: { color: v("--text"), padding: compact ? 6 : 12, font: { size: compact ? 11 : 13, weight: "600" } } } },
+        layout: { padding: compact ? 4 : 10 },
       },
     };
   }

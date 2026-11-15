@@ -294,6 +294,8 @@
   function markChanged() {
     S.queue.invalidate();
     updateStale();
+    clearTimeout(S.autoTimer);
+    if (S.rec && !S.rec.saved) S.autoTimer = setTimeout(run, 650);
   }
   /* Only the visual state: never touches the analysis queue. */
   function updateStale() {
@@ -339,6 +341,7 @@
       const data = await CooperWorkflow.readResponse(resp);
       if (!S.queue.isCurrent(runTok)) return;
       const rec = { id: C.uid(), fieldId: field.id, fecha: context.generatedAt, input: body, context, result: data, saved: false };
+      { const m = clearedIds(); delete m[field.id]; C.storage.set("cooper-cleared", m); }
       await C.db.put("drafts", rec);
       showResult(rec, true);
       C.emit("analysis", rec);
@@ -386,7 +389,6 @@
       $("#an-temp-val").textContent = `+${tt.toFixed(1)} °C`;
       paintRange($("#an-rain")); paintRange($("#an-temp"));
       clearTimeout(t); markChanged();
-      if (S.rec) t = setTimeout(run, 380);
     };
     $("#an-rain").addEventListener("input", on);
     $("#an-temp").addEventListener("input", on);
@@ -401,13 +403,30 @@
     const rec = { ...S.rec, saved: true };
     await C.db.put("analyses", rec);
     await C.db.put("drafts", rec);
-    S.rec = rec;
-    $("#an-save").disabled = true;
-    C.toast(C.t("Analysis saved in your history."));
+    C.toast(C.t("Analysis saved in your history. It stays on Home; this screen is ready for a new analysis."), "ok", 5200);
     C.emit("history-changed");
     C.emit("analysis", rec);
-    const b = $("#an-save");
-    C.motion.gsap?.fromTo(b, { scale: 0.94 }, { scale: 1, duration: 0.6, ease: "elastic.out(1,0.4)" });
+    markCleared(rec);
+    clearScreen();
+  }
+  /* After saving, this screen starts clean (Home keeps the saved analysis). */
+  function clearedIds() { return C.storage.get("cooper-cleared", {}); }
+  function markCleared(rec) { const m = clearedIds(); m[rec.fieldId] = rec.id; C.storage.set("cooper-cleared", m); }
+  function clearScreen() {
+    clearTimeout(S.autoTimer);
+    const g = C.motion.gsap, body = $("#an-results");
+    const done = () => {
+      S.rec = null; S.ctl?.destroy(); S.ctl = null;
+      $("#an-bar").hidden = true; $("#an-stale").hidden = true; $("#an-error").hidden = true;
+      $("#an-summary").hidden = true; $("#an-wizard").hidden = false;
+      body.style.opacity = "";
+      const f = C.fields.get(S.fieldId);
+      if (f) fillForm(f);
+      goStep(0, false);
+      if (g) g.fromTo("#an-wizard", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.6, ease: "expo.out", clearProps: "all" });
+      window.scrollTo({ top: 0, behavior: C.reducedMotion() ? "auto" : "smooth" });
+    };
+    if (g) g.to(body, { opacity: 0, duration: 0.35, onComplete: done }); else done();
   }
 
   /* ------------------------------------------------------------- tabs */
@@ -522,7 +541,7 @@
     $("#an-bar").hidden = true; $("#an-stale").hidden = true; $("#an-error").hidden = true;
     $("#an-summary").hidden = true; $("#an-wizard").hidden = false;
     const draft = await C.db.get("drafts", field.id);
-    if (draft && C.fields.activeId() === field.id) showResult(draft, false);
+    if (draft && C.fields.activeId() === field.id && clearedIds()[field.id] !== draft.id) showResult(draft, false);
     else goStep(0, false);
   }
 

@@ -108,7 +108,17 @@
     if (S.mode === "mini" && !p.playing) return;
     pulse(p.playing ? "play" : "pause");
   }
-  function skip(d) { const p = P(); if (p && S.ready) p.seek(p.currentTime() + d); flash(d > 0 ? "+10 s" : "−10 s"); }
+  function skip(d) {
+    const p = P();
+    if (!p || !S.ready) return;
+    S.seekTarget = Math.max(0, Math.min(p.duration() - 0.1, (S.seekTarget ?? p.currentTime()) + d));
+    S.seekTotal = (S.seekTotal || 0) + d;
+    preview(S.seekTarget / p.duration());
+    $(".ps-cur", S.shell).textContent = fmtTime(S.seekTarget);
+    flash(`${S.seekTotal > 0 ? "+" : "−"}${Math.abs(S.seekTotal)} s`);
+    clearTimeout(S.seekTimer);
+    S.seekTimer = setTimeout(() => { const t = S.seekTarget; S.seekTarget = null; S.seekTotal = 0; p.seek(t); }, 320);
+  }
 
   function pulse(kind) {
     const b = $(".ps-bigplay", S.shell);
@@ -155,7 +165,7 @@
   function tick() {
     S.raf = requestAnimationFrame(tick);
     const p = P();
-    if (!p || S.dragging) return;
+    if (!p || S.dragging || S.seekTarget != null) return;
     const t = p.currentTime(), d = p.duration(), k = d ? t / d : 0;
     preview(k);
     $(".ps-mini-bar i", S.shell).style.width = `${k * 100}%`;

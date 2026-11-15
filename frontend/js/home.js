@@ -131,7 +131,7 @@
       <div class="card-head">
         <div class="ov-title"><span class="chip-ic big brand">${icon("overall")}</span>
           <div><small>Overall analysis</small><h2>${same ? "Your current rotation is the best fit" : "Best overall option for your priorities"}</h2></div></div>
-        <button type="button" class="btn soft sm" data-go="analysis">${icon("analysis")}<span>Open full analysis</span></button>
+        <button type="button" class="btn soft sm" data-act="open-analysis">${icon("analysis")}<span>Open full analysis</span></button>
       </div>
       <div class="ov-body">
         <div class="ov-best">
@@ -226,9 +226,9 @@
         <h1><span class="greet">${esc(greeting())}</span></h1>
         <p class="lead">Smarter decisions for <strong class="notranslate">${esc(field.nombre)}</strong>, with 30 years of NASA data.</p>
         <ul class="facts">
-          <li>${icon("field")}<span>${fmt(field.area_ha)} ha</span></li>
-          <li>${icon("rotation")}<span>${esc(rot?.nombre || "")}</span></li>
-          <li>${icon("calendar")}<span>${rec ? esc(C.dateLabel(rec.fecha, { dateStyle: "medium" })) : "Not analysed yet"}</span></li>
+          <li>${fmt(field.area_ha)} ha</li>
+          <li>${esc(rot?.nombre || "")}</li>
+          <li>${rec ? esc(C.dateLabel(rec.fecha, { dateStyle: "medium" })) : "Not analysed yet"}</li>
         </ul>
         <p class="pill-note">${icon("info")}<span>Cooper <strong>helps you think, it doesn't decide</strong>. Review every result with your agronomist.</span></p>
       </section>

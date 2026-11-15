@@ -877,5 +877,6 @@ window.CooperSpanish = {
   "Show the menu": "Mostrar el menú",
   "Auto (follows the sky)": "Automático (sigue al cielo)",
   "Auto changes with the real sky at your field: dark at night, light during the day.": "Automático cambia con el cielo real de su campo: oscuro de noche, claro de día.",
-  "Partly cloudy · feels": "Parcialmente nublado · sensación"
+  "Partly cloudy · feels": "Parcialmente nublado · sensación",
+  "Analysis saved in your history. It stays on Home; this screen is ready for a new analysis.": "Análisis guardado en su historial. Sigue en Inicio; esta pantalla queda lista para un análisis nuevo."
 };
