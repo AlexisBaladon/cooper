@@ -544,6 +544,39 @@ def compare(current_id: str, prio: dict, m: pd.DataFrame, cap: float,
             clim: list[dict], cat: Catalog, tiene_ganado: bool = True,
             n_alternatives: int = 2, erosion: dict[str, dict] | None = None) -> list[dict]:
     """erosion: {rotación_id: resumen RUSLE} si hay datos de terreno; si no, se usa el proxy."""
+    return compare_full(current_id, prio, m, cap, clim, cat, tiene_ganado,
+                        n_alternatives, erosion)[0]
+
+
+PERFIL_PRIO = {k: 1 for k in SUBSCORES}
+
+
+def ranking(evals: dict[str, dict], cat: Catalog, tiene_ganado: bool) -> list[dict]:
+    """Todas las rotaciones elegibles, ordenadas por total, con su perfil por puntaje.
+
+    El perfil es el mismo diagnóstico por reglas, calculado para los cinco puntajes
+    (sin depender de las prioridades), para explicar cada puntaje por separado.
+    """
+    out = []
+    for rid, ev in evals.items():
+        rot = cat.rotations[rid]
+        if rot.get("requiere_ganado") and not tiene_ganado:
+            continue
+        perfil = {i["area"]: i for i in diagnose(ev, PERFIL_PRIO, True, cat.recs)["items"]}
+        out.append({
+            **ev,
+            "requiere_ganado": bool(rot.get("requiere_ganado")),
+            "calendario": calendar(rot, cat.crops),
+            "perfil": perfil,
+        })
+    return sorted(out, key=lambda e: e["total"], reverse=True)
+
+
+def compare_full(current_id: str, prio: dict, m: pd.DataFrame, cap: float,
+                 clim: list[dict], cat: Catalog, tiene_ganado: bool = True,
+                 n_alternatives: int = 2, erosion: dict[str, dict] | None = None
+                 ) -> tuple[list[dict], list[dict]]:
+    """Como compare(), y además el ranking de todas las rotaciones elegibles."""
     if current_id not in cat.rotations:
         raise KeyError(current_id)
     arr = _month_arrays(m)
@@ -573,4 +606,8 @@ def compare(current_id: str, prio: dict, m: pd.DataFrame, cap: float,
                                    prio, cat.crops, clim, ctx),
             "diagnostico": diagnose(ev, prio, tiene_ganado, cat.recs),
         })
-    return result
+    ranked = ranking(evals, cat, tiene_ganado)
+    if not any(r["id"] == current_id for r in ranked):  # la actual siempre figura
+        ranked = sorted(ranking({current_id: current}, cat, True) + ranked,
+                        key=lambda e: e["total"], reverse=True)
+    return result, ranked

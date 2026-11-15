@@ -4,8 +4,11 @@
  * un titular corto, una animación y una narración frase por frase. Cada frase
  * dispara un "beat" de la animación, así la voz y la imagen van sincronizadas.
  *
- * Más adelante un LLM puede reemplazar solo los textos (titular, frases, etiquetas
- * cortas); los números y las animaciones siguen saliendo de los datos.
+ * Librería de plantillas. Las fijas cuentan siempre la misma historia (clima, rotación
+ * de hoy, una opción, qué revisar). Las opcionales entran solo si los datos del campo
+ * lo justifican: cada una calcula su relevancia (0 a 1) con reglas escritas y se muestran
+ * las más relevantes (ver CATALOG y plan()). Ninguna IA elige ni calcula: el LLM solo
+ * puede reescribir los textos, y se le verifica que conserve los números.
  */
 "use strict";
 
@@ -176,7 +179,8 @@ function erosionMeter(container, value, tol, label) {
 }
 
 /* ------------------------------------------------------------- slides */
-function buildSlides(d) {
+/* Plantillas fijas: la historia base. Devuelve la lista en orden. */
+function buildCoreSlides(d) {
   const months = d.clima.mensual;
   const trends = d.clima.tendencias.indicadores || d.clima.tendencias;
   const tr = (id) => trends.find((t) => t.id === id);
@@ -197,7 +201,7 @@ function buildSlides(d) {
   /* 1 · Portada */
   slides.push({
     key: "intro",
-    headline: "Your field in one minute",
+    headline: "Your field, explained simply",
     sub: campo,
     narration: [
       campo ? `Hi. Let's take a look at your field ${campo.replace(/\s*\(.*\)/, "").replace(/^\w/, (c) => c.toLowerCase())}.` : "Hi. Let's take a look at your field.",
@@ -487,6 +491,329 @@ function buildSlides(d) {
   return slides;
 }
 
+/* ------------------------------------------------- plantillas opcionales */
+const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+const clamp01 = (v) => Math.max(0, Math.min(1, v || 0));
+const SCORE_WORD = { agua: "water saving", suelo: "soil health", ingreso: "income", forraje: "forage", clima: "climate resilience" };
+const benefit = (rot, re) => ((rot.explicacion && rot.explicacion.beneficios) || []).find((b) => re.test(b)) || null;
+const FIXES_N = /nitrogen to the soil/, DEEP_ROOTS = /deep roots/, STUBBLE = /plenty of stubble/;
+const list = (parts) => (parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0] || "");
+
+/* Datos que usan las plantillas opcionales. Todo sale del análisis; lo que falte queda en null. */
+function facts(d) {
+  const months = d.clima.mensual;
+  const trends = d.clima.tendencias.indicadores || d.clima.tendencias;
+  const [cur, alt, alt2] = d.rotaciones;
+  const ci = cur.indicadores, ai = alt ? alt.indicadores : {};
+  const wet = months.map((m) => num(m.humedad_raiz));
+  const hasWet = wet.every((v) => v !== null);
+  const iMax = hasWet ? wet.indexOf(Math.max(...wet)) : -1, iMin = hasWet ? wet.indexOf(Math.min(...wet)) : -1;
+  return {
+    d, months, cur, alt, alt2, ci, ai,
+    tol: (d.zonas && d.zonas.tolerancia_t_ha) || 7,
+    z: d.zonas && d.zonas.resumen ? d.zonas.resumen : null,
+    hasErosion: num(ci.erosion_t_ha) !== null,
+    heat: trends.find((t) => t.id === "dias_calor"),
+    wet, hasWet, wetMax: iMax >= 0 ? months[iMax] : null, wetMin: iMin >= 0 ? months[iMin] : null,
+  };
+}
+
+/* Cada plantilla opcional: relevance(x) → 0 a 1 (0 = no aplica) y build(x) → slide. */
+const OPTIONAL = {
+  /* El suelo como tanque: humedad de la zona de raíces (NASA POWER) y lo que le falta al cultivo. */
+  agua: {
+    relevance: (x) => (x.hasWet && num(x.ci.deficit_seco_mm) !== null ? clamp01((num(x.ci.deficit_critico_seco_mm) ?? x.ci.deficit_seco_mm) / 300) : 0),
+    build(x) {
+      const { ci, ai, months, wet } = x, pct = (v) => Math.round(v * 100);
+      const crit = num(ci.deficit_critico_seco_mm) !== null && num(ai.deficit_critico_seco_mm) !== null;
+      return {
+        key: "agua",
+        headline: "Your soil is a water tank",
+        narration: [
+          `Think of your soil as a water tank for the roots. NASA estimates how full it is each month: about ${pct(x.wetMax.humedad_raiz)} percent in ${MONTH_FULL[x.wetMax.mes]}, and down to ${pct(x.wetMin.humedad_raiz)} percent in ${MONTH_FULL[x.wetMin.mes]}.`,
+          `Your crops need the most water just when the tank is lowest. In an average year they fall short by ${nf(ci.deficit_mm)} millimeters; in a dry year, one in five, by ${nf(ci.deficit_seco_mm)}.`,
+          crit
+            ? `In the critical stages, when the harvest is decided, a dry year leaves your crops ${nf(ci.deficit_critico_seco_mm)} millimeters short today, and ${nf(ai.deficit_critico_seco_mm)} with the option.`
+            : "The shortage hurts most in the critical stages, when the harvest is decided.",
+        ],
+        render(stage) {
+          stage.innerHTML = `<div class="split"><div class="vis"></div><div class="side"></div></div>`;
+          const W = 440, H = 320, L = 14, B = 270, T = 26, bw = (W - 2 * L) / 12;
+          const s = svg("svg", { viewBox: `0 0 ${W} ${H}`, class: "tank-svg", role: "img", "aria-label": "Root-zone soil moisture by month" });
+          months.forEach((m, i) => {
+            const h = (B - T) * wet[i], low = m === x.wetMin;
+            svg("rect", { x: L + i * bw + 4, y: T, width: bw - 8, height: B - T, rx: 7, class: "tank-track" }, s);
+            svg("rect", { x: L + i * bw + 4, y: B - h, width: bw - 8, height: h, rx: 7, class: `tank-fill step${low ? " low" : ""}`, style: `--d:${i * 60}ms` }, s);
+            const t = svg("text", { x: L + i * bw + bw / 2, y: B + 22, class: "tick" }, s);
+            t.textContent = AG_SHORT[i];
+            if (low || m === x.wetMax) {
+              const v = svg("text", { x: L + i * bw + bw / 2, y: B - h - 8, class: `tank-val step${low ? " low" : ""}` }, s);
+              v.textContent = `${pct(wet[i])}%`;
+            }
+          });
+          stage.querySelector(".vis").appendChild(s);
+          const side = stage.querySelector(".side");
+          side.innerHTML = `
+            <div class="fact-pair step" data-k="year">
+              <div><span class="num">0</span><span class="unit">mm short in an average year</span></div>
+              <div><span class="num dry">0</span><span class="unit">mm short in a dry year</span></div>
+            </div>
+            ${crit ? `<div class="chip-row step" data-k="crit"><span class="chip">Critical stages, dry year: ${nf(ci.deficit_critico_seco_mm)} → ${nf(ai.deficit_critico_seco_mm)} mm</span></div>` : ""}`;
+          return (b) => {
+            if (b >= 0) s.querySelectorAll(".step").forEach((r) => r.classList.add("on"));
+            const year = side.querySelector('[data-k="year"]');
+            if (b >= 1 && !year.classList.contains("on")) {
+              year.classList.add("on");
+              const [a, dry] = year.querySelectorAll(".num");
+              animateNumber(a, 0, ci.deficit_mm, 0, 900); animateNumber(dry, 0, ci.deficit_seco_mm, 0, 1200);
+            }
+            if (b >= 2) side.querySelector('[data-k="crit"]')?.classList.add("on");
+          };
+        },
+      };
+    },
+  },
+
+  /* Calor y heladas en las etapas críticas de los cultivos. */
+  extremos: {
+    relevance(x) {
+      const v = [x.ci.dias_calor_critico, x.ai.dias_calor_critico].map((n) => (num(n) ?? 0) / 4)
+        .concat([x.ci.dias_helada_critico, x.ai.dias_helada_critico].map((n) => (num(n) ?? 0) / 2));
+      const top = Math.max(...v);
+      return top >= 0.25 ? clamp01(0.3 + top * 0.7) : 0;
+    },
+    build(x) {
+      const { ci, ai, heat } = x;
+      const days = (i) => {
+        const h = num(i.dias_calor_critico) ?? 0, f = num(i.dias_helada_critico) ?? 0, parts = [];
+        if (h >= 0.5) parts.push(`${nf(h, 1)} very hot days`);
+        if (f >= 0.5) parts.push(`${nf(f, 1)} frost-risk days`);
+        return parts;
+      };
+      const now = days(ci), opt = days(ai);
+      const hot = Math.max(num(ci.dias_calor_critico) ?? 0, num(ai.dias_calor_critico) ?? 0) >= 0.5;
+      const cold = Math.max(num(ci.dias_helada_critico) ?? 0, num(ai.dias_helada_critico) ?? 0) >= 0.5;
+      const narration = [
+        "Some weeks decide the harvest: the critical stages, such as flowering and grain fill.",
+        now.length ? `In those weeks, your current rotation gets about ${list(now)} a year.`
+          : "In those weeks, your current rotation rarely meets very hot days or frost.",
+        opt.length ? `With the option, the critical stages get about ${list(opt)} a year.`
+          : "With the option, the critical stages rarely meet very hot days or frost.",
+      ];
+      if (hot && heat && heat.cambio_pct >= 10) narration.push(`And very hot days are becoming more frequent in your area: from ${nf(heat.valor_1)} to ${nf(heat.valor_2)} a year.`);
+      return {
+        key: "extremos",
+        headline: hot && cold ? "Heat and frost at the worst moment" : hot ? "Heat at the worst moment" : "Frost at the worst moment",
+        narration,
+        mood: hot ? "heat" : "frost",
+        render(stage) {
+          const card = (k, title, i) => `
+            <div class="stat step" data-k="${k}">
+              <div class="stat-label">${title}</div>
+              <div class="extreme-row"><span class="icon">🌡️</span><span class="new">${nf(num(i.dias_calor_critico) ?? 0, 1)}</span><span class="unit">very hot days</span></div>
+              <div class="extreme-row"><span class="icon">❄️</span><span class="new">${nf(num(i.dias_helada_critico) ?? 0, 1)}</span><span class="unit">frost-risk days</span></div>
+              <div class="period">a year, in the critical stages</div>
+            </div>`;
+          stage.innerHTML = `<div class="stats">${card("now", "Today", ci)}${card("opt", "With the option", ai)}</div>`;
+          return (b) => {
+            if (b >= 1) stage.querySelector('[data-k="now"]').classList.add("on");
+            if (b >= 2) stage.querySelector('[data-k="opt"]').classList.add("on");
+          };
+        },
+      };
+    },
+  },
+
+  /* Dónde se pierde el suelo: desnivel, pendiente y parte del campo sobre la tolerancia. */
+  terreno: {
+    relevance: (x) => (x.z && x.hasErosion && num(x.ci.erosion_area_alta_pct) !== null && x.z.desnivel_m >= 3
+      ? clamp01((x.ci.erosion_area_alta_pct / 100) * 0.6 + (x.z.pendiente_max_pct / 10) * 0.4) : 0),
+    build(x) {
+      const { z, ci, tol } = x;
+      return {
+        key: "terreno",
+        headline: "Where your field loses soil",
+        narration: [
+          `Your field isn't flat. There are ${nf(z.desnivel_m)} meters between its highest and lowest point, and slopes reach ${nf(z.pendiente_max_pct, 1)} percent.`,
+          z.area_baja_pct > 0 ? `Water runs downhill and gathers in the low spots, about ${nf(z.area_baja_pct)} percent of the field.`
+            : "Water runs downhill, faster where the slope is steeper.",
+          `That is why soil loss isn't even: ${nf(ci.erosion_area_alta_pct)} percent of the field loses more than the tolerable limit of ${nf(tol)} tonnes per hectare a year.`,
+        ],
+        render(stage) {
+          const stat = (k, icon, value, unit, label) => `
+            <div class="stat step" data-k="${k}"><div class="icon">${icon}</div><div class="stat-label">${label}</div>
+              <div class="stat-row"><span class="new">${value}</span><span class="unit">${unit}</span></div></div>`;
+          stage.innerHTML = `<div class="stats three">
+            ${stat("h", "⛰️", nf(z.desnivel_m), "m", "Height difference")}
+            ${stat("low", "💧", nf(z.area_baja_pct), "%", "Low spots")}
+            ${stat("ero", "⚠️", nf(ci.erosion_area_alta_pct), "%", "Above the tolerable loss")}</div>`;
+          return (b) => ["h", "low", "ero"].forEach((k, i) => { if (b >= i) stage.querySelector(`[data-k="${k}"]`).classList.add("on"); });
+        },
+      };
+    },
+  },
+
+  /* Por qué importa la cobertura: la misma lluvia sobre suelo desnudo y sobre suelo cubierto. */
+  cobertura: {
+    relevance: (x) => (x.alt && num(x.ci.lluvia_suelo_desnudo_mm) !== null && num(x.ai.lluvia_suelo_desnudo_mm) !== null
+      && x.ci.meses_descubiertos >= 3 && x.ai.meses_descubiertos <= x.ci.meses_descubiertos - 2
+      ? clamp01(((x.ci.meses_descubiertos - x.ai.meses_descubiertos) / 6) * 0.6 + (x.ci.lluvia_suelo_desnudo_mm / 800) * 0.4) : 0),
+    build(x) {
+      const { ci, ai } = x;
+      return {
+        key: "cobertura",
+        headline: "Why covered soil matters",
+        narration: [
+          "Here is why cover matters. Picture the same field split in two: bare soil on one side, soil covered by a crop on the other.",
+          `Each year about ${nf(ci.lluvia_suelo_desnudo_mm)} millimeters of rain fall on your bare soil. The drops hit the ground, loosen it and carry it downhill.`,
+          `Leaves and stubble cushion the drops, and roots hold the soil, so more water soaks in. With the option, only ${nf(ai.lluvia_suelo_desnudo_mm)} millimeters fall on bare soil.`,
+        ],
+        render(stage) {
+          const drops = (x0) => Array.from({ length: 7 }, (_, k) =>
+            `<line class="drop" x1="${x0 + 22 + k * 36}" y1="${20 + (k % 3) * 14}" x2="${x0 + 16 + k * 36}" y2="${40 + (k % 3) * 14}" style="animation-delay:${k * 150}ms"/>`).join("");
+          const plants = Array.from({ length: 9 }, (_, k) =>
+            `<path class="leaf" d="M ${28 + k * 30} 150 q -10 -34 -2 -52 q 12 18 2 52 M ${28 + k * 30} 150 q 14 -22 20 -40 q -2 24 -20 40" style="--d:${k * 60}ms"/>`).join("");
+          stage.innerHTML = `
+            <div class="compare cover">
+              <div class="col"><div class="col-title">Bare soil</div>
+                <svg viewBox="0 0 300 200" class="cover-svg" aria-hidden="true">
+                  <g class="rain-drops">${drops(0)}</g>
+                  <path d="M0 150 L300 172 V200 H0Z" fill="#9a7651"/>
+                  <g class="runoff">${Array.from({ length: 6 }, (_, k) => `<circle cx="${40 + k * 40}" cy="${151 + k * 3}" r="5" style="animation-delay:${k * 220}ms"/>`).join("")}</g>
+                </svg>
+                <div class="big-fact step" data-k="bare"><span class="num">0</span><span class="unit">mm of rain on bare soil a year</span></div></div>
+              <div class="vs">→</div>
+              <div class="col"><div class="col-title accent">Covered soil</div>
+                <svg viewBox="0 0 300 200" class="cover-svg" aria-hidden="true">
+                  <g class="rain-drops">${drops(0)}</g>
+                  <path d="M0 150 L300 172 V200 H0Z" fill="#6f8f45"/>
+                  <g class="leaves">${plants}</g>
+                </svg>
+                <div class="big-fact step" data-k="cov"><span class="num">0</span><span class="unit">mm with the option</span></div></div>
+            </div>`;
+          const on = (k, v) => {
+            const el = stage.querySelector(`[data-k="${k}"]`);
+            if (el.classList.contains("on")) return;
+            el.classList.add("on"); animateNumber(el.querySelector(".num"), 0, v, 0, 1000);
+          };
+          return (b) => {
+            if (b >= 0) stage.querySelectorAll(".rain-drops, .leaves").forEach((g) => g.classList.add("on"));
+            if (b >= 1) { on("bare", ci.lluvia_suelo_desnudo_mm); stage.querySelector(".runoff").classList.add("on"); }
+            if (b >= 2) on("cov", ai.lluvia_suelo_desnudo_mm);
+          };
+        },
+      };
+    },
+  },
+
+  /* Lo que hacen las raíces: el motor dice qué cultivos fijan nitrógeno, tienen raíz profunda o dejan rastrojo. */
+  raices: {
+    relevance(x) {
+      if (!x.alt) return 0;
+      const fix = benefit(x.alt, FIXES_N), deep = benefit(x.alt, DEEP_ROOTS);
+      // El nitrógeno pesa más: es lo que menos se ve y lo que más cambia el manejo.
+      return fix || deep ? clamp01(0.35 + (fix ? 0.25 : 0) + (deep ? 0.2 : 0) + (benefit(x.alt, STUBBLE) ? 0.1 : 0)) : 0;
+    },
+    build(x) {
+      const fix = benefit(x.alt, FIXES_N), deep = benefit(x.alt, DEEP_ROOTS), stub = benefit(x.alt, STUBBLE);
+      const items = [
+        ...(fix ? [{ k: "n", icon: "🫘", title: "Adds nitrogen", say: `${speakable(fix)} Bacteria living on its roots take it from the air.`, text: fix }] : []),
+        ...(deep ? [{ k: "deep", icon: "🌱", title: "Deep roots", say: speakable(deep), text: deep }] : []),
+        ...(stub ? [{ k: "stub", icon: "🌾", title: "Stubble cover", say: speakable(stub), text: stub }] : []),
+      ];
+      return {
+        key: "raices",
+        headline: "The work roots do underground",
+        narration: ["Part of the difference with the option is underground, where you can't see it.", ...items.map((i) => i.say)],
+        items,
+        render(stage) {
+          stage.innerHTML = `<ul class="checklist roots-list">${items.map((i) =>
+            `<li class="step"><span class="ic">${i.icon}</span><span><strong>${escH(i.title)}.</strong> ${escH(i.text)}</span></li>`).join("")}</ul>`;
+          const lis = stage.querySelectorAll("li");
+          return (b) => lis.forEach((li, i) => { if (b >= i + 1) li.classList.add("on"); });
+        },
+      };
+    },
+  },
+
+  /* Una segunda opción, cuando queda cerca de la primera. */
+  otra: {
+    relevance: (x) => (x.alt && x.alt2 ? clamp01(1 - (x.alt.total - x.alt2.total) / 6) * 0.8 : 0),
+    build(x) {
+      const { alt, alt2 } = x;
+      const diff = Object.keys(SCORE_WORD).map((k) => ({ k, d: alt2.puntajes[k] - alt.puntajes[k] })).sort((a, b) => b.d - a.d);
+      const up = diff[0].d >= 2 ? diff[0] : null, down = diff[diff.length - 1].d <= -2 ? diff[diff.length - 1] : null;
+      const pts = (k) => `${nf(alt2.puntajes[k])} points against ${nf(alt.puntajes[k])}`;
+      const narration = [`There is also a second option: ${spoken(alt2.nombre)}. It scores ${nf(alt2.total)} out of 100, against ${nf(alt.total)} for the first one.`];
+      if (up) narration.push(`It does better in ${SCORE_WORD[up.k]}: ${pts(up.k)}.`);
+      if (down) narration.push(`In exchange, it scores lower in ${SCORE_WORD[down.k]}: ${pts(down.k)}.`);
+      if (!up && !down) narration.push("Both options score about the same in everything that matters to you.");
+      const chips = [...(up ? [`▲ ${SCORE_WORD[up.k]}: ${nf(alt.puntajes[up.k])} → ${nf(alt2.puntajes[up.k])}`] : []),
+        ...(down ? [`▼ ${SCORE_WORD[down.k]}: ${nf(alt.puntajes[down.k])} → ${nf(alt2.puntajes[down.k])}`] : [])];
+      return {
+        key: "otra",
+        headline: "A second option worth a look",
+        sub: alt2.nombre,
+        narration,
+        chips,
+        render(stage) {
+          stage.innerHTML = `<div class="compare"><div class="col"><div class="col-title">First option · ${nf(alt.total)}</div></div><div class="vs">·</div><div class="col"><div class="col-title accent">Second option · ${nf(alt2.total)}</div></div></div><div class="chip-row chips"></div>`;
+          const cols = stage.querySelectorAll(".col");
+          const mk = (col, row, prefix) => {
+            const s = svg("svg", { viewBox: "0 0 400 400", class: "ring-svg small" });
+            col.appendChild(s);
+            ringCalendar(s, row, { idPrefix: prefix, labels: false, r0: 100, r1: 170 });
+            return s;
+          };
+          const s1 = mk(cols[0], alt.calendario[0], "o1"), s2 = mk(cols[1], alt2.calendario[0], "o2");
+          const chipRow = stage.querySelector(".chips");
+          chipRow.innerHTML = chips.map((c, i) => `<span class="chip step" style="--d:${i * 180}ms">${escH(c)}</span>`).join("");
+          return (b) => {
+            if (b >= 0) { s1.querySelectorAll(".seg").forEach((p) => p.classList.add("on")); later(() => s2.querySelectorAll(".seg").forEach((p) => p.classList.add("on")), 500); }
+            if (b >= 1) chipRow.querySelectorAll(".chip").forEach((c) => c.classList.add("on"));
+          };
+        },
+      };
+    },
+  },
+};
+
+/* Orden de la historia. Las opcionales se intercalan donde mejor se entienden. */
+const CATALOG = ["intro", "clima", "cambio", "agua", "extremos", "hoy", "terreno", "diagnostico", "cobertura", "opcion", "raices", "otra", "revisar", "cierre"];
+const MAX_OPTIONAL = 3;        // con las fijas: hasta 11 slides (el narrador acepta 12)
+const MIN_RELEVANCE = 0.3;
+
+/* Qué plantillas entran y por qué: [{ key, optional, score, included }], en el orden de la historia. */
+function plan(d) {
+  const x = facts(d);
+  const rows = CATALOG.map((key) => {
+    const opt = OPTIONAL[key];
+    let score = 1;
+    if (opt) { try { score = Number(clamp01(opt.relevance(x)).toFixed(2)); } catch (e) { score = 0; } }   // análisis viejo sin algún dato
+    return { key, optional: !!opt, score };
+  });
+  const chosen = new Set(rows.filter((r) => r.optional && r.score >= MIN_RELEVANCE)
+    .sort((a, b) => b.score - a.score).slice(0, MAX_OPTIONAL).map((r) => r.key));
+  const forced = forcedTemplates();
+  return rows.map((r) => ({ ...r, included: !r.optional || (forced ? forced.includes(r.key) : chosen.has(r.key)) }));
+}
+
+/* Para revisar una plantilla que este campo no elige: ?templates=terreno,otra (solo cambia cuáles se muestran). */
+function forcedTemplates() {
+  try {
+    const v = new URLSearchParams(location.search).get("templates");
+    return v === null ? null : v.split(",").filter((k) => OPTIONAL[k]);
+  } catch (e) { return null; }
+}
+
+function buildSlides(d) {
+  const core = Object.fromEntries(buildCoreSlides(d).map((s) => [s.key, s]));
+  const x = facts(d);
+  return plan(d).filter((r) => r.included)
+    .map((r) => (r.optional ? OPTIONAL[r.key].build(x) : core[r.key]))
+    .filter(Boolean);               // "diagnostico" no existe si el motor no devolvió ítems
+}
+
 /* ------------------------------------------------------------- player */
 class Player {
   constructor(root, slides) {
@@ -495,24 +822,30 @@ class Player {
     this.i = 0;
     this.sentence = 0;
     this.playing = false;
-    this.voiceOn = "speechSynthesis" in window;
+    this.browserVoice = "speechSynthesis" in window;
+    this.voiceOn = this.browserVoice || !!window.CooperVoice;
+    this.audio = null; // the ElevenLabs sentence being played, if any
     this.token = 0;
     this.rate = 1;
+    this.volume = 1;
+    this.wps = 2.6; // words per second of the voice at normal speed, learned while it speaks
     this.voice = null;
+    // Reloj tipo video: tiempo estimado por frase, para la barra de progreso y saltos de 10 s.
+    this.clock = { base: 0, startedAt: 0, cap: 0 };
     this.stage = root.querySelector(".stage-inner");
     this.subs = root.querySelector(".subs");
     this.headline = root.querySelector(".headline");
     this.subhead = root.querySelector(".subhead");
     this.dots = root.querySelector(".dots");
     this.pickVoice();
-    if (this.voiceOn) speechSynthesis.onvoiceschanged = () => this.pickVoice();
+    if (this.browserVoice) speechSynthesis.onvoiceschanged = () => this.pickVoice();
     this.dots.innerHTML = slides.map((s, k) => `<button aria-label="Go to slide ${k + 1}" data-k="${k}"></button>`).join("");
     this.dots.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) this.go(Number(b.dataset.k)); });
     this.show(0);
   }
 
   pickVoice() {
-    if (!this.voiceOn) return;
+    if (!this.browserVoice) return;
     // Voz en inglés (la UI y la narración están en inglés).
     const vs = speechSynthesis.getVoices().filter((v) => v.lang && v.lang.toLowerCase().startsWith(window.CooperLang?.current || "en"));
     const pref = window.CooperLang?.current === "es" ? ["es-uy", "es-ar", "es-es", "es-mx"] : ["en-us", "en-gb", "en-au", "en-ca", "en-ie", "en-in"];
@@ -551,21 +884,96 @@ class Player {
     if (now) now.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 
-  say(text) {
+  /* Speaks one sentence. The timeline is the master clock: the voice follows it, and it
+     never holds the clock more than 2.5 s past the sentence's estimated length. Chrome does
+     not stop the previous sentence at once after cancel(), so the next one waits a moment. */
+  async say(text, my) {
+    const t0 = performance.now();
+    const estMs = this.estimate(text) * 1000;
+    if (!this.voiceOn) return new Promise((r) => setTimeout(r, estMs));
+    if (await this.sayCloud(text, my)) return;
+    if (my !== undefined && (my !== this.token || !this.playing)) return;
+    const left = Math.max(0, estMs - (performance.now() - t0));
+    if (!this.browserVoice || !this.voice) return new Promise((r) => setTimeout(r, left));
+    return this.sayBrowser(text, my, estMs);
+  }
+
+  /* Starts fetching the voice of a slide before it is needed, so sentences follow without gaps. */
+  preload(i) {
+    const V = window.CooperVoice, s = this.slides[i];
+    if (!V || !s || !this.voiceOn) return;
+    s.narration.forEach((t) => V.get(t, window.CooperLang?.current || "en"));
+  }
+
+  /* The server's voice (ElevenLabs). Resolves false when there is none for this sentence, so
+     the browser's voice says it instead. */
+  async sayCloud(text, my) {
+    const V = window.CooperVoice;
+    if (!V || !V.available()) return false;
+    const url = await V.within(text, window.CooperLang?.current || "en", 4000);
+    if (!url) return false;
+    if (my !== undefined && (my !== this.token || !this.playing)) return true;
     const words = text.split(/\s+/).length;
-    const fallbackMs = Math.max(2200, (words / 2.6) * 1000 / this.rate);
-    if (!this.voiceOn || !this.voice) return new Promise((r) => setTimeout(r, fallbackMs));
     return new Promise((resolve) => {
-      const u = new SpeechSynthesisUtterance(text);
-      u.voice = this.voice;
-      u.lang = this.voice.lang;
-      u.rate = this.rate;
-      let done = false;
-      const finish = () => { if (!done) { done = true; clearTimeout(guard); resolve(); } };
-      u.onend = finish;
-      u.onerror = finish;
-      const guard = setTimeout(finish, fallbackMs * 2.5 + 3000); // por si el navegador no avisa
-      speechSynthesis.speak(u);
+      const a = new Audio(url);
+      let done = false, started = 0;
+      const finish = (ok) => {
+        if (done) return;
+        done = true; clearTimeout(guard);
+        if (this.audio === a) this.audio = null;
+        a.pause();
+        resolve(ok);
+      };
+      const guard = setTimeout(() => finish(true), 45000);
+      a.playbackRate = this.rate;
+      a.preservesPitch = true;
+      a.volume = this.volume;
+      a.onplaying = () => { if (!started) { started = performance.now(); if (this.playing && this.clock.startedAt) this.clock.startedAt = started; } };
+      a.onended = () => {
+        const dur = (performance.now() - started) / 1000;
+        if (started && dur > 0.8) this.wps = Math.min(4.2, Math.max(1.6, 0.65 * this.wps + 0.35 * (words / (dur * this.rate))));
+        finish(true);
+      };
+      a.onerror = () => finish(!!started);
+      a.stop = () => finish(true);
+      this.audio = a;
+      a.play().catch(() => finish(false)); // blocked until the first click: the browser's voice tries
+    });
+  }
+
+  stopAudio() { if (this.audio) this.audio.stop(); }
+
+  sayBrowser(text, my, estMs) {
+    const words = text.split(/\s+/).length;
+    return new Promise((resolve) => {
+      let done = false, started = 0;
+      const finish = (ok) => {
+        if (done) return;
+        done = true; clearTimeout(guard);
+        if (ok && started) {
+          const dur = (performance.now() - started) / 1000;
+          if (dur > 0.8) {
+            const obs = words / (dur * this.rate);
+            this.wps = Math.min(4.2, Math.max(1.6, 0.65 * this.wps + 0.35 * obs));
+          }
+        }
+        resolve();
+      };
+      const guard = setTimeout(() => finish(false), estMs + 2500);
+      const go = () => {
+        if (my !== undefined && (my !== this.token || !this.playing)) return finish(false);
+        const u = new SpeechSynthesisUtterance(text);
+        u.voice = this.voice;
+        u.lang = this.voice.lang;
+        u.rate = this.rate;
+        u.volume = this.volume;
+        u.onstart = () => { started = performance.now(); if (this.playing && this.clock.startedAt) this.clock.startedAt = started; };
+        u.onend = () => finish(true);
+        u.onerror = () => finish(false);
+        speechSynthesis.speak(u);
+      };
+      if (speechSynthesis.speaking || speechSynthesis.pending) { speechSynthesis.cancel(); setTimeout(go, 140); }
+      else go();
     });
   }
 
@@ -574,34 +982,115 @@ class Player {
     const alive = () => my === this.token && this.playing;
     while (alive()) {
       const s = this.slides[this.i];
+      this.preload(this.i);
+      this.preload(this.i + 1);
       for (let k = this.sentence; k < s.narration.length; k++) {
         if (!alive()) return;
         this.sentence = k;
         this.beat(k);
         this.highlight(k);
-        await this.say(s.narration[k]);
+        const seg = this.segmentAt(this.i, k);
+        this.clock = { base: seg.start, startedAt: performance.now(), cap: Math.max(0, seg.dur - 0.05) };
+        this.emit();
+        await this.say(s.narration[k], my);
       }
       if (!alive()) return;
       this.highlight(s.narration.length);
-      await new Promise((r) => setTimeout(r, 900));
+      const last = this.segmentAt(this.i, s.narration.length - 1);
+      this.clock = { base: last.start + last.dur, startedAt: performance.now(), cap: Player.GAP };
+      await new Promise((r) => setTimeout(r, Player.GAP * 1000));
       if (!alive()) return;
-      if (this.i === this.slides.length - 1) { this.pause(); return; }
+      if (this.i === this.slides.length - 1) {
+        this.pause();
+        this.clock = { base: this.duration(), startedAt: 0, cap: 0 };
+        this.sentence = 0;
+        this.ended = true;
+        this.emit("ended");
+        return;
+      }
       this.show(this.i + 1);
     }
   }
 
   play() {
     if (this.playing) return;
+    if (this.ended) { this.ended = false; this.show(0); }
     this.playing = true;
     this.root.classList.add("is-playing");
     this.run();
   }
 
   pause() {
+    const t = this.currentTime();
     this.playing = false;
     this.token++;
-    if (this.voiceOn) speechSynthesis.cancel();
+    this.stopAudio();
+    if (this.browserVoice) speechSynthesis.cancel();
     this.root.classList.remove("is-playing");
+    // Al reanudar se repite la frase actual desde su inicio.
+    const seg = this.segmentAt(this.i, this.sentence);
+    this.clock = { base: seg ? Math.min(t, seg.start) : t, startedAt: 0, cap: 0 };
+    this.emit();
+  }
+
+  /* ---- línea de tiempo (para el reproductor embebido de la página principal) ---- */
+  estimate(text) {
+    const words = text.split(/\s+/).length;
+    return Math.max(2.2, (words / (this.wps || 2.6)) / this.rate);
+  }
+
+  timeline() {
+    const sig = this.rate + "|" + (this.wps || 2.6).toFixed(1) + "|" + this.slides.map((s) => s.narration.join("\u0001")).join("\u0002");
+    if (this._tlSig === sig) return this._tl;
+    let t = 0;
+    const segs = [], chapters = [];
+    this.slides.forEach((s, i) => {
+      chapters.push({ i, start: t, title: s.headline, key: s.key });
+      s.narration.forEach((text, k) => { const dur = this.estimate(text); segs.push({ i, k, start: t, dur }); t += dur; });
+      t += Player.GAP;
+    });
+    this._tlSig = sig;
+    this._tl = { segs, chapters, total: t };
+    return this._tl;
+  }
+
+  duration() { return this.timeline().total; }
+
+  segmentAt(i, k) {
+    const segs = this.timeline().segs;
+    return segs.find((x) => x.i === i && x.k === k) || segs[0];
+  }
+
+  currentTime() {
+    const c = this.clock;
+    if (!this.playing || !c.startedAt) return c.base;
+    return c.base + Math.min(c.cap, (performance.now() - c.startedAt) / 1000);
+  }
+
+  seek(t) {
+    const tl = this.timeline();
+    t = Math.max(0, Math.min(t, tl.total - 0.01));
+    let seg = tl.segs[0];
+    for (const x of tl.segs) { if (x.start <= t + 1e-6) seg = x; else break; }
+    const wasPlaying = this.playing;
+    this.pause();
+    this.ended = false;
+    this.show(seg.i);
+    this.sentence = seg.k;
+    this.beat(seg.k);
+    this.highlight(seg.k);
+    this.clock = { base: seg.start, startedAt: 0, cap: 0 };
+    if (wasPlaying) this.play(); else this.emit();
+  }
+
+  setVolume(v) {
+    this.volume = Math.max(0, Math.min(1, v));
+    if (this.audio) this.audio.volume = this.volume;
+    this.emit();
+  }
+
+  emit(type = "state") {
+    this.root.dispatchEvent(new CustomEvent("cooper-player", { detail: { type, playing: this.playing, time: this.currentTime(), duration: this.duration(), slide: this.i } }));
   }
 
   toggle() { this.playing ? this.pause() : this.play(); }
@@ -610,16 +1099,20 @@ class Player {
     if (i < 0 || i >= this.slides.length) return;
     const wasPlaying = this.playing;
     this.pause();
+    this.ended = false;
     this.show(i);
-    if (wasPlaying) this.play();
+    this.clock = { base: this.segmentAt(i, 0).start, startedAt: 0, cap: 0 };
+    if (wasPlaying) this.play(); else this.emit();
   }
 
   setVoiceEnabled(on) {
     const wasPlaying = this.playing;
     this.pause();
-    this.voiceOn = on && "speechSynthesis" in window;
+    this.voiceOn = on && (this.browserVoice || !!window.CooperVoice);
     if (wasPlaying) this.play();
   }
 }
 
-window.CooperSlides = { buildSlides, Player };
+Player.GAP = 0.9; // pausa entre slides, en segundos
+
+window.CooperSlides = { buildSlides, plan, Player };

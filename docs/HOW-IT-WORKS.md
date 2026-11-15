@@ -238,36 +238,88 @@ It appears on each rotation card ("Strengths and weaknesses") and in one slide o
 
 ## What the user sees
 
-### Main screen (`index.html`)
+### The application (`index.html`)
 
-1. **Input panel:** map, sample fields, field size, current rotation, livestock, soil
-   water capacity and five priority sliders.
-2. **Your area in numbers:** rainfall versus ET0 chart, risk calendar and trend tiles.
-3. **Zones of your field:** a map on satellite imagery with four layers (erosion, relative
-   wetness, low spots, slope). On the erosion layer the farmer picks the rotation to see
-   how the map changes.
-4. **Climate scenario:** rainfall from −40% to +20% and temperature from 0 to +3 °C.
-5. **Three rotations side by side:** total, five score bars, crop calendar, four key
-   figures, strengths and weaknesses, and the five explanation blocks.
-6. **Glossary and method.**
+A single-page application with a side menu (a bottom bar on phones). It opens with the
+Cooper intro video; its white background is removed in real time by a WebGL shader, and
+the logo then lands in the menu while the interface assembles itself.
+
+- **Top bar:** the active field (each user can keep several independent fields), the
+  live weather at the field (Open-Meteo through `/api/weather`) and the time and date.
+- **Home:** the decision first.
+  - *Overall analysis:* the best rotation for the farmer's priorities, its five scores
+    compared with today's rotation and a score-profile radar.
+  - *Your best options:* one card per score (water saving, soil health, income, forage,
+    climate resilience) with the best rotation for that topic alone, only that topic's
+    indicators compared with today, its reason and an idea to improve. "See more
+    options" reveals the second and third rotations for that score.
+  - *Explain it simply:* the narrated explanation of that whole analysis (see below).
+  - The field on the map, the upcoming sowing, critical stages and harvest of the
+    current rotation, and the 7-day forecast.
+- **Analysis:**
+  - *New analysis:* the four input steps (field and location, current rotation,
+    farm, priorities), then every chart, map and table: climate (monthly, water
+    balance, 30 years, temperature), risk calendar, trends, zones of the field, the
+    climate scenario, the three rotations side by side with a score radar, and all the
+    options ranked. "Save analysis" keeps it in the history.
+  - *Analysis history:* saved analyses with date and time, the full breakdown of each
+    one, and exports to a branded PDF report, Excel (.xlsx), CSV and JSON.
+- **My field:** field details, a 3D model of the SRTM terrain coloured by erosion,
+  satellite image, NDVI (NASA GIBS, MODIS 250 m), erosion map, crop and land-cover map
+  (ESA WorldCover), soil properties (ISRIC SoilGrids through `/api/soil`), climate
+  charts, the crops of the rotation, terrain and notes. When an image source does not
+  respond, its panel shows a placeholder ready for that source.
+- **Settings:** light, dark or system theme, language, intro and motion preferences,
+  and export or deletion of the data stored on the device.
+- **Jarvis:** a floating assistant. With a Groq key it answers questions with the
+  numbers of the open analysis (`/api/assistant`); without one it gives guided answers
+  built from the same data. It explains; it never decides.
+
+Fields, the history and notes are stored in the browser (IndexedDB and localStorage);
+there are no user accounts on the server yet.
 
 ### "Explain it simply" (`slides.html` and `slides-3d.html`)
 
-An eight-slide narrated presentation for someone with no technical background:
-introduction, climate, how it changed, the current rotation, strengths and weaknesses, a
-better option, what to check, and closing.
+A narrated presentation for someone with no technical background. It is built from a
+**library of templates** (`slides.js`): the fixed ones always tell the same story, and the
+optional ones are added only when the field's data call for them, so two fields get
+different explanations.
 
-- It opens inside the main screen, in an overlay with the 3D version. The simple-chart
-  version is available in another tab.
-- The base texts come from templates (`slides.js`). The voice is the browser's English
-  voice.
+**Fixed:** introduction, climate, how it changed, the current rotation, strengths and
+weaknesses, a better option, what to check, and closing.
+
+**Optional** (each computes a relevance from 0 to 1 with written rules; the three most
+relevant ones above 0.3 are shown, placed where they fit the story):
+
+| Template | It appears when | What it shows (all from the analysis) |
+|---|---|---|
+| The soil as a water tank | Crops run short of water in a dry year | NASA POWER root-zone moisture month by month, and the crops' deficit in an average and a dry year |
+| Heat or frost at the worst moment | Critical crop stages meet very hot days or frost | Hot and frost-risk days in the critical stages, today and with the option |
+| Where the field loses soil | The field has relief and part of it exceeds the tolerable loss | Height difference, slopes, low spots, and the share of the field above tolerance |
+| Why covered soil matters | The option leaves the soil bare at least two months less | The same field split in two under the same rain: bare (today's erosion) and covered (the option's) |
+| The work roots do underground | The engine found nitrogen-fixing or deep-rooted crops in the option | A soil cutaway with only the contributions the engine listed |
+| A second option | The second alternative scores close to the first | Its calendar and the scores where it does better and worse |
+
+No AI chooses the templates or computes anything: `plan()` in `slides.js` returns each
+one's relevance and whether it is shown (`?templates=terreno,otra` forces a list, to review
+them). The story has at most 11 slides.
+
+- On Home it plays in a video-style player: it expands over a blurred interface, has a
+  progress bar with chapters, ±10 seconds, volume, captions and full screen, and it can
+  keep playing in a small window while the farmer uses the rest of the app. The player
+  drives the same narration engine (`slides.js`) through its timeline API.
+- The base texts come from templates (`slides.js`). The voice comes from ElevenLabs
+  (`/api/voice`, `voice.py`, one sentence per request, saved on the server once generated);
+  without a key or a connection, the browser's own voice is used.
 - It uses the last analysis run on the main screen, which is saved in the browser. If
   there is none, it uses a real example from the field near Young (`slides-sample.js`,
   built with `scripts/make_slides_sample.py`).
 - The 3D version (`slides3d.js`, with Three.js) shows a model of the field: the terrain is
   the SRTM terrain, the soil color is each zone's erosion, plants change month by month
   with the calendar, and the amount of soil washing downhill is proportional to the tonnes
-  lost. The landscape beyond the fence is decorative.
+  lost. The landscape beyond the fence is decorative. The optional templates add a soil
+  cutaway whose water level is the month's root-zone moisture, the split field, a cutaway
+  with roots, and hot or frosty skies.
 
 ### Narration rewritten with Groq
 
@@ -325,7 +377,10 @@ with an agronomist. It never makes decisions or changes the analysis.
 | `GET /api/catalog` | Crops, rotations, sample fields and score names |
 | `POST /api/analyze` | The full analysis for a point |
 | `POST /api/narrate` | The slides' text rewritten by Groq, or the templates if that wasn't possible |
-| `POST /api/chat` | A short "Ask Cooper" answer about the analysis summary sent with the question |
+| `GET /api/weather?lat&lon` | Current weather and a 7-day forecast (Open-Meteo, context only) |
+| `GET /api/soil?lat&lon` | Modelled soil properties by depth and surface texture (SoilGrids, reference only) |
+| `POST /api/assistant` | Jarvis' answer about the open analysis (Groq), or `fuente: "sin_ia"` |
+| `POST /api/chat` | A short answer (plain text) about the analysis summary sent with the question |
 | `POST /api/transcribe` | The text of a voice note (raw audio body, `Content-Type: audio/*`) |
 
 Input to `/api/analyze`:
@@ -344,8 +399,10 @@ Input to `/api/analyze`:
 
 Output: `meta` (source and period), `advertencias` (warnings), `clima` (monthly, monthly
 without the scenario, and trends), `rotaciones` (the three rotations, with indicators,
-scores, calendar, explanation and diagnosis) and `zonas` (terrain summary and the 225
-cells).
+scores, calendar, explanation and diagnosis), `ranking` (every eligible rotation ordered
+by total, each with a per-score profile, used for the best option per score) and `zonas`
+(terrain summary, the 225 cells and `erosion_ranking`, the erosion per cell of every
+ranked rotation).
 
 The API's field names are in Spanish because the prototype was written that way; every
 text the user sees is in English.
@@ -358,7 +415,10 @@ backend/app/climate.py    climate indicators and trends
 backend/app/terrain.py    SRTM, slope, water flow, RUSLE, zones
 backend/app/engine.py     water balance, scores, selection, explanations and diagnosis
 backend/app/narrator.py   narration rewriting with Groq, and its validation
-backend/app/assistant.py  "Ask Cooper" chat and voice-note transcription with Groq
+backend/app/assistant.py  Jarvis answers (/api/assistant), plus short chat and
+                          voice-note transcription (/api/chat, /api/transcribe) with Groq
+backend/app/weather.py    live weather (Open-Meteo), cached 10 minutes
+backend/app/soil.py       SoilGrids soil properties, cached on disk
 backend/app/main.py       API and web server
 backend/tests/            tests with synthetic data and a simulated Groq (no internet needed)
 backend/.env.example      template for the Groq key
@@ -366,8 +426,11 @@ data/crops.json           crop table
 data/rotations.json       rotation library
 data/recommendations.json ideas to improve, per problem
 data/cache/               downloaded data (not committed)
-frontend/index.html, app.js, styles.css       main screen
-frontend/assistant.js                         the "Ask Cooper" chat button and panel
+frontend/index.html, app.js, styles.css       application shell, routing, top bar, settings
+frontend/js/                                  views (home, analysis, history, field), charts,
+                                              exports, player, Jarvis, intro, 3D relief
+frontend/assets/brand/                        logo, icons and Jarvis rings with real transparency
+frontend/public/                              original brand files and the intro video
 frontend/slides*.html, slides*.js, slides.css "Explain it simply" (charts and 3D)
 scripts/make_slides_sample.py                 rebuilds the slides' sample analysis
 legacy/                                       the team's earlier scaffold

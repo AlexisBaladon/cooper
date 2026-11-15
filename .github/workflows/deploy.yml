@@ -47,8 +47,15 @@ jobs:
           node --check frontend/workflow.js
           node --check frontend/language.js
           node --check frontend/translations-es.js
+          node --check frontend/slides.js
+          node --check frontend/voice.js
+          for f in frontend/js/*.js; do
+            if [ "$f" = "frontend/js/relief.js" ] || [ "$f" = "frontend/js/map3d.js" ]; then node --check --input-type=module < "$f"; else node --check "$f"; fi
+          done
           node --test frontend/tests/workflow.test.cjs
           node --test frontend/tests/language.test.cjs
+          node --test frontend/tests/slides.test.cjs
+          node --check --input-type=module < frontend/slides3d.js
           python scripts/check_frontend_scripts.py
       - name: Validate deployment scripts and package release
         run: |

@@ -9,12 +9,13 @@
   const originals = new WeakMap(), rendered = new WeakMap(), attributes = new WeakMap();
   const translations = new Map();
   const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const entries = Object.entries(window.CooperSpanish || {}).sort((a, b) => b[0].length - a[0].length)
+  // Keys that start with "=" only translate a whole text node (short words such as "Home").
+  const entries = Object.entries(window.CooperSpanish || {}).filter(([en]) => !en.startsWith("=")).sort((a, b) => b[0].length - a[0].length)
     .map(([en, es]) => [new RegExp((/^[a-z]/i.test(en) ? "\\b" : "") + escape(en) + (/[a-z]$/i.test(en) ? "\\b" : ""), "gi"), es]);
   function translate(text) {
     if (current !== "es" || !text?.trim() || !/[a-z]/i.test(text)) return text;
     if (translations.has(text)) return translations.get(text);
-    const exact = window.CooperSpanish?.[text.trim()];
+    const exact = window.CooperSpanish?.[text.trim()] || window.CooperSpanish?.["=" + text.trim()];
     if (exact) return text.replace(text.trim(), exact);
     let result = text;
     for (const [pattern, replacement] of entries) result = result.replace(pattern, replacement);
@@ -32,7 +33,7 @@
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     let node;
     while ((node = walker.nextNode())) {
-      if (!node.parentElement || node.parentElement.closest("script,style,noscript,#language")) continue;
+      if (!node.parentElement || node.parentElement.closest("script,style,noscript,#language,.notranslate")) continue;
       const actual = node.nodeValue;
       if (!originals.has(node) || actual !== rendered.get(node)) originals.set(node, actual);
       const output = translate(originals.get(node));
@@ -63,7 +64,9 @@
   function prepareSlides(slides) {
     return slides.map((slide) => ({...slide, headline: translate(slide.headline), narration: slide.narration.map(translate)}));
   }
-  window.CooperLang = {get current() { return current; }, t: translate, refresh, prepareSlides};
+  // English text of a text node, even while it is shown translated (used by the glossary).
+  const original = (node) => (originals.has(node) && rendered.get(node) === node.nodeValue ? originals.get(node) : node.nodeValue);
+  window.CooperLang = {get current() { return current; }, t: translate, refresh, prepareSlides, original};
   document.getElementById("language")?.addEventListener("change", (e) => set(e.target.value));
   window.addEventListener("storage", (e) => { if (e.key === "cooper-language") set(e.newValue, false); });
   refresh();

@@ -6,6 +6,8 @@ Fase 2: comparación de rotaciones (balance de agua, puntajes, explicaciones)
 Fase 3: relieve SRTM, erosión RUSLE por rotación y zonas dentro del campo.
 Fase 4: diagnóstico (lo bueno y lo flojo) y recomendaciones, en engine.compare().
 Fase 5: redacción opcional de la voz de "Explain it simply" con Groq (/api/narrate).
+Fase 6: interfaz nueva: ranking de todas las rotaciones (mejor opción por puntaje),
+        tiempo actual (/api/weather), suelo SoilGrids (/api/soil) y asistente (/api/assistant).
 
 Ejecutar desde backend/:  python -m uvicorn app.main:app --reload
 """
@@ -15,11 +17,12 @@ from pathlib import Path
 from typing import Literal
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import assistant, climate, engine, narrator, power, terrain
+from . import assistant, climate, engine, jarvis, narrator, power, soil, terrain, voice, weather
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -36,7 +39,7 @@ DEMO_FIELDS = [
      "rotacion": "trigo_soja2", "tiene_ganado": True},
 ]
 
-app = FastAPI(title="Cooper", version="0.5.0")
+app = FastAPI(title="Cooper", version="0.6.0")
 catalog = engine.load_catalog()
 
 
@@ -84,6 +87,43 @@ def narrate(req: NarrateRequest) -> dict:
     return narrator.rewrite(slides, language=req.language)
 
 
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(..., max_length=1500)
+
+
+class AssistantRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=600)
+    history: list[ChatTurn] = Field(default_factory=list, max_length=8)
+    context: dict | None = None
+    language: Literal["en", "es"] = "en"
+
+
+@app.post("/api/assistant")
+def assistant_chat(req: AssistantRequest) -> dict:
+    """Responde preguntas sobre el análisis abierto (Groq, opcional). Nunca decide ni calcula."""
+    return assistant.answer(req.message.strip(), [t.model_dump() for t in req.history],
+                            req.context, req.language)
+
+
+@app.get("/api/weather")
+def get_weather(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180)) -> dict:
+    """Tiempo actual y pronóstico de 7 días (contexto; no entra en los cálculos)."""
+    try:
+        return weather.current(lat, lon)
+    except (httpx.HTTPError, KeyError, ValueError, TypeError) as exc:
+        raise HTTPException(502, "Weather service unavailable") from exc
+
+
+@app.get("/api/soil")
+def get_soil(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180)) -> dict:
+    """Propiedades del suelo modeladas por SoilGrids (referencia; no entran en los cálculos)."""
+    try:
+        return soil.fetch(lat, lon)
+    except (httpx.HTTPError, KeyError, ValueError, TypeError) as exc:
+        raise HTTPException(502, "Soil service unavailable") from exc
+
+
 @app.get("/health")
 @app.get("/api/health")
 def health() -> dict:
@@ -126,11 +166,71 @@ async def transcribe(request: Request) -> dict:
     return {"texto": text}
 
 
+async def _json_body(request: Request) -> dict:
+    try:
+        data = await request.json()
+    except ValueError:
+        raise HTTPException(400, "Invalid JSON") from None
+    if not isinstance(data, dict):
+        raise HTTPException(400, "Invalid request")
+    return data
+
+
+@app.post("/api/jarvis/chat")
+async def jarvis_chat(request: Request) -> dict:
+    """Jarvis a pantalla completa: frases + vista a mostrar, datos de la ficha y acción."""
+    data = await _json_body(request)
+    try:
+        return await run_in_threadpool(jarvis.chat, data)
+    except assistant.AssistantError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+
+
+@app.post("/api/jarvis/transcribe")
+async def jarvis_transcribe(request: Request) -> dict:
+    """Nota de voz de Jarvis → {text, lang}."""
+    if int(request.headers.get("content-length") or 0) > assistant.MAX_AUDIO_BYTES:
+        raise HTTPException(413, "The recording is too long. Please keep it under a minute.")
+    audio = await request.body()
+    try:
+        return await run_in_threadpool(jarvis.transcribe, audio, request.headers.get("content-type", ""))
+    except assistant.AssistantError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+
+
+@app.post("/api/jarvis/translate")
+async def jarvis_translate(request: Request) -> dict:
+    """Traducción del reporte de Jarvis, verificando que cada texto conserve sus números."""
+    data = await _json_body(request)
+    try:
+        return await run_in_threadpool(jarvis.translate, data)
+    except assistant.AssistantError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+
+
+class VoiceRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=voice.MAX_CHARS)
+    lang: Literal["en", "es", "pt"] = "en"
+    speaker: Literal["narrator", "jarvis"] = "narrator"
+
+
+@app.post("/api/voice")
+def speak(req: VoiceRequest) -> Response:
+    """Texto → audio MP3 (ElevenLabs). 503 si no está disponible: la página usa la voz del navegador."""
+    try:
+        audio = voice.speak(req.text, req.lang, req.speaker)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except voice.VoiceError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return Response(audio, media_type="audio/mpeg", headers={"Cache-Control": "private, max-age=86400"})
+
+
 @app.get("/api/catalog")
 def get_catalog() -> dict:
     return {
         "cultivos": list(catalog.crops.values()),
-        "rotaciones": [{k: r[k] for k in ("id", "nombre", "descripcion", "requiere_ganado")}
+        "rotaciones": [{k: r.get(k) for k in ("id", "nombre", "descripcion", "requiere_ganado", "anios")}
                        for r in catalog.rotations.values()],
         "campos_demo": DEMO_FIELDS,
         "puntajes": engine.SUBSCORES,
@@ -175,11 +275,14 @@ def analyze(req: AnalyzeRequest) -> dict:
     except (httpx.HTTPError, ValueError, KeyError, OSError) as exc:
         warnings.append(f"Could not get SRTM elevation ({exc}); erosion is estimated without the slope.")
 
-    rotations = engine.compare(req.rotacion_actual, req.prioridades.model_dump(), monthly,
-                               req.capacidad_suelo_mm, clim, catalog, req.tiene_ganado,
-                               erosion=erosion)
+    rotations, ranked = engine.compare_full(req.rotacion_actual, req.prioridades.model_dump(), monthly,
+                                            req.capacidad_suelo_mm, clim, catalog, req.tiene_ganado,
+                                            erosion=erosion)
     if erosion is not None:
         zone_data = terrain.zones(dem, terr, {r["id"]: erosion_maps[r["id"]] for r in rotations})
+        # Erosión por celda de cada rotación del ranking (para "Mi campo" y las mejores opciones).
+        zone_data["erosion_ranking"] = {
+            r["id"]: [round(float(v), 1) for v in erosion_maps[r["id"]].ravel()] for r in ranked}
         zone_data["r_factor"] = round(r_annual)
         zone_data["k_factor"] = terrain.K_DEFAULT
         zone_data["area_ha"] = req.area_ha
@@ -199,6 +302,7 @@ def analyze(req: AnalyzeRequest) -> dict:
         "clima": {"mensual": clim, "mensual_base": clim_base,
                   "tendencias": climate.trends(base)},
         "rotaciones": rotations,
+        "ranking": ranked,
         "zonas": zone_data,
     }
 

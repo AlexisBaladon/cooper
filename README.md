@@ -57,7 +57,7 @@ requests. Server-side API keys and the NASA cache persist outside application re
    - **strengths and weaknesses** of each rotation: every score rated good, fair or weak,
      the reason behind it, and up to two ideas to improve each weak point;
    - a scenario slider to recalculate everything with less rain or more heat.
-4. **Explain it simply** opens a one-minute narrated summary over a 3D model of the field:
+4. **Explain it simply** opens a narrated summary over a 3D model of the field, built from templates chosen by the field's data:
    its real SRTM terrain, crops changing month by month, soil colored by erosion and soil
    washing downhill, followed by the climate, the diagnosis, a better option and what to
    check with an agronomist. There's also a version with simple 2D charts. The narration is
@@ -67,6 +67,16 @@ requests. Server-side API keys and the NASA cache persist outside application re
 5. **Ask Cooper**, a button in the corner, opens a chat about the current analysis. The farmer
    can type or record a voice note (transcribed by Groq Whisper) and gets a short answer that
    uses only the analysis data, in the language they asked in (English or Spanish).
+
+## The interface
+
+The app is organised in **Home** (the decision cards: overall analysis, the best option for
+each score with "See more options", and the narrated explanation in a video-style player),
+**Analysis** (new analysis with every chart and map, and the analysis history with PDF,
+Excel, CSV and JSON exports), **My field** (several independent fields, imagery, NDVI,
+erosion and crop maps, soil, climate and crops) and **Settings** (dark mode, language,
+motion). Jarvis, a floating assistant, explains the open analysis. See
+[docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md#the-application-indexhtml).
 
 ## Adapted to Uruguay
 
@@ -114,6 +124,15 @@ falls back to templates and the chat explains that it isn't set up.
 `backend/.env` is ignored by git; never commit it. Groq receives the slides' text, the chat
 questions, voice notes and a summary of the analysis, never coordinates.
 
+### Optional: spoken voice (ElevenLabs)
+
+"Explain it simply" and full-screen Jarvis speak with an ElevenLabs voice when
+`ELEVENLABS_API_KEY` is set in `backend/.env` (a key with the *Text to Speech* permission is
+enough). The server asks for one sentence at a time (`POST /api/voice`) and keeps every
+sentence it has already generated in `data/cache/voice`, so replaying an explanation spends
+no credit. Without the key, without credit or without a connection, the browser's own voice
+is used instead. ElevenLabs receives only the sentences to be spoken.
+
 Groq's free tier allows about 8,000 tokens per minute; each chat question uses roughly 2,500.
 If several questions arrive at once, Cooper waits a few seconds and retries before showing a
 "busy" message.
@@ -121,6 +140,22 @@ If several questions arrive at once, Cooper waits a few seconds and retries befo
 The first query for a new point takes about 15 to 20 seconds while it downloads the NASA
 POWER series and the SRTM elevation into `data/cache/`, which is not committed. Later queries for the same point are
 instant. The map and the page's libraries load from the internet.
+
+## Offline use
+
+Cooper installs a service worker (`frontend/sw.js`), so after one visit with a connection the
+app opens without signal and shows what is on the device: fields, saved analyses and the latest
+result of each field, with their charts, zone maps, glossary and exports. **Settings → Offline
+use** shows what is saved and has a button that stores, for every field, the map tiles around it,
+the latest weather and the soil data. Offline, the weather chip shows when it was saved.
+
+A new analysis or a new climate scenario still needs the server (the comparison runs in Python);
+a comparison already made with exactly the same settings is shown again from the device. The AI
+narration and Jarvis fall back to their template and guided answers.
+
+`frontend/sw-files.js` lists the files to store. Regenerate it after adding or renaming frontend
+files with `python scripts/make_offline_manifest.py`; packaging a release does it automatically.
+Service workers need `https` or `localhost`.
 
 ## Project layout
 
@@ -131,6 +166,7 @@ backend/app/engine.py    water balance, indicators, scores and explanations
 backend/app/terrain.py   SRTM elevation, slope, water flow, RUSLE erosion and field zones
 backend/app/narrator.py  narration rewriting with Groq, with number checks
 backend/app/assistant.py "Ask Cooper" chat and voice-note transcription (Groq)
+backend/app/voice.py     spoken voice with ElevenLabs, saved per sentence
 backend/app/main.py      API (/api/catalog, /api/analyze, /api/narrate, /api/chat, /api/transcribe) and web server
 backend/tests/           tests with synthetic data and a simulated Groq
 backend/.env.example     template for the Groq key

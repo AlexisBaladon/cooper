@@ -8,8 +8,9 @@
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
   <link rel="apple-touch-icon" href="assets/cooper-logo.png">
   <meta name="theme-color" content="#1b5e20">
+  <script>if (new URLSearchParams(location.search).has("embed")) document.documentElement.classList.add("embed");</script>
 
-  <link rel="stylesheet" href="slides.css">
+  <link rel="stylesheet" href="slides.css?v=41">
 </head>
 <body>
 <div class="player" id="player">
@@ -53,12 +54,13 @@
   <p class="note">The text comes from templates filled with your analysis data, and the voice is your browser's. Keys: space = pause, ← → = change slide.</p>
 </div>
 
-<script src="translations-es.js?v=3"></script>
-<script src="language.js?v=2"></script>
+<script src="translations-es.js?v=41"></script>
+<script src="language.js?v=41"></script>
 <script>if (parent === window) window.addEventListener("cooper-language", () => location.reload());</script>
-<script src="workflow.js?v=2"></script>
+<script src="workflow.js?v=41"></script>
 <script src="slides-sample.js"></script>
-<script src="slides.js?v=2"></script>
+<script src="voice.js?v=41"></script>
+<script src="slides.js?v=41"></script>
 <script>
   (function () {
 let data = CooperWorkflow.explanationData(window);
@@ -81,6 +83,8 @@ let data = CooperWorkflow.explanationData(window);
       if (e.target.closest('a[href="index.html"]')) { e.preventDefault(); window.parent.postMessage({type: "cooper-close"}, location.origin); }
     });
     window.cooperPlayer = player; // útil para depurar desde la consola
+    window.cooperReady = Promise.resolve();
+    if (document.documentElement.classList.contains("embed")) document.getElementById("start").hidden = true;
 
     // ?slide=N muestra la slide N completa, sin voz (para revisar o capturar pantallas).
     const only = new URLSearchParams(location.search).get("slide");
