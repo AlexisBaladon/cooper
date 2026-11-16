@@ -2378,3 +2378,8 @@ html.reduce-motion .jarvis-fab *, html.reduce-motion .jarvis-fab { animation: no
 
 /* The icons are dark green: on the dark theme they are lifted so they stay readable. */
 :root[data-theme="dark"] img.i3d, :root[data-theme="dark"] .nav-ic img, :root[data-theme="dark"] .bottom-nav img { filter: brightness(1.9) drop-shadow(0 3px 4px rgba(0, 0, 0, .28)); }
+
+/* Pop-up windows (3D map, dialogs, large cards, weather, the expanded player) own the screen:
+   the floating assistant buttons step aside so they never cover a control. An open chat stays. */
+.jarvis-fab, .jarvis-wa { transition: opacity .25s, visibility .25s, transform .25s var(--ease), box-shadow .25s; }
+:is(body.has-dialog, body.player-open) #jarvis:not(.is-open) :is(.jarvis-fab, .jarvis-wa) { opacity: 0; visibility: hidden; pointer-events: none; transform: scale(.85); }
