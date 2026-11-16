@@ -1999,7 +1999,6 @@ img[src*="icons/analysis."], img[src*="icons/overall."], img[src*="icons/simulat
 
 /* ---------------------------------------------------------------- NASA data note */
 .sb-note { display: flex; align-items: center; gap: 10px; line-height: 1.35; }
-.sb-nasa { width: 38px; height: auto; flex: none; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .35)); }
 html.sb-collapsed .sb-note { position: static; width: auto; height: auto; overflow: visible; clip: auto; justify-content: center; padding: 0 0 10px; }
 html.sb-collapsed .sb-note span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 @media (max-width: 1180px) {
