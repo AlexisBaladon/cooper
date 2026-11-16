@@ -2359,3 +2359,6 @@ html.reduce-motion .jarvis-fab *, html.reduce-motion .jarvis-fab { animation: no
 
 /* Jarvis is reached from its floating orb; the side menu does not carry a Jarvis button. */
 .sidebar [data-jarvis-launch], .sidebar .jarvis-launch { display: none !important; }
+
+/* The icons are dark green: on the dark theme they are lifted so they stay readable. */
+:root[data-theme="dark"] img.i3d, :root[data-theme="dark"] .nav-ic img, :root[data-theme="dark"] .bottom-nav img { filter: brightness(1.9) drop-shadow(0 3px 4px rgba(0, 0, 0, .28)); }
