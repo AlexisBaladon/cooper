@@ -2356,6 +2356,23 @@ html.reduce-motion .jarvis-fab *, html.reduce-motion .jarvis-fab { animation: no
   .bottom-nav .jarvis-launch span { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
 }
 
+/* WhatsApp button above the Jarvis orb, and its dialog with the QR code. */
+.jarvis-wa { width: 52px; height: 52px; margin-right: 18px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 50%; background: #25d366; color: #fff; cursor: pointer; box-shadow: 0 6px 18px #0005; transition: transform .25s var(--ease), box-shadow .25s; }
+.jarvis-wa svg { width: 28px; height: 28px; }
+.jarvis-wa:hover { transform: translateY(-3px) scale(1.06); box-shadow: 0 10px 24px #0006; }
+.jarvis-wa:active { transform: scale(.95); }
+#jarvis.is-open .jarvis-wa { display: none; }
+.wa-box { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.wa-box p { margin: 0; }
+.wa-qr { width: min(232px, 70vw); height: auto; padding: 8px; border-radius: 14px; background: #fff; }
+.wa-code { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.wa-code code { padding: 8px 14px; border-radius: 10px; border: 1px dashed var(--line); background: var(--brand-soft); font-size: 1.1rem; font-weight: 600; user-select: all; }
+.wa-code span { font-size: .85rem; opacity: .75; }
+.wa-open { display: inline-flex; align-items: center; gap: 8px; background: #128c4b; color: #fff; text-decoration: none; }
+.wa-open:hover { background: #0f7a41; color: #fff; }
+.wa-open svg { width: 20px; height: 20px; }
+@media (max-width: 900px) { .jarvis-wa { width: 46px; height: 46px; margin-right: 13px; } .jarvis-wa svg { width: 24px; height: 24px; } }
+
 /* Jarvis is reached from its floating orb; the side menu does not carry a Jarvis button. */
 .sidebar [data-jarvis-launch], .sidebar .jarvis-launch { display: none !important; }
 

@@ -1154,5 +1154,10 @@ window.CooperSpanish = {
   "Back online.": "Conexión recuperada.",
   "No connection: this is the comparison saved on this device for these same settings.": "Sin conexión: esta es la comparación guardada en este dispositivo para esta misma configuración.",
   "You're offline. A new comparison needs a connection; your saved analyses and the latest result for this field are still available.": "No tiene conexión. Una comparación nueva necesita conexión; sus análisis guardados y el último resultado de este campo siguen disponibles.",
-  "Choose a light or a dark interface. Cooper starts in dark mode.": "Elija una interfaz clara u oscura. Cooper empieza en modo oscuro."
+  "Choose a light or a dark interface. Cooper starts in dark mode.": "Elija una interfaz clara u oscura. Cooper empieza en modo oscuro.",
+  "Jarvis on WhatsApp": "Jarvis en WhatsApp",
+  "Chat with Jarvis on WhatsApp": "Chatear con Jarvis por WhatsApp",
+  "QR code that opens the WhatsApp chat": "Código QR que abre el chat de WhatsApp",
+  "Scan the code with your phone's camera. To chat with the AI on WhatsApp, send this text:": "Escanee el código con la cámara del celular. Para chatear con la IA por WhatsApp, envíe este texto:",
+  "Open the chat in WhatsApp": "Abrir el chat en WhatsApp"
 };
