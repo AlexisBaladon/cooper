@@ -12,3 +12,19 @@ data/raw/
 data/processed/
 *.parquet
 .DS_Store
+
+# Descargas de NASA POWER (se regeneran solas)
+data/cache/
+
+# Deployment artifacts and local leftovers from the original scaffold.
+/dist/
+/web/
+*.tsbuildinfo
+*.egg-info/
+
+# Local PDF layout review renders.
+/tmp/pdfs/
+
+# Private WhatsApp conversations and queue (never publish).
+*.sqlite3
+*.sqlite3-*

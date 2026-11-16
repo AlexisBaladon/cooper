@@ -1,0 +1,148 @@
+{
+  "_note": "Indicative agronomic table for Uruguay (southern hemisphere). Kc values approximate FAO-56. Must be reviewed by a local agronomist. 'meses' = calendar months the crop occupies (sowing to harvest or termination); 'kc' has one value per month. 0-5 scores are relative between crops. User-facing text is in English.",
+  "cultivos": [
+    {
+      "id": "soja", "nombre": "First-crop soybean", "abrev": "Sb", "color": "#7cb342",
+      "familia": "legume", "tipo": "summer grain", "perenne": false,
+      "meses": [11, 12, 1, 2, 3, 4], "kc": [0.4, 0.75, 1.1, 1.15, 0.85, 0.5],
+      "meses_criticos": [1, 2], "critico_por": "flowering and grain fill, very sensitive to water shortage",
+      "sensible_calor": false, "sensible_helada": false,
+      "aporte_n": 1, "raiz_profunda": false, "residuo": 1, "forraje": 0, "ingreso": 4, "tolerancia_sequia": 2,
+      "riesgos": [
+        "Soybean after soybean builds up root and stem diseases and pests such as stink bugs: check the paddock's history.",
+        "It leaves little stubble, so after harvest the soil is exposed to erosion."
+      ],
+      "vacios": ["Grain soybean adds little net nitrogen: most of it leaves the field with the grain."]
+    },
+    {
+      "id": "soja2", "nombre": "Second-crop soybean", "abrev": "Sb2", "color": "#aed581",
+      "familia": "legume", "tipo": "summer grain", "perenne": false,
+      "meses": [12, 1, 2, 3, 4], "kc": [0.45, 0.85, 1.1, 0.9, 0.5],
+      "meses_criticos": [2, 3], "critico_por": "late grain fill, which depends on February and March rain",
+      "sensible_calor": false, "sensible_helada": false,
+      "aporte_n": 1, "raiz_profunda": false, "residuo": 1, "forraje": 0, "ingreso": 3, "tolerancia_sequia": 2,
+      "riesgos": [
+        "It is sown late, on the winter crop's stubble, so yield depends heavily on February and March rain.",
+        "If the winter crop is harvested late, sowing is delayed and yield potential drops."
+      ],
+      "vacios": ["Grain soybean adds little net nitrogen: most of it leaves the field with the grain."]
+    },
+    {
+      "id": "maiz", "nombre": "First-crop maize", "abrev": "Mz", "color": "#f9a825",
+      "familia": "grass", "tipo": "summer grain", "perenne": false,
+      "meses": [10, 11, 12, 1, 2, 3], "kc": [0.35, 0.6, 1.0, 1.2, 1.05, 0.6],
+      "meses_criticos": [12, 1], "critico_por": "flowering, very sensitive to heat and water shortage",
+      "sensible_calor": true, "sensible_helada": false,
+      "aporte_n": 0, "raiz_profunda": false, "residuo": 5, "forraje": 1, "ingreso": 4, "tolerancia_sequia": 2,
+      "riesgos": [
+        "Very sensitive to heat and water shortage at flowering (December–January): review the sowing date, the hybrid and whether irrigation is possible.",
+        "It needs plenty of nitrogen: an agronomist should set the fertilizer plan."
+      ],
+      "vacios": []
+    },
+    {
+      "id": "sorgo", "nombre": "Sorghum", "abrev": "Sg", "color": "#c75b39",
+      "familia": "grass", "tipo": "summer grain or forage", "perenne": false,
+      "meses": [12, 1, 2, 3, 4], "kc": [0.4, 0.8, 1.1, 0.9, 0.5],
+      "meses_criticos": [2], "critico_por": "flowering, although it handles heat and drought better than maize",
+      "sensible_calor": false, "sensible_helada": false,
+      "aporte_n": 0, "raiz_profunda": true, "residuo": 4, "forraje": 3, "ingreso": 3, "tolerancia_sequia": 4,
+      "riesgos": [
+        "Grain sorghum suffers bird damage.",
+        "As forage it can poison cattle (prussic acid) when they graze young regrowth or right after a frost."
+      ],
+      "vacios": []
+    },
+    {
+      "id": "trigo", "nombre": "Wheat", "abrev": "Wh", "color": "#b8860b",
+      "familia": "grass", "tipo": "winter grain", "perenne": false,
+      "meses": [6, 7, 8, 9, 10, 11], "kc": [0.4, 0.6, 0.9, 1.15, 1.1, 0.5],
+      "meses_criticos": [10], "critico_por": "heading and flowering, sensitive to late frosts",
+      "sensible_calor": false, "sensible_helada": true,
+      "aporte_n": 0, "raiz_profunda": false, "residuo": 4, "forraje": 1, "ingreso": 3, "tolerancia_sequia": 3,
+      "riesgos": [
+        "Late frosts at heading (October) can damage the grain.",
+        "Very wet springs favor Fusarium head blight.",
+        "Wheat after wheat increases stubble-borne diseases."
+      ],
+      "vacios": []
+    },
+    {
+      "id": "cebada", "nombre": "Barley", "abrev": "Ba", "color": "#d4b35f",
+      "familia": "grass", "tipo": "winter grain", "perenne": false,
+      "meses": [6, 7, 8, 9, 10, 11], "kc": [0.4, 0.6, 0.9, 1.15, 1.05, 0.5],
+      "meses_criticos": [10], "critico_por": "heading, sensitive to late frosts",
+      "sensible_calor": false, "sensible_helada": true,
+      "aporte_n": 0, "raiz_profunda": false, "residuo": 4, "forraje": 1, "ingreso": 3, "tolerancia_sequia": 3,
+      "riesgos": [
+        "Malting barley is usually grown under contract with a malting company: confirm the market before sowing.",
+        "Sensitive to late frosts and to diseases in wet springs."
+      ],
+      "vacios": []
+    },
+    {
+      "id": "colza", "nombre": "Canola (colza)", "abrev": "Ca", "color": "#fdd835",
+      "familia": "brassica", "tipo": "winter grain", "perenne": false,
+      "meses": [5, 6, 7, 8, 9, 10, 11], "kc": [0.4, 0.5, 0.8, 1.0, 1.1, 0.9, 0.4],
+      "meses_criticos": [9], "critico_por": "flowering, sensitive to frost",
+      "sensible_calor": false, "sensible_helada": true,
+      "aporte_n": 0, "raiz_profunda": true, "residuo": 2, "forraje": 0, "ingreso": 3, "tolerancia_sequia": 3,
+      "riesgos": [
+        "Its market and logistics are less developed than wheat's: confirm a buyer first.",
+        "Pods shatter easily, so harvest needs experience or suitable equipment.",
+        "Sensitive to frost at flowering."
+      ],
+      "vacios": []
+    },
+    {
+      "id": "avena_negra", "nombre": "Black oat (cover crop)", "abrev": "Oa", "color": "#2e7d32",
+      "familia": "grass", "tipo": "cover crop", "perenne": false,
+      "meses": [5, 6, 7, 8, 9], "kc": [0.4, 0.6, 0.85, 0.95, 0.9],
+      "meses_criticos": [], "critico_por": "",
+      "sensible_calor": false, "sensible_helada": false,
+      "aporte_n": 0, "raiz_profunda": false, "residuo": 3, "forraje": 2, "ingreso": 0, "tolerancia_sequia": 3,
+      "riesgos": [
+        "It must be terminated on time (3–4 weeks before sowing the summer crop) so it doesn't take water from the next crop."
+      ],
+      "vacios": ["It produces no grain to sell: its value is protecting and improving the soil, which doesn't always show in a single year's income."]
+    },
+    {
+      "id": "vicia", "nombre": "Vetch (legume cover crop)", "abrev": "Vt", "color": "#8e24aa",
+      "familia": "legume", "tipo": "cover crop", "perenne": false,
+      "meses": [5, 6, 7, 8, 9], "kc": [0.4, 0.6, 0.8, 0.95, 0.95],
+      "meses_criticos": [], "critico_por": "",
+      "sensible_calor": false, "sensible_helada": false,
+      "aporte_n": 3, "raiz_profunda": false, "residuo": 2, "forraje": 2, "ingreso": 0, "tolerancia_sequia": 2,
+      "riesgos": [
+        "Terminate it before it sets seed so it doesn't become a weed.",
+        "It fixes more nitrogen if left to grow until flowering, which can clash with the maize sowing date."
+      ],
+      "vacios": ["How much nitrogen it leaves varies a lot with how much it grows: it's worth measuring."]
+    },
+    {
+      "id": "raigras", "nombre": "Annual ryegrass (winter forage)", "abrev": "Rg", "color": "#43a047",
+      "familia": "grass", "tipo": "winter forage", "perenne": false,
+      "meses": [5, 6, 7, 8, 9, 10], "kc": [0.5, 0.7, 0.9, 1.0, 1.0, 0.9],
+      "meses_criticos": [], "critico_por": "",
+      "sensible_calor": false, "sensible_helada": false,
+      "aporte_n": 0, "raiz_profunda": false, "residuo": 2, "forraje": 5, "ingreso": 2, "tolerancia_sequia": 2,
+      "riesgos": [
+        "It needs nitrogen fertilizer and good grazing management."
+      ],
+      "vacios": ["Its income comes through beef or milk, which the tool doesn't calculate."]
+    },
+    {
+      "id": "pradera", "nombre": "Mixed pasture (tall fescue, white clover, birdsfoot trefoil)", "abrev": "Pa", "color": "#1b5e20",
+      "familia": "mixed pasture", "tipo": "perennial pasture", "perenne": true,
+      "meses": [5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3, 4], "kc": [0.8, 0.8, 0.8, 0.85, 0.9, 0.95, 0.95, 0.95, 0.95, 0.95, 0.9, 0.85],
+      "meses_criticos": [], "critico_por": "",
+      "sensible_calor": false, "sensible_helada": false,
+      "aporte_n": 3, "raiz_profunda": true, "residuo": 5, "forraje": 5, "ingreso": 2, "tolerancia_sequia": 3,
+      "riesgos": [
+        "It needs livestock, fences and water points: confirm the farm has them.",
+        "Establishment is the critical moment: an autumn drought can make it fail."
+      ],
+      "vacios": ["Its income comes through beef or milk, which the tool doesn't calculate."]
+    }
+  ]
+}

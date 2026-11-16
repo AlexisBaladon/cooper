@@ -1,0 +1,18 @@
+# Extra virtual host; the IP endpoint remains available for deployment checks.
+server {
+    listen 80;
+    server_name DOMAIN www.DOMAIN;
+    server_tokens off;
+    location /.well-known/acme-challenge/ { root /var/www/acme; }
+    location / { return 308 https://DOMAIN$request_uri; }
+}
+server {
+    listen 443 ssl;
+    server_name DOMAIN www.DOMAIN;
+    server_tokens off;
+    ssl_certificate /etc/letsencrypt/live/DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/DOMAIN/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:TLS:1m;
+    include /etc/nginx/snippets/nasa2026-app.conf;
+}

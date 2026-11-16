@@ -1,0 +1,13 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "DeployOnlyToDemoInstance",
+    "Effect": "Allow",
+    "Action": [
+      "lightsail:GetInstanceAccessDetails",
+      "lightsail:OpenInstancePublicPorts",
+      "lightsail:CloseInstancePublicPorts"
+    ],
+    "Resource": "arn:aws:lightsail:us-east-1:358161326463:Instance/3c508dbb-6674-412b-b94d-7fcf147eff5f"
+  }]
+}

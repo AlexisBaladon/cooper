@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Cooper · Crop rotations with NASA data</title>
+  <meta name="description" content="Compare crop rotations for your field using 30 years of NASA data.">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/brand/icon-192.png">
+  <link rel="apple-touch-icon" href="assets/brand/icon-512.png">
+  <meta name="theme-color" content="#0b120e">
+  <link rel="manifest" href="manifest.json">
+  <script>
+    (function () {
+      try {
+        // Two themes only; dark unless the farmer chose light.
+        var t = JSON.parse(localStorage.getItem("cooper-theme") || '"dark"');
+        document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "dark");
+        if (JSON.parse(localStorage.getItem("cooper-reduce-motion") || "false")) document.documentElement.classList.add("reduce-motion");
+        if (JSON.parse(localStorage.getItem("cooper-sidebar-collapsed") || "false")) document.documentElement.classList.add("sb-collapsed");
+      } catch (e) { /* defaults */ }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="styles.css?v=66">
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+  </script>
+</head>
+<body class="booting">
+<a class="skip-link" href="#main">Skip to content</a>
+
+<div id="intro" class="intro" aria-hidden="true">
+  <video class="intro-video" src="public/videoinicio3.mp4#t=2" muted playsinline preload="auto"></video>
+</div>
+
+<div class="app" id="app">
+  <aside class="sidebar" aria-label="Main navigation">
+    <a class="sb-logo" href="#home" aria-label="Cooper, home">
+      <img class="logo-full" src="assets/brand/logo-on-dark.webp" alt="Cooper" width="720" height="662">
+      <img class="logo-compact" src="assets/brand/logo-mark.webp" alt="" aria-hidden="true" width="512" height="300">
+    </a>
+    <nav class="sb-nav">
+      <span class="nav-indicator" aria-hidden="true"></span>
+      <a class="nav-item" href="#home" data-nav="home" title="Home"><span class="nav-ic"><img src="assets/icons/home.webp" alt="" aria-hidden="true" width="64" height="64"></span><span class="nav-label">Home</span></a>
+      <a class="nav-item" href="#analysis" data-nav="analysis" title="Analysis"><span class="nav-ic"><img src="assets/icons/analysis.webp" alt="" aria-hidden="true" width="64" height="64"></span><span class="nav-label">Analysis</span></a>
+      <a class="nav-item" href="#field" data-nav="field" title="My field"><span class="nav-ic"><img src="assets/icons/field.webp" alt="" aria-hidden="true" width="64" height="64"></span><span class="nav-label">My field</span></a>
+    </nav>
+    <div class="sb-bottom">
+      <p class="sb-note"><span>Data from NASA POWER and NASA SRTM</span></p>
+      <a class="nav-item" href="#settings" data-nav="settings" title="Settings"><span class="nav-ic"><img src="assets/icons/settings.webp" alt="" aria-hidden="true" width="64" height="64"></span><span class="nav-label">Settings</span></a>
+      <button type="button" class="sb-toggle" id="sb-toggle" aria-label="Collapse the menu" aria-expanded="true" title="Collapse the menu"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/><path d="M19 5v14"/></svg><span class="nav-label">Hide menu</span></button>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <header class="topbar">
+      <a class="mobile-logo" href="#home" aria-label="Cooper, home"><img src="assets/brand/logo-mark.webp" alt="Cooper" width="512" height="300"></a>
+      <div class="field-switcher">
+        <button type="button" id="field-switch" class="field-switch" aria-haspopup="menu" aria-expanded="false" aria-controls="field-menu" aria-label="Active field"></button>
+        <div id="field-menu" class="menu" role="menu" hidden></div>
+      </div>
+      <div class="tb-right">
+        <a id="offline-chip" class="offline-chip" href="#settings" title="Cooper is showing what is saved on this device" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5a14 14 0 0 1 5-3M21 8.5a14 14 0 0 0-8-3.9M6.5 12.5a8.5 8.5 0 0 1 3-2M17.5 12.5a8.5 8.5 0 0 0-3.2-2.1M12 18.5v.1M4 3l16 18"/></svg><span>Offline</span></a>
+        <button type="button" id="weather-pill" class="weather-pill" aria-label="Weather at your field: open the full view"><span class="skeleton" style="width:150px;height:30px"></span></button>
+        <div class="clock" aria-live="off"><span id="clock-time" class="clock-time">--:--</span><span id="clock-date" class="clock-date"></span></div>
+      </div>
+    </header>
+
+    <main id="main" class="views" tabindex="-1">
+      <div id="boot-error" class="notice error" role="alert" hidden><span class="msg"></span> <button id="boot-retry" type="button" class="btn ghost sm">Reload the application</button></div>
+      <section class="view" id="view-home" aria-label="Home" hidden></section>
+      <section class="view" id="view-analysis" aria-label="Analysis" hidden></section>
+      <section class="view" id="view-field" aria-label="My field" hidden></section>
+      <section class="view" id="view-settings" aria-label="Settings" hidden>
+        <div class="page-head compact"><div><h1><img class="ic i3d h1-ic" src="assets/icons/settings.webp" alt="" aria-hidden="true">Settings</h1><p class="lead">Appearance, language, motion and the data stored on this device.</p></div></div>
+        <div class="settings-grid">
+          <section class="card">
+            <div class="card-head"><div><h2><img class="ic i3d" src="assets/icons/weather.webp" alt="" aria-hidden="true">Appearance</h2><p class="sub">Choose a light or a dark interface. Cooper starts in dark mode.</p></div></div>
+            <div class="seg big" id="theme-seg" role="group" aria-label="Theme">
+              <button type="button" data-theme="light" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg><span>Light</span></button>
+              <button type="button" data-theme="dark" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 14.6A8 8 0 0 1 9.4 4.5a8 8 0 1 0 10.1 10.1Z"/></svg><span>Dark</span></button>
+            </div>
+          </section>
+          <section class="card">
+            <div class="card-head"><div><h2><img class="ic i3d" src="assets/icons/info.webp" alt="" aria-hidden="true">Language / Idioma</h2><p class="sub">The interface and the narration change language. Numbers never change.</p></div></div>
+            <label class="field"><span class="sr-only">Language / Idioma</span><select id="language" aria-label="Language / Idioma"><option value="en">English</option><option value="es">Español</option></select></label>
+          </section>
+          <section class="card">
+            <div class="card-head"><div><h2><img class="ic i3d" src="assets/icons/simulation.webp" alt="" aria-hidden="true">Motion</h2><p class="sub">Animations help follow changes; you can reduce them.</p></div></div>
+            <label class="check"><input type="checkbox" id="set-intro"><span class="box" aria-hidden="true"></span>Play the opening animation when Cooper starts</label>
+            <label class="check"><input type="checkbox" id="set-motion"><span class="box" aria-hidden="true"></span>Reduce motion</label>
+          </section>
+          <section class="card">
+            <div class="card-head"><div><h2><img class="ic i3d" src="assets/icons/export.webp" alt="" aria-hidden="true">Your data</h2><p class="sub" id="set-stats"></p></div></div>
+            <p class="hint">Fields, saved analyses and notes are stored only in this browser. Export them to keep a copy or move them to another device.</p>
+            <div class="btn-row">
+              <button type="button" class="btn ghost" id="set-export">Export all my data (JSON)</button>
+              <button type="button" class="btn ghost danger" id="set-wipe">Delete all data on this device</button>
+            </div>
+          </section>
+          <section class="card wide" id="offline-card">
+            <div class="card-head"><div><h2><img class="ic i3d" src="assets/icons/satellite.webp" alt="" aria-hidden="true">Offline use</h2><p class="sub">Cooper keeps working in the field without signal: your fields, saved analyses, charts, maps and exports stay on this device.</p></div></div>
+            <div id="off-status" class="off-status"></div>
+            <div id="off-progress-wrap" class="off-progress" hidden><span class="off-bar" id="off-bar"></span><small id="off-progress"></small></div>
+            <div class="btn-row"><button type="button" class="btn ghost" id="off-prepare"><span>Prepare my fields for offline use</span></button></div>
+            <p class="hint">Do this while you have a connection, and again after adding a field. It saves the maps around each field, the latest weather and the soil data. A new analysis or a new climate scenario still needs a connection.</p>
+          </section>
+          <section class="card wide">
+            <div class="card-head"><div><h2><img class="ic i3d" src="assets/icons/help.webp" alt="" aria-hidden="true">About Cooper</h2><p class="sub">Prototype for NASA Space Apps 2026 · Field Shift: Adapting Farms with NASA Data</p></div></div>
+            <p>Cooper helps farmers think; it doesn't decide for them. Every result comes from written agronomic rules and published formulas that anyone can check. The only AI is optional: it rewrites the narration of “Explain it simply” and answers your questions using the numbers of your analysis.</p>
+            <p class="hint">Data: NASA POWER (power.larc.nasa.gov) · NASA SRTM via OpenTopoData · NASA GIBS (MODIS NDVI) · ISRIC SoilGrids · ESA WorldCover · Open-Meteo · Imagery © Esri · Map © OpenStreetMap. It does not replace the judgment of farmers or agronomists.</p>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <a href="#home" data-nav="home"><img src="assets/icons/home.webp" alt="" aria-hidden="true" width="48" height="48"><span>Home</span></a>
+    <a href="#analysis" data-nav="analysis"><img src="assets/icons/analysis.webp" alt="" aria-hidden="true" width="48" height="48"><span>Analysis</span></a>
+    <a href="#field" data-nav="field"><img src="assets/icons/field.webp" alt="" aria-hidden="true" width="48" height="48"><span>My field</span></a>
+    <button type="button" class="jarvis-launch" data-jarvis-launch aria-label="Open the Cooper assistant" aria-expanded="false" aria-controls="jv-panel"><img src="assets/brand/jarvis-256.webp" alt="" aria-hidden="true" width="48" height="48"><span>Ask Cooper</span></button>
+    <a href="#settings" data-nav="settings"><img src="assets/icons/settings.webp" alt="" aria-hidden="true" width="48" height="48"><span>Settings</span></a>
+  </nav>
+</div>
+
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="translations-es.js?v=66"></script>
+<script src="language.js?v=66"></script>
+<script src="workflow.js?v=66"></script>
+<script src="js/core.js?v=66"></script>
+<script src="js/glossary.js?v=66"></script>
+<script src="js/fx.js?v=66"></script>
+<script src="js/scene.js?v=66"></script>
+<script src="js/wx.js?v=66"></script>
+<script src="js/charts.js?v=66"></script>
+<script src="js/results.js?v=66"></script>
+<script src="js/calendar.js?v=66"></script>
+<script src="js/home.js?v=66"></script>
+<script src="js/analysis.js?v=66"></script>
+<script src="js/history.js?v=66"></script>
+<script src="js/export.js?v=66"></script>
+<script src="js/field.js?v=66"></script>
+<script src="js/player.js?v=66"></script>
+<script src="js/jarvis.js?v=66"></script>
+<script src="js/intro.js?v=66"></script>
+<script src="js/offline.js?v=66"></script>
+<script src="app.js?v=66"></script>
+<script type="module" src="js/relief.js?v=66"></script>
+<script type="module" src="js/map3d.js?v=66"></script>
+</body>
+</html>

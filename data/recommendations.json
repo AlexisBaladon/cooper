@@ -1,0 +1,77 @@
+{
+  "_note": "Short recommendations for each problem the diagnosis detects. The engine picks them by rules (not AI) and a local agronomist should review them. Each text completes the sentence 'One idea to improve it: ...', so it starts in lowercase with a verb. At most the first two of each list are used. User-facing text is in English.",
+  "problemas": {
+    "suelo_descubierto": {
+      "titulo": "The field spends months without a crop",
+      "acciones": [
+        "sow a cover crop in the months the field is left empty",
+        "add a winter crop such as wheat or barley"
+      ]
+    },
+    "erosion_alta": {
+      "titulo": "Erosion is above the tolerable level",
+      "acciones": [
+        "keep the soil covered all year, especially on slopes",
+        "check with an agronomist whether terraces or contour sowing make sense"
+      ]
+    },
+    "poco_rastrojo": {
+      "titulo": "The crops leave little stubble",
+      "acciones": [
+        "include a crop that leaves plenty of stubble, such as maize, sorghum or wheat"
+      ]
+    },
+    "sin_nitrogeno": {
+      "titulo": "Nothing adds nitrogen to the soil",
+      "acciones": [
+        "include a legume cover crop such as vetch, or a pasture with clover"
+      ]
+    },
+    "poca_diversidad": {
+      "titulo": "The same crops keep repeating",
+      "acciones": [
+        "rotate plant families, for example a cereal and a legume",
+        "avoid growing the same crop two years in a row in the same paddock"
+      ]
+    },
+    "deficit_agua": {
+      "titulo": "Water runs short in dry years",
+      "acciones": [
+        "include crops that handle drought better, such as sorghum",
+        "leave stubble on the surface to store more water in the soil"
+      ]
+    },
+    "deficit_critico": {
+      "titulo": "Water runs short at the most sensitive stage",
+      "acciones": [
+        "review the sowing date with an agronomist so flowering doesn't fall in the driest months",
+        "consider varieties with a different cycle, or supplementary irrigation"
+      ]
+    },
+    "calor_floracion": {
+      "titulo": "Strong heat at flowering",
+      "acciones": [
+        "review the sowing date with an agronomist so flowering avoids the hottest days"
+      ]
+    },
+    "helada_critica": {
+      "titulo": "Frost during sensitive stages",
+      "acciones": [
+        "adjust the sowing date so heading doesn't coincide with late frosts",
+        "avoid sensitive crops in the field's low spots"
+      ]
+    },
+    "ingreso_bajo": {
+      "titulo": "Few crops to sell",
+      "acciones": [
+        "consider a second cash crop in the year, if water and the market allow it"
+      ]
+    },
+    "forraje_bajo": {
+      "titulo": "Little forage for livestock",
+      "acciones": [
+        "add a winter forage crop or a pasture for more forage"
+      ]
+    }
+  }
+}

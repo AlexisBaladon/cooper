@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cooper · Field assistant</title>
+<script>
+  try {
+    const mode = JSON.parse(localStorage.getItem("cooper-theme") || '"system"');
+    if (JSON.parse(localStorage.getItem("cooper-reduce-motion") || "false")) document.documentElement.classList.add("reduce-motion");
+    document.documentElement.dataset.theme = mode === "light" || mode === "dark" ? mode : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  } catch (_) { document.documentElement.dataset.theme = "dark"; }
+</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+  :root { --c: #4fd8ff; --dim: rgba(79, 216, 255, 0.55); --bg0: #02060b; --bg1: #061521; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: radial-gradient(ellipse at center, var(--bg1) 0%, var(--bg0) 70%); color: var(--c); }
+  body { font-family: Consolas, "SF Mono", "Cascadia Mono", monospace; letter-spacing: 0.08em; }
+  canvas { display: block; position: fixed; inset: 0; }
+
+  /* Capas de "pantalla": líneas de barrido y viñeta */
+  .scan, .vignette { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+  .scan { background: repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 3px); mix-blend-mode: overlay; }
+  .vignette { background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.75) 100%); }
+
+  .hud { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0; }
+  .corner { position: absolute; font-size: 12px; line-height: 1.7; text-transform: uppercase; color: var(--dim); }
+  .corner b { color: var(--c); font-weight: 600; }
+  .tl { top: 22px; left: 26px; } .tr { top: 22px; right: 26px; text-align: right; }
+  .bl { bottom: 24px; left: 26px; } .br { bottom: 24px; right: 26px; text-align: right; }
+  .title { font-size: 15px; color: var(--c); letter-spacing: 0.32em; margin-bottom: 6px; }
+  .bracket { position: absolute; width: 26px; height: 26px; border-color: var(--dim); border-style: solid; }
+  .bracket.a { top: 12px; left: 12px; border-width: 1px 0 0 1px; } .bracket.b { top: 12px; right: 12px; border-width: 1px 1px 0 0; }
+  .bracket.c { bottom: 12px; left: 12px; border-width: 0 0 1px 1px; } .bracket.d { bottom: 12px; right: 12px; border-width: 0 1px 1px 0; }
+
+  .caption {
+    position: absolute; left: 50%; bottom: 112px; transform: translateX(-50%); width: min(720px, 86vw);
+    text-align: center; font-size: 17px; letter-spacing: 0.04em; color: #dff7ff; text-shadow: 0 0 12px var(--c); min-height: 1.6em;
+  }
+  .controls { position: absolute; left: 50%; bottom: 46px; transform: translateX(-50%); display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; pointer-events: auto; }
+  .controls button {
+    font: inherit; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer;
+    color: var(--c); background: rgba(6, 30, 44, 0.55); border: 1px solid var(--dim); padding: 8px 14px; border-radius: 2px;
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  .controls button:hover { background: rgba(79, 216, 255, 0.12); }
+  .controls button.on { background: rgba(79, 216, 255, 0.22); box-shadow: 0 0 14px rgba(79, 216, 255, 0.45); color: #eaffff; }
+  .controls .sep { width: 1px; background: var(--dim); margin: 0 4px; }
+  .vlabel {
+    position: absolute; transform: translate(-50%, -100%); opacity: 0; white-space: nowrap;
+    font-size: 14px; letter-spacing: 0.22em; text-transform: uppercase; color: #eaffff; text-shadow: 0 0 10px var(--c);
+    padding: 0 10px 5px; border-bottom: 1px solid var(--dim);
+  }
+  /* Globo (globe.gl): un canvas aparte, recortado en círculo dentro de los anillos. */
+  #globe {
+    position: fixed; left: 50%; top: 50%; z-index: 1; border-radius: 50%; overflow: hidden;
+    transform: translate(-50%, -50%) scale(0.55); opacity: 0; pointer-events: none;
+    transition: opacity 0.6s, transform 0.9s cubic-bezier(0.2, 0.9, 0.2, 1);
+    box-shadow: 0 0 46px rgba(79, 216, 255, 0.35), inset 0 0 30px rgba(0, 0, 0, 0.6);
+  }
+  #globe.on { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; cursor: crosshair; }
+  #globe canvas { position: static; }
+  .gpin {
+    pointer-events: auto; cursor: pointer; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #eaffff;
+    background: rgba(3, 14, 22, 0.75); border: 1px solid rgba(79, 216, 255, 0.7); border-radius: 2px; padding: 2px 6px;
+    transform: translateY(-16px); white-space: nowrap;
+  }
+  .gpin::after { content: ""; position: absolute; left: 50%; bottom: -9px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: #3dffc2; box-shadow: 0 0 8px #3dffc2; }
+
+  /* Tablero (derecha): cifras clave y capítulos del reporte. */
+  .side {
+    position: absolute; top: 128px; width: 252px; pointer-events: auto; font-size: 11px; letter-spacing: 0.06em;
+    color: var(--dim); background: rgba(3, 14, 22, 0.55); border: 1px solid var(--dim); border-radius: 2px; padding: 10px 12px;
+    max-height: calc(100vh - 270px); overflow-y: auto; scrollbar-width: thin;
+  }
+  .side.right { right: 26px; }
+  .side h4 { margin: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.3em; color: var(--c); text-transform: uppercase; }
+  .side h4 small { float: right; letter-spacing: 0.1em; color: var(--dim); font-weight: 400; }
+  .side button {
+    font: inherit; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; color: var(--c);
+    background: rgba(6, 30, 44, 0.55); border: 1px solid var(--dim); padding: 4px 7px; border-radius: 2px;
+  }
+  .side button:hover { background: rgba(79, 216, 255, 0.12); }
+  .side button.on { background: rgba(79, 216, 255, 0.22); color: #eaffff; }
+  .side button:disabled { opacity: 0.4; cursor: default; }
+  .sub { margin: 8px 0 4px; padding-top: 6px; border-top: 1px solid rgba(79, 216, 255, 0.2); color: var(--c); letter-spacing: 0.2em; text-transform: uppercase; }
+  .fig { display: flex; justify-content: space-between; gap: 8px; min-height: 21px; text-transform: uppercase; }
+  .fig b { color: #eaffff; font-weight: 600; text-transform: none; white-space: nowrap; }
+  #info ul { margin: 0; padding: 0; list-style: none; }
+  #info li { margin: 0 0 7px; padding-left: 10px; border-left: 2px solid var(--c); color: #dff7ff; text-transform: none; line-height: 1.45; letter-spacing: 0.02em; }
+  #chapters button { display: block; width: 100%; text-align: left; margin-top: 3px; }
+  .warn { color: #ffb347; text-transform: none; margin-top: 6px; line-height: 1.4; }
+  .controls input[type=text] {
+    font: inherit; font-size: 12px; letter-spacing: 0.04em; color: #dff7ff; background: rgba(6, 30, 44, 0.7);
+    border: 1px solid var(--dim); border-radius: 2px; padding: 7px 10px; width: 230px;
+  }
+  .controls input[type=text]::placeholder { color: var(--dim); }
+  @media (max-width: 1150px) { .side { display: none; } }
+  /* Control con las manos: cursor, vista de la cámara y resaltado de lo que se va a tocar. */
+  #hand-cursor {
+    position: fixed; left: -17px; top: -17px; width: 34px; height: 34px; z-index: 6; pointer-events: none; opacity: 0;
+    border: 2px solid var(--c); border-radius: 50%; box-shadow: 0 0 14px var(--c); transition: opacity 0.2s;
+  }
+  #hand-cursor::after { content: ""; position: absolute; inset: 12px; border-radius: 50%; background: #eaffff; }
+  #hand-cursor.on { opacity: 1; }
+  #hand-cursor.pinch { border-color: #3dffc2; box-shadow: 0 0 20px #3dffc2; }
+  #hand-cursor.pinch::after { inset: 6px; background: #3dffc2; }
+  #hand-preview { position: fixed; right: 26px; bottom: 74px; z-index: 5; width: 192px; height: 144px; pointer-events: none; border: 1px solid var(--dim); border-radius: 2px; background: rgba(3, 14, 22, 0.7); }
+  .hand-hover { outline: 2px solid #3dffc2; outline-offset: 2px; box-shadow: 0 0 16px rgba(61, 255, 194, 0.6); }
+  body.hands .side { max-height: calc(100vh - 360px); }
+  /* Dentro de Cooper (iframe): sin los botones de prueba de estados, con botón para volver. */
+  .close-embed { display: none; }
+  body.embed .controls [data-state], body.embed #btn-demo, body.embed .controls .sep { display: none; }
+  body.embed .close-embed {
+    display: block; position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 6; pointer-events: auto;
+    font: inherit; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #eaffff; cursor: pointer;
+    background: rgba(6, 30, 44, 0.75); border: 1px solid var(--dim); border-radius: 2px; padding: 8px 16px;
+  }
+  body.embed .close-embed:hover { background: rgba(79, 216, 255, 0.22); box-shadow: 0 0 14px rgba(79, 216, 255, 0.45); }
+  .boot { position: fixed; inset: 0; z-index: 4; display: grid; place-items: center; pointer-events: none; font-size: 13px; letter-spacing: 0.4em; color: var(--c); text-shadow: 0 0 10px var(--c); }
+</style>
+<link rel="stylesheet" href="theme.css?v=orbital2">
+</head>
+<body>
+<div class="scan"></div>
+<div class="vignette"></div>
+<section id="scene-region" class="scene-region" aria-label="Interactive field visualization"><div class="scene-frame-corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div id="globe"></div><div class="vlabel" id="vlabel"></div></section>
+<div id="hand-cursor"></div>
+<canvas id="hand-preview" width="192" height="144" hidden></canvas>
+<div class="boot" id="boot"></div>
+<button type="button" class="close-embed" id="btn-close" aria-label="Back to Cooper">✕ Back to Cooper</button>
+
+<div class="hud" id="hud">
+  <span class="bracket a"></span><span class="bracket b"></span><span class="bracket c"></span><span class="bracket d"></span>
+  <div class="corner tl">
+    <div class="title"><img src="../assets/brand/logo-mark.webp" alt="Cooper"><span>Cooper<small id="assistant-subtitle">Field assistant</small></span></div>
+    <div class="assistant-status"><span class="sr-label">State</span><b id="hud-state">BOOT</b></div>
+  </div>
+  <div class="corner tr">
+    <div>Frame rate <b id="hud-fps">--</b></div>
+    <div>Signal <b id="hud-level">0.00</b></div>
+    <div>Audio <b id="hud-audio">SIMULATED</b></div>
+    <div>Hands <b id="hud-hands">OFF</b></div>
+    <div>Grid <b id="hud-clock">--:--:--</b></div>
+  </div>
+  <div class="corner bl">
+    <div>Lat <b id="hud-lat">--</b> · Lon <b id="hud-lon">--</b></div>
+    <div>Field <b id="hud-field">not marked yet</b></div>
+    <div class="data-source">Data <b>NASA POWER · SRTM</b></div>
+  </div>
+  <div class="corner br">
+    <div>Hold <b>Space</b> to talk · <b>M</b> talk on/off</div>
+    <div><b>G</b> globe · <b>R</b> report · <b>H</b> hands · <b>Esc</b> back</div>
+  </div>
+
+
+
+  <section class="conversation" aria-label="Conversation with Cooper">
+    <header class="conversation-head"><h2 id="conversation-title">Let’s talk about your field</h2><p id="conversation-description">Ask a question while you explore the visuals.</p></header>
+    <div class="conversation-content">
+      <p class="question" id="current-question" hidden></p>
+      <div class="caption" id="caption" aria-live="polite"></div>
+  <aside class="side right" id="dash" hidden>
+    <div id="figures-wrap"><h4>Key figures</h4><div id="figures"></div></div>
+    <div id="info" hidden><h4 id="info-title"></h4><ul id="info-list"></ul></div>
+    <div class="sub">Report</div>
+    <div id="chapters"></div>
+  </aside>
+    </div>
+  <div class="controls">
+    <button data-state="idle">Idle</button>
+    <button data-state="listening">Listening</button>
+    <button data-state="thinking">Thinking</button>
+    <button data-state="speaking">Speaking</button>
+    <span class="sep"></span>
+    <button id="btn-demo">Auto demo</button>
+    <div class="voice-controls"><button id="btn-mic">Hold to talk</button>
+    <button id="btn-hands">Hands</button></div>
+    <div class="message-composer"><input type="text" id="ask" aria-label="Ask Cooper about your field" placeholder="Ask about your field…" maxlength="600" autocomplete="off">
+    <button type="button" class="ask-send" id="ask-send">Send</button></div>
+  </div>
+  <p class="assistant-note" id="assistant-note">Your field, explained. Review important decisions with your agronomist.</p>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/globe.gl@2.46.2/dist/globe.gl.min.js"></script>
+<script src="../voice.js"></script>
+<script type="importmap">
+  { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  } }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+
+/* =========================================================== escena */
+const sceneRegion = document.getElementById("scene-region");
+const sceneSize = () => ({ width: Math.max(1, sceneRegion.clientWidth), height: Math.max(1, sceneRegion.clientHeight) });
+const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+renderer.setSize(sceneSize().width, sceneSize().height);
+renderer.setClearColor(0x000000, 0);
+renderer.domElement.classList.add("scene-canvas");
+sceneRegion.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, sceneSize().width / sceneSize().height, 0.1, 100);
+// Aleja la cámara lo justo para que el anillo exterior (~4.6 de radio) entre con margen,
+// tanto en pantallas anchas como verticales.
+function fitCamera() {
+  const half = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const radius = 5.0;
+  const byHeight = radius / half;
+  const byWidth = radius / (half * camera.aspect);
+  camera.position.set(0, 0, Math.max(byHeight, byWidth) + 1.2);
+}
+fitCamera();
+
+const rig = new THREE.Group();          // todo cuelga de acá: el mouse lo inclina
+scene.add(rig);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+// El brillo se calcula a media resolución: casi no cambia la imagen y ahorra mucha GPU.
+const bloom = new UnrealBloomPass(new THREE.Vector2(sceneSize().width / 2, sceneSize().height / 2), 1.1, 0.65, 0.05);
+composer.addPass(bloom);
+// Brillo = el del estado × un factor que baja cuando hay un visual (si no, se satura).
+const fx = { bloom: 1.0, k: 1 };
+composer.addPass(new OutputPass());
+
+const params = { speed: 1, intensity: 1, audio: 0 };
+const color = new THREE.Color("#58d8c8");
+const tinted = [];                       // materiales que siguen el color del estado
+
+/* ------------------------------------------------------------ núcleo */
+// Contenedores: al mostrar un visual se achica el núcleo y se abren los anillos, sin
+// pisar las animaciones propias de cada uno (golpe de escala, pulso de "thinking").
+const coreHolder = new THREE.Group(), ringHolder = new THREE.Group();
+rig.add(coreHolder, ringHolder);
+const core = new THREE.Group();
+coreHolder.add(core);
+
+const coreUniforms = { uTime: { value: 0 }, uAudio: { value: 0 }, uColor: { value: color.clone() }, uIntensity: { value: 1 } };
+const coreMat = new THREE.ShaderMaterial({
+  uniforms: coreUniforms, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  vertexShader: `
+    uniform float uTime; uniform float uAudio;
+    varying vec3 vNormal; varying vec3 vView;
+    void main() {
+      vec3 p = position + normal * (sin(position.y * 8.0 + uTime * 2.0) * 0.02 + uAudio * 0.09 * sin(position.x * 10.0 + uTime * 9.0));
+      vec4 mv = modelViewMatrix * vec4(p, 1.0);
+      vNormal = normalize(normalMatrix * normal);
+      vView = normalize(-mv.xyz);
+      gl_Position = projectionMatrix * mv;
+    }`,
+  fragmentShader: `
+    uniform vec3 uColor; uniform float uIntensity; uniform float uTime;
+    varying vec3 vNormal; varying vec3 vView;
+    void main() {
+      float f = pow(1.0 - max(dot(vNormal, vView), 0.0), 2.2);
+      float bands = 0.5 + 0.5 * sin(vNormal.y * 16.0 - uTime * 3.0);
+      vec3 c = uColor * (0.12 + f * 1.7 * uIntensity + bands * 0.10 * uIntensity);
+      gl_FragColor = vec4(c, 0.3 + f * 0.7);
+    }`,
+});
+core.add(new THREE.Mesh(new THREE.IcosahedronGeometry(1, 12), coreMat));
+
+const wireMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
+tinted.push(wireMat);
+const wire = new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(1.32, 1)), wireMat);
+core.add(wire);
+
+// Capa de puntos que "respira" y vibra con la voz.
+const shellGeo = new THREE.IcosahedronGeometry(1.62, 5);
+const rand = new Float32Array(shellGeo.attributes.position.count).map(() => Math.random());
+shellGeo.setAttribute("aRand", new THREE.BufferAttribute(rand, 1));
+const shellUniforms = { uTime: { value: 0 }, uAudio: { value: 0 }, uColor: { value: color.clone() }, uSize: { value: 0.07 }, uOpacity: { value: 0 } };
+const shell = new THREE.Points(shellGeo, new THREE.ShaderMaterial({
+  uniforms: shellUniforms, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  vertexShader: `
+    uniform float uTime; uniform float uAudio; uniform float uSize;
+    attribute float aRand; varying float vAlpha;
+    void main() {
+      vec3 n = normalize(position);
+      float wob = sin(n.x * 7.0 + uTime * 1.7) * sin(n.y * 6.0 - uTime * 1.3) * sin(n.z * 5.0 + uTime);
+      vec3 p = position + n * (wob * 0.07 + uAudio * 0.5 * (0.5 + 0.5 * sin(aRand * 40.0 + uTime * 12.0)));
+      vec4 mv = modelViewMatrix * vec4(p, 1.0);
+      gl_PointSize = uSize * (1.0 + uAudio * 1.4) * (300.0 / -mv.z) * (0.6 + aRand * 0.7);
+      gl_Position = projectionMatrix * mv;
+      vAlpha = 0.3 + 0.7 * aRand;
+    }`,
+  fragmentShader: `
+    uniform vec3 uColor; uniform float uOpacity; varying float vAlpha;
+    void main() {
+      float d = length(gl_PointCoord - 0.5);
+      if (d > 0.5) discard;
+      gl_FragColor = vec4(uColor, smoothstep(0.5, 0.0, d) * vAlpha * uOpacity);
+    }`,
+}));
+core.add(shell);
+
+/* ---------------------------------------------------- anillos de HUD */
+const rings = [];
+function circlePoints(r, n = 256) {
+  const pts = [];
+  for (let i = 0; i <= n; i++) { const a = (i / n) * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0)); }
+  return pts;
+}
+function dashedRing(r, dash, gap, opacity, spin) {
+  const mat = new THREE.LineDashedMaterial({ color, dashSize: dash, gapSize: gap, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false });
+  tinted.push(mat);
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(circlePoints(r)), mat);
+  line.computeLineDistances();
+  line.userData.spin = spin;
+  ringHolder.add(line); rings.push(line);
+  return line;
+}
+function arcs(r1, r2, pieces, opacity, spin) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+  tinted.push(mat);
+  pieces.forEach(([start, len]) => g.add(new THREE.Mesh(new THREE.RingGeometry(r1, r2, 96, 1, start, len), mat)));
+  g.userData.spin = spin;
+  ringHolder.add(g); rings.push(g);
+  return g;
+}
+function ticks(r, n, opacity, spin) {
+  const v = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2, long = i % 6 === 0, len = long ? 0.22 : 0.09;
+    v.push(Math.cos(a) * r, Math.sin(a) * r, 0, Math.cos(a) * (r + len), Math.sin(a) * (r + len), 0);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
+  const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false });
+  tinted.push(mat);
+  const seg = new THREE.LineSegments(geo, mat);
+  seg.userData.spin = spin;
+  ringHolder.add(seg); rings.push(seg);
+  return seg;
+}
+
+dashedRing(2.05, 0.08, 0.05, 0.55, 0.12);
+arcs(2.62, 2.7, [[0.2, 1.1], [1.7, 0.5], [2.6, 1.6], [4.6, 0.9]], 0.75, -0.18);
+ticks(3.05, 120, 0.5, 0.05);
+dashedRing(3.55, 0.3, 0.12, 0.35, -0.07);
+arcs(3.85, 3.88, [[0, 2.2], [3.0, 2.6]], 0.6, 0.1);
+const tiltA = dashedRing(4.4, 0.02, 0.1, 0.4, 0.03);
+tiltA.rotation.x = 1.15;
+const tiltB = arcs(3.2, 3.24, [[0.4, 2.0], [3.6, 1.4]], 0.45, -0.25);
+tiltB.rotation.x = -1.0; tiltB.rotation.y = 0.4;
+
+/* ------------------------------------------------ barras de la voz */
+const BARS = 112;
+const barGeo = new THREE.BoxGeometry(0.032, 1, 0.032);
+barGeo.translate(0, 0.5, 0);
+const barMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+tinted.push(barMat);
+const bars = new THREE.InstancedMesh(barGeo, barMat, BARS);
+const barGroup = new THREE.Group();
+barGroup.add(bars);
+ringHolder.add(barGroup);
+const dummy = new THREE.Object3D();
+const barLevels = new Float32Array(BARS);
+function updateBars(levels) {
+  for (let i = 0; i < BARS; i++) {
+    const a = (i / BARS) * Math.PI * 2;
+    barLevels[i] += (levels[i] - barLevels[i]) * 0.35;
+    dummy.position.set(Math.cos(a) * 2.25, Math.sin(a) * 2.25, 0);
+    dummy.rotation.set(0, 0, a - Math.PI / 2);
+    dummy.scale.set(1, 0.04 + barLevels[i] * 0.85, 1);
+    dummy.updateMatrix();
+    bars.setMatrixAt(i, dummy.matrix);
+  }
+  bars.instanceMatrix.needsUpdate = true;
+}
+
+/* ------------------------------------------------ campo de partículas */
+const P = 2200;
+const pPos = new Float32Array(P * 3);
+for (let i = 0; i < P; i++) {
+  const r = 4.6 + Math.pow(Math.random(), 0.6) * 7, a = Math.random() * Math.PI * 2, h = (Math.random() - 0.5) * 2.2;
+  pPos.set([Math.cos(a) * r, h * (r / 6), Math.sin(a) * r - 2], i * 3);
+}
+const dustGeo = new THREE.BufferGeometry();
+dustGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
+// Punto redondo y difuso (en vez del cuadrado por defecto de PointsMaterial).
+function dotTexture() {
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = 64;
+  const g = cv.getContext("2d"), grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, "rgba(255,255,255,1)");
+  grad.addColorStop(0.35, "rgba(255,255,255,0.55)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(cv);
+}
+const dustMat = new THREE.PointsMaterial({ color, size: 0.06, map: dotTexture(), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+tinted.push(dustMat);
+const dust = new THREE.Points(dustGeo, dustMat);
+dust.rotation.x = 0.35;
+rig.add(dust);
+// Orbital comparison: restore the original 3D rings, voice bars and star field
+// inside the dedicated visual pane, leaving the conversation unobstructed.
+ringHolder.visible = true;
+dust.visible = true;
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.classList.contains("reduce-motion");
+
+function applyColor() {
+  tinted.forEach((m) => m.color.copy(color));
+  coreUniforms.uColor.value.copy(color);
+  shellUniforms.uColor.value.copy(color);
+  const hex = `#${color.getHexString()}`;
+  document.documentElement.style.setProperty("--c", hex);
+  document.documentElement.style.setProperty("--dim", `${hex}8c`);
+}
+
+/* =========================================================== estados */
+const STATES = {
+  idle:      { color: "#58d8c8", speed: 1.0, intensity: 1.0, bloom: 1.0, caption: "Standing by. Ask me about your field." },
+  listening: { color: "#7cecc7", speed: 0.55, intensity: 1.2, bloom: 1.15, caption: "Listening…" },
+  thinking:  { color: "#edb85a", speed: 2.4, intensity: 1.3, bloom: 1.25, caption: "Cross-checking 30 years of NASA climate data…" },
+  speaking:  { color: "#93dfe6", speed: 1.4, intensity: 1.25, bloom: 1.1, caption: "Alternative 1 keeps your soil covered eleven months a year and cuts erosion by about a third." },
+};
+let current = "boot";
+let typer = null, pulse = null;
+const $ = (id) => document.getElementById(id);
+
+// Show complete sentences immediately; narration and data should be easy to
+// scan, without waiting for a simulated terminal to finish typing.
+function typeText(el, text) {
+  if (typer) typer.kill();
+  el.textContent = text;
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.classList.contains("reduce-motion");
+  typer = gsap.fromTo(el, { opacity: 0, y: reduced ? 0 : 8 }, { opacity: 1, y: 0, duration: reduced ? 0 : 0.35, ease: "power2.out", overwrite: true });
+  return typer;
+}
+
+// caption: undefined = texto por defecto del estado; null = deja el texto que hay.
+function setState(name, caption) {
+  const cfg = STATES[name];
+  if (!cfg) return;
+  current = name;
+  document.querySelectorAll("[data-state]").forEach((b) => b.classList.toggle("on", b.dataset.state === name));
+  $("hud-state").textContent = name.toUpperCase();
+  const target = new THREE.Color(cfg.color);
+  gsap.to(color, { r: target.r, g: target.g, b: target.b, duration: 0.9, ease: "power2.out", onUpdate: applyColor });
+  gsap.to(params, { speed: cfg.speed, intensity: cfg.intensity, duration: 1.1, ease: "power2.inOut" });
+  gsap.to(fx, { bloom: cfg.bloom, duration: 1, ease: "power2.out" });
+  gsap.to(coreUniforms.uIntensity, { value: cfg.intensity, duration: 1 });
+
+  if (pulse) { pulse.kill(); pulse = null; }
+  rings.forEach((r) => gsap.to(r.scale, { x: 1, y: 1, z: 1, duration: 0.4 }));
+  if (name === "thinking" && !reducedMotion()) {
+    pulse = gsap.to(rings.map((r) => r.scale), { x: 1.035, y: 1.035, z: 1.035, duration: 0.9, stagger: 0.06, yoyo: true, repeat: -1, ease: "sine.inOut" });
+  }
+  if (caption !== null) typeText($("caption"), caption ?? cfg.caption, name === "speaking" ? 0.045 : 0.03);
+}
+
+/* ================================ voz: grabar → Whisper → gpt-oss → hablar */
+// El audio y el texto pasan por el servidor de Cooper (/api/jarvis/...), que tiene la clave de Groq.
+// El navegador nunca ve la clave.
+let audioCtx = null, analyser = null, freq = null;      // uno solo, reutilizado
+let micStream = null, micSource = null;
+let recorder = null, recStart = 0;
+let starting = false, cancelStart = false, busy = false;
+let speechId = 0, utterances = [];                       // referencias: evita que Chrome corte onend
+const history = [];
+
+function setAudioHud(text, on = false) {
+  $("hud-audio").textContent = text;
+  $("btn-mic").classList.toggle("on", on);
+}
+
+function releaseMic() {
+  if (micSource) micSource.disconnect();
+  if (micStream) micStream.getTracks().forEach((t) => t.stop());
+  micSource = null; micStream = null;
+}
+
+function micError(e) {
+  setAudioHud("MIC BLOCKED");
+  const msg =
+    !window.isSecureContext || !navigator.mediaDevices ? "Open the assistant from Cooper (it needs HTTPS or localhost)" :
+    e.name === "NotAllowedError" ? "Microphone permission was denied. Allow it in the address bar." :
+    e.name === "NotFoundError" ? "No microphone found." :
+    `Microphone error: ${e.message || e.name}`;
+  setState("idle", msg);
+}
+
+async function startTalk() {
+  if (recorder || starting || busy) return;
+  stopSpeech();                                          // interrumpir si estaba hablando
+  if (center === "visual") goHome();
+  starting = true; cancelStart = false;
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("insecure");
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+  } catch (e) {
+    starting = false; releaseMic(); micError(e);
+    return;
+  }
+  starting = false;
+  if (cancelStart) {                                     // soltó la tecla mientras aceptaba el permiso
+    releaseMic();
+    setState("idle", "Microphone ready. Hold Space (or the button) while you talk.");
+    return;
+  }
+  if (!audioCtx) {
+    audioCtx = new AudioContext();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.75;
+    freq = new Uint8Array(analyser.frequencyBinCount);
+  }
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  micSource = audioCtx.createMediaStreamSource(micStream);
+  micSource.connect(analyser);
+
+  const mime = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"]
+    .find((t) => MediaRecorder.isTypeSupported(t));
+  const rec = new MediaRecorder(micStream, mime ? { mimeType: mime } : undefined);
+  const chunks = [];
+  rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  rec.onstop = () => handleRecording(new Blob(chunks, { type: rec.mimeType || mime || "audio/webm" }), performance.now() - recStart);
+  rec.start();
+  recorder = rec; recStart = performance.now();
+  setAudioHud("RECORDING", true);
+  setState("listening", "Listening… release to send.");
+}
+
+function stopTalk() {
+  if (starting) { cancelStart = true; return; }
+  if (!recorder) return;
+  recorder.stop();                                       // onstop llega después, con todo el audio
+  recorder = null;
+  releaseMic();
+}
+
+async function api(path, body, type) {
+  if (location.protocol === "file:") throw new Error("Open the assistant from Cooper, not as a file");
+  const res = await fetch(path, { method: "POST", headers: { "Content-Type": type }, body });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || (typeof data.detail === "string" ? data.detail : `HTTP ${res.status}`));
+  return data;
+}
+
+/* ============================================ ficha, análisis y reporte */
+// La ficha del campo se llena de tres maneras: hablando (el modelo devuelve "set"), a mano en el
+// panel, o con un clic en el globo. El análisis lo hace el motor de Cooper (/api/analyze) y el
+// reporte se arma en report.js con esos números: el modelo nunca calcula ni inventa cifras.
+const rep = await import("./report.js").catch((e) => { console.warn("report.js not loaded", e); return null; });
+const PRIO = { agua: "Water", suelo: "Soil", ingreso: "Income", forraje: "Forage", clima: "Climate" };
+const form = {
+  campo: "", lat: null, lon: null, rotacion: "", ganado: false, area_ha: 100, suelo_mm: 120,
+  prioridades: { agua: 3, suelo: 4, ingreso: 4, forraje: 1, clima: 3 }, lluvia_pct: 0, temp_delta: 0,
+};
+let analysis = null;
+let convLang = (navigator.language || "en").slice(0, 2).toLowerCase();   // idioma de la última pregunta
+let reportLang = "en", tmap = null, reportReady = false;                  // idioma del reporte y sus traducciones
+const env = () => ({ lang: reportLang, t: (s) => (tmap && tmap.get(s)) || s });
+const shortName = (name) => name.replace(/^Near\s+/, "").split(/[,(]/)[0].trim();
+const stopSpeech = () => { stopDemo(); speechId++; utterances = []; stopCloud(); speechSynthesis.cancel(); cancelVisualHide(); };
+
+async function handleRecording(blob, ms) {
+  setAudioHud("GROQ");
+  if (ms < 400 || blob.size < 1500) {
+    setAudioHud("SIMULATED");
+    setState("idle", "Too short. Hold Space while you talk.");
+    return;
+  }
+  busy = true;
+  try {
+    setState("thinking", "Transcribing…");
+    const stt = await api("/api/jarvis/transcribe", blob, blob.type || "audio/webm");
+    if (!stt.text) { setState("idle", "I didn't catch that. Try again."); return; }
+    await ask(stt.text, stt.lang);
+  } catch (e) {
+    setState("idle", `Error: ${e.message}`);
+  } finally {
+    busy = false;
+    setAudioHud("SIMULATED");
+  }
+}
+
+async function askTyped(text) {
+  text = text.trim();
+  if (busy || !text) return;
+  stopSpeech();
+  busy = true;
+  try { await ask(text); } catch (e) { setState("idle", `Error: ${e.message}`); } finally { busy = false; }
+}
+
+// Pregunta (dictada o escrita) → modelo → ficha, voz y visuales.
+async function ask(text, lang) {
+  $("current-question").textContent = text;
+  $("current-question").hidden = false;
+  setState("thinking", "Looking at your analysis…");
+  history.push({ role: "user", content: text });
+  let res;
+  try {
+    res = await api("/api/jarvis/chat", JSON.stringify({
+      messages: history.slice(-12), lang,
+      context: analysis && rep ? rep.buildContext(analysis, form) : null,
+    }), "application/json");
+  } catch (e) { history.pop(); throw e; }
+  history.push({ role: "assistant", content: res.reply });
+  convLang = res.lang || lang || convLang;
+  const segs = res.segments.map((s) => (s.view && rep && analysis ? rep.resolve(s, analysis, env()) : s));
+  speak(segs, convLang, { then: res.action === "report" && analysis ? () => playReport(0) : null });
+}
+
+/* ------------------------------------------- el análisis (viene de Cooper) */
+// Jarvis no arma la ficha ni corre el análisis: los recibe de Cooper (loadFromCooper, más abajo).
+// "form" guarda los datos de entrada de ese análisis para el resumen que se manda al modelo.
+let fieldKey = "";
+function sync() {                                        // datos del campo → HUD y globo
+  const located = form.lat != null;
+  $("hud-lat").textContent = located ? form.lat.toFixed(3) : "--";
+  $("hud-lon").textContent = located ? form.lon.toFixed(3) : "--";
+  $("hud-field").textContent = located ? (form.campo ? shortName(form.campo) : "your field") : "no analysis yet";
+  const key = located ? `${form.lat},${form.lon},${form.area_ha}` : "";
+  if (globe && key !== fieldKey) { fieldKey = key; globe.setField(located ? { lat: form.lat, lon: form.lon, area_ha: form.area_ha } : null); }
+}
+function setPoint(lat, lon, { name = "" } = {}) {
+  form.lat = lat; form.lon = lon; form.campo = name;
+  sync();
+}
+
+/* ---------------------------------------------------------- el reporte */
+// El guion está en inglés. Si la conversación viene en otro idioma, se pide una traducción
+// (el servidor verifica que cada texto conserve los números); si falla, queda en inglés.
+async function prepareReport(lang) {
+  tmap = null; reportLang = "en";
+  if (!["es", "pt"].includes(lang)) return;
+  try {
+    const texts = rep.collectStrings(analysis);
+    const r = await api("/api/jarvis/translate", JSON.stringify({ texts, lang }), "application/json");
+    if (r.translated / r.total >= 0.7) { tmap = new Map(texts.map((s, i) => [s, r.texts[i]])); reportLang = lang; }
+  } catch (e) {
+    console.warn("Report not translated:", e.message);
+  }
+}
+
+async function playReport(from = 0) {
+  if (!analysis || !rep || busy) return;
+  stopSpeech();
+  if (!reportReady) {
+    busy = true;
+    setState("thinking", "Preparing your report…");
+    try { await prepareReport(convLang); } finally { busy = false; }
+    reportReady = true;
+    renderDash();
+  }
+  const e = env();
+  speak(rep.buildReport(analysis, e.t).filter((s) => s.chapter >= from).map((s) => rep.resolve(s, analysis, e)), reportLang);
+}
+
+function renderDash() {
+  $("dash").hidden = false;
+  const div = (cls, ...kids) => { const d = document.createElement("div"); d.className = cls; d.append(...kids); return d; };
+  const bold = (text) => { const b = document.createElement("b"); b.textContent = text; return b; };
+  $("figures").replaceChildren(
+    ...rep.keyFigures(analysis, reportLang).map(([k, v]) => div("fig", k, bold(v))),
+    ...analysis.advertencias.map((w) => div("warn", w)));
+  $("chapters").replaceChildren(...rep.ui(reportLang).chapters.map((title, i) => {
+    const b = document.createElement("button");
+    b.textContent = `${i + 1} · ${title}`;
+    b.addEventListener("click", () => playReport(i));
+    return b;
+  }));
+}
+function markChapter(i) {
+  document.querySelectorAll("#chapters button").forEach((b, k) => b.classList.toggle("on", k === i));
+}
+function setInfo(panel) {                                // lista al costado (diagnóstico, ideas, riesgos)
+  const has = !!(panel && panel.items && panel.items.length);
+  $("info").hidden = !has;
+  $("figures-wrap").hidden = has;
+  if (!has) return;
+  $("info-title").textContent = panel.title;
+  $("info-list").replaceChildren(...panel.items.map((x) => { const li = document.createElement("li"); li.textContent = x; return li; }));
+}
+
+/* ------------------------------ voz: ElevenLabs (/api/voice) o, si no hay, la del navegador */
+let cloudAudio = null;
+function stopCloud() { if (cloudAudio) { const a = cloudAudio; cloudAudio = null; a.pause(); } }
+// Reproduce un audio. Devuelve "ended", "stopped" (lo cortamos nosotros) o "failed" (no sonó).
+function playCloud(url) {
+  return new Promise((resolve) => {
+    const a = new Audio(url);
+    let started = false;
+    const finish = (how) => { if (cloudAudio === a) cloudAudio = null; resolve(how); };
+    a.onplaying = () => { started = true; };
+    a.onended = () => finish("ended");
+    a.onpause = () => { if (!a.ended) finish("stopped"); };
+    a.onerror = () => finish(started ? "ended" : "failed");
+    cloudAudio = a;
+    a.play().catch(() => finish("failed"));              // p. ej. el navegador la bloquea hasta que haya un clic
+  });
+}
+
+speechSynthesis.getVoices();                             // en Chrome las voces cargan async
+speechSynthesis.addEventListener?.("voiceschanged", () => speechSynthesis.getVoices());
+
+function pickVoice(lang) {
+  const code = (lang || navigator.language || "en").slice(0, 2).toLowerCase();
+  const cands = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith(code));
+  // Las voces "Natural"/"Online" (Edge) y "Google" (Chrome) suenan mucho mejor que las locales.
+  return cands.find((v) => /natural|online|google/i.test(v.name)) || cands[0] || null;
+}
+
+const cleanText = (text) => text
+  .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")              // [texto](url) -> texto
+  .replace(/[*_#`>|~]/g, "")
+  .replace(/\s+/g, " ").trim();
+
+// segments: [{ say, show?, label?, panel?, chapter?, ...parámetros del visual }].
+// Cada segmento cambia el subtítulo y, si trae "show", el visual, justo cuando la voz empieza a decirlo.
+// then: qué hacer al terminar de hablar (en vez de volver al inicio).
+async function speak(segments, lang, { then = null } = {}) {
+  const segs = segments.map((s) => ({ ...s, say: cleanText(s.say) })).filter((s) => s.say);
+  if (!segs.length) { if (then) then(); return; }
+  const id = ++speechId;
+  cancelVisualHide();
+  setState("speaking", null);
+  const begin = (seg) => {
+    if (id !== speechId) return;
+    typeText($("caption"), seg.say, 0.03);
+    if (seg.show === "globe") showGlobe({ label: seg.label, tour: true });
+    else if (seg.show) showVisual(seg, lang);
+    if (seg.show) setInfo(seg.panel);
+    if (seg.chapter != null) markChapter(seg.chapter);
+  };
+  const done = () => {
+    if (id !== speechId) return;
+    markChapter(-1);
+    if (then) { then(); return; }
+    if (current === "speaking") setState("idle", null);
+    hideTimer = gsap.delayedCall(7, goHome);               // el visual queda un rato y se va
+  };
+  // Sin voz (no existe, o el navegador la bloquea hasta que haya un clic o una tecla):
+  // los subtítulos y los visuales avanzan igual, a ritmo de lectura.
+  const silent = (list = segs) => {
+    let at = 0;
+    list.forEach((s) => { gsap.delayedCall(at, () => begin(s)); at += Math.max(2.5, s.say.length * 0.065); });
+    gsap.delayedCall(at, done);
+  };
+  // Primero la voz del servidor: mientras suena una frase se piden las dos siguientes.
+  const V = window.CooperVoice;
+  if (V && V.available()) {
+    const ask = (i) => (i < segs.length ? V.get(segs[i].say, lang, "jarvis") : Promise.resolve(null));
+    ask(1);
+    let url = await V.within(segs[0].say, lang, 6000, "jarvis");
+    for (let i = 0; url && i < segs.length; i++) {
+      if (id !== speechId) return;
+      begin(segs[i]);
+      ask(i + 1); ask(i + 2);
+      const how = await playCloud(url);
+      if (id !== speechId || how === "stopped") return;
+      if (how === "failed") { if (i === 0) break; silent(segs.slice(i)); return; }
+      if (i === segs.length - 1) { done(); return; }
+      url = await ask(i + 1);
+      if (id !== speechId) return;
+      if (!url) { silent(segs.slice(i + 1)); return; }    // se cortó a mitad: sigue con subtítulos
+    }
+    if (id !== speechId) return;
+  }
+  if (!("speechSynthesis" in window)) { silent(); return; }
+  speechSynthesis.cancel();
+  const voice = pickVoice(lang);
+  // Chrome corta las frases largas a los ~15 s: se habla oración por oración.
+  // (Corta solo en puntuación seguida de espacio, para no partir "1.200".)
+  utterances = [];
+  segs.forEach((seg) => {
+    seg.say.split(/(?<=[.!?…])\s+/).filter(Boolean).forEach((p, i) => {
+      const u = new SpeechSynthesisUtterance(p);
+      if (voice) u.voice = voice;
+      u.lang = voice?.lang || lang || navigator.language;
+      if (i === 0) u.onstart = () => begin(seg);
+      utterances.push(u);
+    });
+  });
+  begin(segs[0]);                                        // sin esperar a onstart: arranca ya
+  utterances[0].onstart = null;
+  const last = utterances[utterances.length - 1];
+  let spoke = false, fellBack = false;
+  utterances.forEach((u) => {
+    u.addEventListener("start", () => { spoke = true; });
+    u.addEventListener("error", () => {
+      if (id !== speechId || fellBack) return;           // la cortamos nosotros, o ya se pasó a modo sin voz
+      if (spoke) { if (u === last) done(); return; }
+      fellBack = true;                                   // la voz nunca arrancó: sigue sin voz
+      utterances = [];
+      speechSynthesis.cancel();
+      silent();
+    });
+  });
+  // Si "termina" mucho antes de lo que se tarda en decirlo, la voz no está sonando (sin voces
+  // instaladas o sin salida de audio): se sigue sin voz, para no saltarse el reporte.
+  const t0 = performance.now(), chars = segs.reduce((n, s) => n + s.say.length, 0);
+  last.onend = () => {
+    if (id === speechId && !fellBack && chars > 80 && performance.now() - t0 < chars * 15) {
+      fellBack = true;
+      utterances = [];
+      silent();
+    } else done();
+  };
+  utterances.forEach((u) => speechSynthesis.speak(u));
+}
+
+/* ------------------------------------- centro: núcleo, visual 3D o globo */
+// Si visuals.js o globe.js no cargan (p. ej. abriendo el archivo con doble clic), la animación sigue igual.
+const vis = await import("./visuals.js").catch((e) => { console.warn("visuals.js not loaded", e); return null; });
+const stage = vis ? vis.createStage(rig) : { show: () => false, hide() {}, update() {}, root: new THREE.Group() };
+stage.root.scale.setScalar(1.3);                         // los visuales miden ~1.9 de radio; los anillos se abren a 1.22
+const GLOBE_RING = 1.32;                                 // cuánto se abren los anillos para rodear el globo
+const globeMod = await import("./globe.js?v=2").catch((e) => { console.warn("globe.js not loaded", e); return null; });
+// El globo solo muestra el campo y la celda de clima: el campo se elige en Cooper.
+const globe = globeMod ? globeMod.createGlobe($("globe"), { onPick() {}, onPickDemo() {} }) : null;
+let center = "core";                                     // "core" | "visual" | "globe"
+let hideTimer = null, tourTimer = null, galleryIndex = -1;
+const cancelVisualHide = () => { if (hideTimer) hideTimer.kill(); hideTimer = null; };
+
+function sizeGlobe() {
+  if (!globe) return;
+  const { width, height } = sceneSize();
+  const px = Math.floor(Math.min(width * 0.74, height * 0.74));
+  $("globe").style.width = $("globe").style.height = `${px}px`;
+  globe.size(px);
+}
+function setCenter(mode) {
+  center = mode;
+  document.body.dataset.view = mode;
+  const k = mode === "core" ? 1 : 0.001;
+  const ringScale = mode === "globe" ? GLOBE_RING : mode === "visual" ? 1.12 : 1;
+  gsap.to(ringHolder.scale, { x: ringScale, y: ringScale, z: ringScale, duration: 0.9, ease: "power3.inOut", overwrite: true });
+  gsap.to(fx, { k: mode === "core" ? 1 : mode === "globe" ? 0.75 : 0.55, duration: 0.8, overwrite: "auto" });
+  gsap.to(coreHolder.scale, { x: k, y: k, z: k, duration: 0.8, ease: "power3.inOut", overwrite: true });
+  if (mode !== "visual") {                              // al salir de un visual, vuelve a su posición (la mano lo pudo girar o agrandar)
+    stage.hide();
+    gsap.to(stage.root.rotation, { x: 0, y: 0, duration: 0.6, overwrite: true });
+    gsap.to(stage.root.scale, { x: 1.3, y: 1.3, z: 1.3, duration: 0.6, overwrite: true });
+  }
+  if (tourTimer) { tourTimer.kill(); tourTimer = null; }
+  if (globe) mode === "globe" ? globe.show() : globe.hide();
+}
+function setLabel(text) {
+  const el = $("vlabel");
+  if (text) el.textContent = text;
+  gsap.to(el, { opacity: text ? 1 : 0, duration: 0.4, overwrite: true });
+}
+function showVisual(spec, lang) {
+  cancelVisualHide();
+  if (!stage.show({ ...spec, lang })) return;
+  setCenter("visual");
+  setLabel(spec.label || "");
+}
+// tour: vuela a la zona (se ve la celda de clima de ~50 km) y después baja hasta el campo.
+function showGlobe({ label = "", tour = false } = {}) {
+  cancelVisualHide();
+  if (!globe) return;
+  setCenter("globe");
+  setLabel(label);
+  if (tour && form.lat != null) {
+    globe.fly("area", 2000);
+    tourTimer = gsap.delayedCall(3.6, () => globe.fly("field", 2800));
+  }
+}
+function hideVisual() {                                  // return to the field context
+  cancelVisualHide();
+  setCenter(globe ? "globe" : "core");
+  setLabel(globe && form.campo ? shortName(form.campo) : "");
+  setInfo(null);
+}
+// Keep the field in view between answers, including when an analysis exists.
+function goHome() {
+  if (!globe) hideVisual();
+  else { showGlobe({ label: form.campo ? shortName(form.campo) : "" }); setInfo(null); }
+}
+// Tecla V: recorre la librería con datos de ejemplo, sin pasar por el modelo.
+function nextSample() {
+  if (!vis) return;
+  stopDemo();
+  galleryIndex = (galleryIndex + 1) % vis.SAMPLES.length;
+  const s = vis.SAMPLES[galleryIndex];
+  showVisual(s, navigator.language);
+  typeText($("caption"), `Visual ${galleryIndex + 1}/${vis.SAMPLES.length} · ${s.show}${s.variant ? ` (${s.variant})` : ""}`);
+}
+const labelAnchor = new THREE.Vector3();
+function placeLabel() {
+  labelAnchor.set(0, center === "globe" ? 2.72 : 2.05, 0);
+  stage.root.localToWorld(labelAnchor).project(camera);
+  const el = $("vlabel");
+  el.style.left = `${(labelAnchor.x * 0.5 + 0.5) * sceneSize().width}px`;
+  el.style.top = `${(-labelAnchor.y * 0.5 + 0.5) * sceneSize().height}px`;
+}
+
+/* ------------------------------------------------ control con las manos */
+// gestures.js convierte la cámara en eventos; acá se decide qué hace cada uno:
+//   mano abierta = cursor · pellizco corto = clic · pellizco y mover = arrastrar un deslizador,
+//   girar el globo o el visual · pellizco con las dos manos = acercar o alejar.
+const handCursor = $("hand-cursor");
+let handMode = null, handTarget = null, handHover = null;      // qué tiene agarrado el pellizco
+const touchable = (el) => el && el.closest("button");
+function hoverHand(el) {
+  if (el === handHover) return;
+  if (handHover) handHover.classList.remove("hand-hover");
+  handHover = el;
+  if (el) el.classList.add("hand-hover");
+}
+const gestureMod = await import("./gestures.js").catch((e) => { console.warn("gestures.js not loaded", e); return null; });
+const hands = gestureMod ? gestureMod.createGestures({
+  preview: $("hand-preview"),
+  onStatus: (text) => { $("hud-hands").textContent = text; },
+  onCursor(x, y, pinching) {
+    if (x == null) { handCursor.classList.remove("on"); hoverHand(null); return; }
+    handCursor.classList.add("on");
+    handCursor.classList.toggle("pinch", pinching);
+    handCursor.style.transform = `translate(${x}px, ${y}px)`;
+    if (!handMode) hoverHand(touchable(document.elementFromPoint(x, y)));
+  },
+  onPinchStart(x, y) {
+    const el = document.elementFromPoint(x, y);
+    handTarget = touchable(el);
+    handMode = handTarget ? "ui" : el && el.closest("#globe") ? "globe" : center === "visual" ? "visual" : null;
+  },
+  onPinchMove(x, y, dx, dy) {
+    if (handMode === "globe") globe.rotate(dx, dy);
+    else if (handMode === "visual") {
+      stage.root.rotation.y += dx * 0.006;
+      stage.root.rotation.x = THREE.MathUtils.clamp(stage.root.rotation.x + dy * 0.004, -0.6, 0.8);
+    }
+  },
+  onPinchEnd(x, y, tap) {
+    if (tap && handMode === "ui") handTarget.click();
+    handMode = null; handTarget = null;
+  },
+  onZoom(factor) {
+    if (center === "globe" && globe) globe.zoom(factor);
+    else if (center === "visual") stage.root.scale.setScalar(THREE.MathUtils.clamp(stage.root.scale.x * factor, 0.9, 2.6));
+  },
+}) : null;
+async function toggleHands() {
+  if (!hands) return;
+  await hands.toggle();
+  document.body.classList.toggle("hands", hands.on);
+  $("btn-hands").classList.toggle("on", hands.on);
+  if (hands.on) typeText($("caption"), "Hands on. Open hand moves the cursor; pinch to click, pinch and drag to turn the globe or a visual, two-hand pinch to zoom.");
+}
+$("btn-hands").addEventListener("click", toggleHands);
+
+sync();
+sizeGlobe();
+function startIntake() {
+  booted = true;
+  if (analysis) {
+    setState("idle", `I have your analysis of ${form.campo ? shortName(form.campo) : "your field"}. Ask me anything about it, or say "report" to hear it.`);
+    if (globe) { showGlobe({ label: form.campo ? shortName(form.campo) : "" }); globe.fly("area", 2600); }
+    return;
+  }
+  setState("idle", "Run an analysis in Cooper first and I'll explain it here. Meanwhile, ask me how Cooper works.");
+  if (globe) { showGlobe({ label: form.campo ? shortName(form.campo) : "" }); globe.fly("country", 2600); }
+}
+/* ---------------------------------------------- dentro de Cooper (iframe) */
+// Cooper abre esta página a pantalla completa y le pasa el análisis que el productor tiene abierto.
+// Solo se aceptan mensajes del mismo origen.
+let booted = false;
+const EMBED = window.parent !== window;
+function closeEmbed() {
+  stopSpeech();
+  stopTalk();
+  parent.postMessage({ type: "jarvis:close" }, location.origin);
+}
+// Contexto que no es parte del análisis: el tiempo (Open-Meteo) y el suelo (SoilGrids) del campo.
+// Si no llegan, Jarvis sigue igual y dice que no tiene ese dato.
+async function loadExtras(a, lat, lon) {
+  const get = (path) => fetch(`${path}?lat=${lat}&lon=${lon}`, { signal: AbortSignal.timeout(35000) })
+    .then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  a.extras = {};
+  get("/api/weather").then((w) => { a.extras.weather = w; });
+  get("/api/soil").then((s) => { a.extras.soil = s; });
+}
+function loadFromCooper({ rec, field, lang, theme, reducedMotion } = {}) {
+  document.documentElement.classList.toggle("reduce-motion", !!reducedMotion);
+  if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+  if (lang) {
+    convLang = lang;
+    document.documentElement.lang = lang;
+    const spanish = lang === "es";
+    $("conversation-title").textContent = spanish ? "Conversemos sobre tu campo" : "Let’s talk about your field";
+    $("conversation-description").textContent = spanish ? "Preguntá mientras explorás los visuales." : "Ask a question while you explore the visuals.";
+    $("assistant-subtitle").textContent = spanish ? "Asistente para tu campo" : "Field assistant";
+    $("assistant-note").textContent = spanish ? "Tu campo, explicado. Revisá las decisiones importantes con tu agrónomo." : "Your field, explained. Review important decisions with your agronomist.";
+    $("ask-send").textContent = spanish ? "Enviar" : "Send";
+    $("ask").placeholder = spanish ? "Preguntá sobre tu campo…" : "Ask about your field…";
+    $("ask").setAttribute("aria-label", spanish ? "Preguntale a Cooper sobre tu campo" : "Ask Cooper about your field");
+  }
+  if (!rec || !rec.input || !rec.result) {             // sin análisis: al menos el campo que tiene abierto
+    if (field && Number.isFinite(field.lat) && Number.isFinite(field.lon)) {
+      setPoint(field.lat, field.lon, { name: field.nombre || "" });
+      if (field.area_ha) { form.area_ha = field.area_ha; sync(); }
+    }
+    return;
+  }
+  const q = rec.input, esc = q.escenario || {};
+  setPoint(q.lat, q.lon, { name: rec.field || "" });
+  form.rotacion = q.rotacion_actual;
+  form.ganado = !!q.tiene_ganado;
+  form.area_ha = q.area_ha ?? form.area_ha;
+  form.suelo_mm = q.capacidad_suelo_mm ?? form.suelo_mm;
+  if (q.prioridades) Object.assign(form.prioridades, q.prioridades);
+  form.lluvia_pct = esc.lluvia_pct || 0;
+  form.temp_delta = esc.temp_delta || 0;
+  analysis = { ...rec.result, campo: rec.field || "" };
+  loadExtras(analysis, q.lat, q.lon);
+  reportReady = false;
+  renderDash();
+  sync();
+  if (booted) startIntake();
+}
+if (EMBED) {
+  document.body.classList.add("embed");
+  $("btn-close").addEventListener("click", closeEmbed);
+  addEventListener("message", (e) => {
+    if (e.origin !== location.origin || e.source !== parent || !e.data) return;
+    if (e.data.type === "cooper:context") loadFromCooper(e.data);
+    if (e.data.type === "cooper:theme" && ["light", "dark"].includes(e.data.theme)) document.documentElement.dataset.theme = e.data.theme;
+  });
+  parent.postMessage({ type: "jarvis:ready" }, location.origin);   // Cooper responde con el análisis
+}
+
+window.cooper = { form, playReport, showVisual, hands, globe, get analysis() { return analysis; } };   // para probar desde la consola
+
+const levels = new Float32Array(BARS);
+let smooth = 0;
+function audioFrame(t) {
+  if (micSource) {
+    analyser.getByteFrequencyData(freq);
+    let sum = 0;
+    for (let i = 0; i < BARS; i++) {
+      // Espejo: graves arriba y abajo del anillo, para que se vea simétrico.
+      const k = Math.floor((i < BARS / 2 ? i : BARS - i) / (BARS / 2) * (freq.length * 0.7));
+      levels[i] = freq[k] / 255;
+      sum += levels[i];
+    }
+    return sum / BARS;
+  }
+  let base;
+  if (current === "speaking") {
+    // Sílabas y pausas entre palabras.
+    const syll = Math.abs(Math.sin(t * 9.5)) * (0.55 + 0.45 * Math.sin(t * 2.3)) ;
+    const gap = Math.sin(t * 1.7) > -0.55 ? 1 : 0.15;
+    base = 0.18 + syll * gap * 0.75;
+  } else if (current === "listening") base = 0.1 + 0.08 * Math.abs(Math.sin(t * 3.1)) + (Math.random() < 0.04 ? 0.25 : 0);
+  else if (current === "thinking") base = 0.08 + 0.04 * Math.sin(t * 6);
+  else base = 0.04 + 0.03 * Math.sin(t * 1.3);
+  smooth += (base - smooth) * 0.2;
+  for (let i = 0; i < BARS; i++) {
+    const a = (i / BARS) * Math.PI * 2;
+    const shape = 0.45 + 0.55 * Math.abs(Math.sin(a * 3 + t * 2.1) * Math.cos(a * 5 - t * 3.3));
+    levels[i] = smooth * shape * (current === "thinking" ? (0.6 + 0.4 * Math.sin(a * 12 - t * 10)) : 1);
+  }
+  return smooth;
+}
+
+/* ================================================= demo automática */
+let demo = null;
+function startDemo() {
+  stopDemo();
+  $("btn-demo").classList.add("on");
+  demo = gsap.timeline({ repeat: -1 })
+    .call(() => setState("idle")).to({}, { duration: 3 })
+    .call(() => setState("listening")).to({}, { duration: 3.2 })
+    .call(() => setState("thinking")).to({}, { duration: 3 })
+    .call(() => setState("speaking")).to({}, { duration: 6.5 });
+}
+function stopDemo() { if (demo) demo.kill(); demo = null; $("btn-demo").classList.remove("on"); }
+
+/* ================================================= interacción */
+document.querySelectorAll("[data-state]").forEach((b) => b.addEventListener("click", () => { stopDemo(); setState(b.dataset.state); }));
+$("btn-demo").addEventListener("click", () => (demo ? stopDemo() : startDemo()));
+// Botón: mantener apretado para hablar.
+const mic = $("btn-mic");
+mic.addEventListener("pointerdown", (e) => { e.preventDefault(); mic.setPointerCapture(e.pointerId); startTalk(); });
+mic.addEventListener("pointerup", stopTalk);
+mic.addEventListener("pointercancel", stopTalk);
+const typing = (e) => !!e.target.closest?.("input, select, textarea");   // en la ficha o la caja de texto no hay atajos
+addEventListener("keydown", (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey || typing(e)) return;
+  if (e.code === "Space") { e.preventDefault(); if (!e.repeat) startTalk(); return; }
+  if (e.repeat) return;
+  const map = { 1: "idle", 2: "listening", 3: "thinking", 4: "speaking" };
+  if (map[e.key] && !EMBED) { stopDemo(); setState(map[e.key]); }
+  if (e.key.toLowerCase() === "d" && !EMBED) demo ? stopDemo() : startDemo();
+  if (e.key.toLowerCase() === "v" && !EMBED) nextSample();
+  if (e.key === "Escape") {
+    if (EMBED && center !== "visual") { closeEmbed(); return; }
+    hideVisual();
+  }
+  if (e.key.toLowerCase() === "g") showGlobe({ label: form.campo ? shortName(form.campo) : "" });
+  if (e.key.toLowerCase() === "r") playReport(0);
+  if (e.key.toLowerCase() === "h") toggleHands();
+  if (e.key.toLowerCase() === "m") recorder || starting ? stopTalk() : startTalk();
+});
+addEventListener("keyup", (e) => { if (e.code === "Space" && !typing(e)) { e.preventDefault(); stopTalk(); } });
+function submitQuestion() {
+  const input = $("ask");
+  const text = input.value.trim();
+  if (!text || busy) return;
+  input.value = "";
+  askTyped(text);
+}
+$("ask-send").addEventListener("click", submitQuestion);
+$("ask").addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && EMBED) { e.preventDefault(); closeEmbed(); return; }
+  if (e.key !== "Enter" || e.isComposing) return;
+  e.preventDefault();
+  submitQuestion();
+});
+addEventListener("blur", stopTalk);                      // si cambia de ventana con Space apretado
+// Models stay stable while reading; intentional hand or globe dragging still
+// changes the view, without moving it just because the pointer crosses a button.
+function resizeScene() {
+  const { width, height } = sceneSize();
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+  fitCamera();
+  renderer.setSize(width, height);
+  composer.setSize(width, height);
+  bloom.resolution.set(width / 2, height / 2);
+  sizeGlobe();
+}
+new ResizeObserver(resizeScene).observe(sceneRegion);
+addEventListener("resize", resizeScene);
+
+/* ================================================= encendido (GSAP) */
+core.scale.setScalar(0.001);
+rings.forEach((r) => { r.scale.setScalar(0.001); r.userData.base = r.rotation.z; });
+barGroup.scale.setScalar(0.001);
+
+const boot = gsap.timeline({ delay: 0.3 });
+const bootEl = $("boot");
+boot
+  .add(typeText(bootEl, "CONNECTING TO YOUR FIELD", 0.04))
+  .to(shellUniforms.uOpacity, { value: 1, duration: 1.4, ease: "power2.out" }, 0.4)
+  .to(dustMat, { opacity: 0.38, duration: 1.5, ease: "power2.out" }, 0.2)
+  .to(rings.map((r) => r.scale), { x: 1, y: 1, z: 1, duration: 1.1, stagger: 0.08, ease: "expo.out" }, 0.35)
+  .to(barGroup.scale, { x: 1, y: 1, z: 1, duration: 0.8, ease: "power2.out" }, 0.8)
+  .to(core.scale, { x: 1, y: 1, z: 1, duration: 1.6, ease: "power2.out" }, 0.6)
+  .fromTo(fx, { bloom: 1.6 }, { bloom: 1.0, duration: 1.8, ease: "power3.out" }, 0.6)
+  .to(bootEl, { opacity: 0, duration: 0.6 }, 2.4)
+  .to("#hud", { opacity: 1, duration: 0.8 }, 2.4)
+  .call(startIntake, null, 1.4);
+
+/* ================================================= bucle */
+const clock = new THREE.Clock();
+let frames = 0, fpsT = 0;
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  const motionDt = reducedMotion() ? 0 : dt;
+  const sceneTime = reducedMotion() ? 0 : t;
+  const level = audioFrame(sceneTime);
+  params.audio += (level - params.audio) * 0.25;
+
+  coreUniforms.uTime.value = sceneTime; coreUniforms.uAudio.value = params.audio;
+  shellUniforms.uTime.value = sceneTime; shellUniforms.uAudio.value = params.audio;
+  core.rotation.y += motionDt * 0.25 * params.speed;
+  core.rotation.x = Math.sin(sceneTime * 0.3) * 0.15;
+  wire.rotation.y -= motionDt * 0.4 * params.speed;
+  wireMat.opacity = 0.25 + 0.2 * Math.sin(sceneTime * 2) * 0.5 + params.audio * 0.4;
+  rings.forEach((r) => { r.rotation.z += motionDt * r.userData.spin * params.speed; });
+  dust.rotation.y += motionDt * 0.02 * params.speed;
+  updateBars(levels);
+  stage.update(dt);
+  bloom.strength = fx.bloom * fx.k;
+  placeLabel();
+  composer.render();
+
+  frames++; fpsT += dt;
+  if (fpsT >= 0.5) {
+    $("hud-fps").textContent = `${Math.round(frames / fpsT)} FPS`;
+    frames = 0; fpsT = 0;
+    $("hud-level").textContent = params.audio.toFixed(2);
+    $("hud-clock").textContent = new Date().toLocaleTimeString("en-GB");
+  }
+});
+</script>
+</body>
+</html>
