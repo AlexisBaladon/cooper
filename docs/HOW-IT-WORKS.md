@@ -271,7 +271,7 @@ the logo then lands in the menu while the interface assembles itself.
   respond, its panel shows a placeholder ready for that source.
 - **Settings:** light, dark or system theme, language, intro and motion preferences,
   and export or deletion of the data stored on the device.
-- **Jarvis:** a floating assistant. With a Groq key it answers questions with the
+- **Assistant:** a floating assistant. With a Groq key it answers questions with the
   numbers of the open analysis (`/api/assistant`); without one it gives guided answers
   built from the same data. It explains; it never decides.
 
@@ -379,7 +379,7 @@ with an agronomist. It never makes decisions or changes the analysis.
 | `POST /api/narrate` | The slides' text rewritten by Groq, or the templates if that wasn't possible |
 | `GET /api/weather?lat&lon` | Current weather and a 7-day forecast (Open-Meteo, context only) |
 | `GET /api/soil?lat&lon` | Modelled soil properties by depth and surface texture (SoilGrids, reference only) |
-| `POST /api/assistant` | Jarvis' answer about the open analysis (Groq), or `fuente: "sin_ia"` |
+| `POST /api/assistant` | The assistant's answer about the open analysis (Groq), or `fuente: "sin_ia"` |
 | `POST /api/chat` | A short answer (plain text) about the analysis summary sent with the question |
 | `POST /api/transcribe` | The text of a voice note (raw audio body, `Content-Type: audio/*`) |
 
@@ -415,7 +415,7 @@ backend/app/climate.py    climate indicators and trends
 backend/app/terrain.py    SRTM, slope, water flow, RUSLE, zones
 backend/app/engine.py     water balance, scores, selection, explanations and diagnosis
 backend/app/narrator.py   narration rewriting with Groq, and its validation
-backend/app/assistant.py  Jarvis answers (/api/assistant), plus short chat and
+backend/app/assistant.py  Assistant answers (/api/assistant), plus short chat and
                           voice-note transcription (/api/chat, /api/transcribe) with Groq
 backend/app/weather.py    live weather (Open-Meteo), cached 10 minutes
 backend/app/soil.py       SoilGrids soil properties, cached on disk
@@ -428,8 +428,8 @@ data/recommendations.json ideas to improve, per problem
 data/cache/               downloaded data (not committed)
 frontend/index.html, app.js, styles.css       application shell, routing, top bar, settings
 frontend/js/                                  views (home, analysis, history, field), charts,
-                                              exports, player, Jarvis, intro, 3D relief
-frontend/assets/brand/                        logo, icons and Jarvis rings with real transparency
+                                              exports, player, assistant, intro, 3D relief
+frontend/assets/brand/                        logo, icons and assistant rings with real transparency
 frontend/public/                              original brand files and the intro video
 frontend/slides*.html, slides*.js, slides.css "Explain it simply" (charts and 3D)
 scripts/make_slides_sample.py                 rebuilds the slides' sample analysis

@@ -75,7 +75,7 @@ each score with "See more options", and the narrated explanation in a video-styl
 **Analysis** (new analysis with every chart and map, and the analysis history with PDF,
 Excel, CSV and JSON exports), **My field** (several independent fields, imagery, NDVI,
 erosion and crop maps, soil, climate and crops) and **Settings** (dark mode, language,
-motion). Jarvis, a floating assistant, explains the open analysis. See
+motion). A floating assistant explains the open analysis. See
 [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md#the-application-indexhtml).
 
 ## Adapted to Uruguay
@@ -126,7 +126,7 @@ questions, voice notes and a summary of the analysis, never coordinates.
 
 ### Optional: spoken voice (ElevenLabs)
 
-"Explain it simply" and full-screen Jarvis speak with an ElevenLabs voice when
+"Explain it simply" and the full-screen assistant speak with an ElevenLabs voice when
 `ELEVENLABS_API_KEY` is set in `backend/.env` (a key with the *Text to Speech* permission is
 enough). The server asks for one sentence at a time (`POST /api/voice`) and keeps every
 sentence it has already generated in `data/cache/voice`, so replaying an explanation spends
@@ -151,7 +151,7 @@ the latest weather and the soil data. Offline, the weather chip shows when it wa
 
 A new analysis or a new climate scenario still needs the server (the comparison runs in Python);
 a comparison already made with exactly the same settings is shown again from the device. The AI
-narration and Jarvis fall back to their template and guided answers.
+narration and the assistant fall back to their template and guided answers.
 
 `frontend/sw-files.js` lists the files to store. Regenerate it after adding or renaming frontend
 files with `python scripts/make_offline_manifest.py`; packaging a release does it automatically.

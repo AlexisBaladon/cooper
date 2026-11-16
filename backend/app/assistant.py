@@ -191,7 +191,7 @@ def transcribe(audio: bytes, content_type: str) -> str:
 
 
 # ------------------------------------------------------------------ Jarvis
-JARVIS_PROMPT = """You are Jarvis, the assistant inside Cooper, a decision-support tool that helps
+JARVIS_PROMPT = """You are Cooper, a decision-support assistant that helps
 farmers in Uruguay compare crop rotations with 30 years of NASA data.
 
 Rules you must follow:

@@ -147,7 +147,7 @@ def process_one():
                 reply = label + reply
         except Exception:
             # Do not log exception bodies: providers may include message contents.
-            reply = 'Jarvis could not answer right now. Please try again shortly.'
+            reply = 'Cooper could not answer right now. Please try again shortly.'
     reply = reply[:1500]
     try:
         Client(os.environ['TWILIO_ACCOUNT_SID'], os.environ['TWILIO_AUTH_TOKEN']).messages.create(

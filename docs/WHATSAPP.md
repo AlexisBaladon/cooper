@@ -1,4 +1,4 @@
-# Jarvis on WhatsApp — Twilio setup
+# Cooper on WhatsApp — Twilio setup
 
 ## AWS deployment
 
@@ -38,7 +38,7 @@ documents restrictions on custom outbound REST messages. This adapter uses
 free-form REST replies, so do not claim that it is compatible with a new trial
 until an end-to-end test succeeds. A legacy Sandbox or fully enabled sender is
 the original supported target. A successful default reply only proves Twilio
-received a message; it does not prove Jarvis is connected.
+received a message; it does not prove Cooper is connected.
 
 References: [current Sandbox availability](https://www.twilio.com/docs/whatsapp/sandbox),
 [legacy trial transition](https://www.twilio.com/docs/usage/trials/legacy-console-trial-transition),
@@ -72,7 +72,7 @@ References: [current Sandbox availability](https://www.twilio.com/docs/whatsapp/
 
 ### Default-field demo analysis
 
-Set `WHATSAPP_DEMO_ANALYSIS=true` only for the local gateway to let Jarvis answer
+Set `WHATSAPP_DEMO_ANALYSIS=true` only for the local gateway to let Cooper answer
 questions using `data/whatsapp-default-analysis.json`. The snapshot uses the
 website's initial sample: near Young (-32.62, -57.75), 100 ha, continuous soybean,
 no livestock, 120 mm soil water storage, priorities water 3 / soil 4 / income 4 /
@@ -91,7 +91,7 @@ instead of downloading missing data.
 
 Try “What inputs does this example use?”, “Which rotation has the best total
 score?”, “How much soil does continuous soybean lose?”, or “Which option saves
-the most water?”. The normal Jarvis numeric grounding checks still apply.
+the most water?”. The normal Cooper numeric grounding checks still apply.
 
 For a temporary local HTTPS tunnel, run the webhook-only app:
 
@@ -126,7 +126,7 @@ only for the gateway process to avoid two workers sharing a local queue.
 - Text only: attachments/voice notes get a helpful response. No scheduled or
   unsolicited messages, report playback, 3D visuals, analysis sharing, or analysis
   execution from WhatsApp in this version; the optional fixed demo above is the
-  only analysis context supplied by this adapter. Replies use the same brief Jarvis
+  only analysis context supplied by this adapter. Replies use the same brief Cooper
   style. A Twilio account and Groq key are required for a live end-to-end test.
 - Twilio/WhatsApp messaging can incur charges. Check your account pricing and
   limits before enabling; no paid account or sender has been created by this work.

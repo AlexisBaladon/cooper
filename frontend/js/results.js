@@ -473,7 +473,7 @@
       <section class="card" data-rev>
         <div class="card-head"><div class="ch-title"><span class="chip-ic big">${icon("weather")}</span><div><h2>Your area in numbers</h2>
           <p class="sub">${esc(m.fuente)} · ${esc(m.periodo)} · ${esc(m.resolucion)} grid cell${m.elevacion_m != null ? ` · elevation ${fmt(m.elevacion_m)} m` : ""}</p></div></div>
-          <button type="button" class="ask-jarvis" data-ask-jarvis="When do my crops run short of water during the year?">${icon("help")}<span>Ask Jarvis</span></button></div>
+          <button type="button" class="ask-jarvis" data-ask-jarvis="When do my crops run short of water during the year?">${icon("help")}<span>Ask Cooper</span></button></div>
         <div class="chart-head">
           <div><h3 class="chart-title">Rainfall and atmospheric water demand, by month</h3>
             <p class="hint chart-hint">When the orange line (evapotranspiration) rises above the blue bars (rainfall), crops depend on the water stored in the soil.</p></div>
@@ -498,7 +498,7 @@
       ${data.zonas ? `<section class="card zones-card" data-rev>
         <div class="card-head"><div class="ch-title"><span class="chip-ic big">${icon("layers")}</span><div><h2>Zones of your field</h2>
           <p class="sub">${fmt(data.zonas.area_ha)} ha · ${fmt(data.zonas.celda_m)} m grid · NASA SRTM 30 m · R = ${fmt(data.zonas.r_factor)} MJ·mm/ha/h/yr · K = ${data.zonas.k_factor} (typical value, not measured)</p></div></div>
-          <div class="btn-row"><button type="button" class="btn soft sm" data-3d-local>${C.line("layers")}<span>View in 3D</span></button><button type="button" class="ask-jarvis" data-ask-jarvis="How can I reduce erosion in my field?">${icon("help")}<span>Ask Jarvis</span></button></div></div>
+          <div class="btn-row"><button type="button" class="btn soft sm" data-3d-local>${C.line("layers")}<span>View in 3D</span></button><button type="button" class="ask-jarvis" data-ask-jarvis="How can I reduce erosion in my field?">${icon("help")}<span>Ask Cooper</span></button></div></div>
         <div class="zone-controls">
           <div class="seg" role="group" aria-label="Map layer">${Object.entries(ZONE_LAYERS).map(([k, l]) =>
             `<button type="button" data-layer="${k}" aria-pressed="${k === "erosion"}" class="${k === "erosion" ? "active" : ""}">${esc(l.label)}</button>`).join("")}</div>

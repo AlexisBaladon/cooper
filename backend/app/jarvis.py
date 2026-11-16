@@ -84,7 +84,7 @@ LANG_CODES = {"spanish": "es", "english": "en", "portuguese": "pt", "french": "f
               "italian": "it", "german": "de", "catalan": "ca", "dutch": "nl"}
 
 PERSONA = (
-    "You are Jarvis, the voice assistant of Cooper, a decision-support tool that helps farmers in "
+    "You are Cooper, a voice assistant and decision-support tool that helps farmers in "
     "Uruguay compare crop rotations using NASA data. Your only job is to answer the farmer's "
     "questions as clearly and briefly as possible, showing the visual that best explains the answer. "
     "You never decide for the farmer and you never calculate: Cooper's engine computes everything "
@@ -107,7 +107,7 @@ NO_ANALYSIS = (
     "NASA SRTM terrain, a water balance and RUSLE erosion for each rotation, five scores weighted by "
     "the farmer's priorities) and the terms it uses, with the illustrations below. Do not mention "
     "any other number and never state measurements of the user's field. If they ask about their "
-    'field, tell them to run an analysis in Cooper ("Analyze my field") and open Jarvis again.'
+    'field, tell them to run an analysis in Cooper ("Analyze my field") and ask again.'
 )
 ANALYSIS_RULES = (
     "Use only the facts and numbers in ANALYSIS below; if the answer isn't there, say you don't have "
