@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cooper · Jarvis field assistant</title>
+<title>Cooper · Field assistant</title>
 <script>
   try {
     const mode = JSON.parse(localStorage.getItem("cooper-theme") || '"system"');
@@ -134,7 +134,7 @@
 <div class="hud" id="hud">
   <span class="bracket a"></span><span class="bracket b"></span><span class="bracket c"></span><span class="bracket d"></span>
   <div class="corner tl">
-    <div class="title"><img src="../assets/brand/logo-mark.webp" alt="Cooper"><span>Jarvis<small id="assistant-subtitle">Cooper field assistant</small></span></div>
+    <div class="title"><img src="../assets/brand/logo-mark.webp" alt="Cooper"><span>Cooper<small id="assistant-subtitle">Field assistant</small></span></div>
     <div class="assistant-status"><span class="sr-label">State</span><b id="hud-state">BOOT</b></div>
   </div>
   <div class="corner tr">
@@ -156,7 +156,7 @@
 
 
 
-  <section class="conversation" aria-label="Conversation with Jarvis">
+  <section class="conversation" aria-label="Conversation with Cooper">
     <header class="conversation-head"><h2 id="conversation-title">Let’s talk about your field</h2><p id="conversation-description">Ask a question while you explore the visuals.</p></header>
     <div class="conversation-content">
       <p class="question" id="current-question" hidden></p>
@@ -177,7 +177,7 @@
     <button id="btn-demo">Auto demo</button>
     <div class="voice-controls"><button id="btn-mic">Hold to talk</button>
     <button id="btn-hands">Hands</button></div>
-    <div class="message-composer"><input type="text" id="ask" aria-label="Ask Jarvis about your field" placeholder="Ask about your field…" maxlength="600" autocomplete="off">
+    <div class="message-composer"><input type="text" id="ask" aria-label="Ask Cooper about your field" placeholder="Ask about your field…" maxlength="600" autocomplete="off">
     <button type="button" class="ask-send" id="ask-send">Send</button></div>
   </div>
   <p class="assistant-note" id="assistant-note">Your field, explained. Review important decisions with your agronomist.</p>
@@ -489,7 +489,7 @@ function releaseMic() {
 function micError(e) {
   setAudioHud("MIC BLOCKED");
   const msg =
-    !window.isSecureContext || !navigator.mediaDevices ? "Open Jarvis from Cooper (it needs HTTPS or localhost)" :
+    !window.isSecureContext || !navigator.mediaDevices ? "Open the assistant from Cooper (it needs HTTPS or localhost)" :
     e.name === "NotAllowedError" ? "Microphone permission was denied. Allow it in the address bar." :
     e.name === "NotFoundError" ? "No microphone found." :
     `Microphone error: ${e.message || e.name}`;
@@ -546,7 +546,7 @@ function stopTalk() {
 }
 
 async function api(path, body, type) {
-  if (location.protocol === "file:") throw new Error("Open Jarvis from Cooper, not as a file");
+  if (location.protocol === "file:") throw new Error("Open the assistant from Cooper, not as a file");
   const res = await fetch(path, { method: "POST", headers: { "Content-Type": type }, body });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || (typeof data.detail === "string" ? data.detail : `HTTP ${res.status}`));
@@ -998,11 +998,11 @@ function loadFromCooper({ rec, field, lang, theme, reducedMotion } = {}) {
     const spanish = lang === "es";
     $("conversation-title").textContent = spanish ? "Conversemos sobre tu campo" : "Let’s talk about your field";
     $("conversation-description").textContent = spanish ? "Preguntá mientras explorás los visuales." : "Ask a question while you explore the visuals.";
-    $("assistant-subtitle").textContent = spanish ? "Asistente de Cooper para tu campo" : "Cooper field assistant";
+    $("assistant-subtitle").textContent = spanish ? "Asistente para tu campo" : "Field assistant";
     $("assistant-note").textContent = spanish ? "Tu campo, explicado. Revisá las decisiones importantes con tu agrónomo." : "Your field, explained. Review important decisions with your agronomist.";
     $("ask-send").textContent = spanish ? "Enviar" : "Send";
     $("ask").placeholder = spanish ? "Preguntá sobre tu campo…" : "Ask about your field…";
-    $("ask").setAttribute("aria-label", spanish ? "Preguntale a Jarvis sobre tu campo" : "Ask Jarvis about your field");
+    $("ask").setAttribute("aria-label", spanish ? "Preguntale a Cooper sobre tu campo" : "Ask Cooper about your field");
   }
   if (!rec || !rec.input || !rec.result) {             // sin análisis: al menos el campo que tiene abierto
     if (field && Number.isFinite(field.lat) && Number.isFinite(field.lon)) {

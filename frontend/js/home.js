@@ -135,7 +135,7 @@
     overall: "Explain my best option and how it compares with my current rotation.",
   };
   C.ASK = ASK;
-  const askBtn = (q, label = "Ask Jarvis") => `<button type="button" class="ask-jarvis" data-ask-jarvis="${esc(q)}">${icon("help")}<span>${esc(label)}</span></button>`;
+  const askBtn = (q, label = "Ask Cooper") => `<button type="button" class="ask-jarvis" data-ask-jarvis="${esc(q)}">${icon("help")}<span>${esc(label)}</span></button>`;
 
   function overallCard(ranking, current, prio) {
     const best = ranking[0];

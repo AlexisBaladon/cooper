@@ -29,17 +29,17 @@
     const el = document.createElement("div");
     el.id = "jarvis";
     el.innerHTML = `
-      <button type="button" class="jarvis-wa" data-jv="whatsapp" aria-label="Chat with Jarvis on WhatsApp" title="Chat with Jarvis on WhatsApp">${WA_ICON}</button>
-      <button type="button" class="jarvis-fab" data-jarvis-launch aria-label="Open Jarvis" title="Open Jarvis" aria-expanded="false" aria-controls="jv-panel">
+      <button type="button" class="jarvis-wa" data-jv="whatsapp" aria-label="Chat with Cooper on WhatsApp" title="Chat with Cooper on WhatsApp">${WA_ICON}</button>
+      <button type="button" class="jarvis-fab" data-jarvis-launch aria-label="Open the Cooper assistant" title="Open the Cooper assistant" aria-expanded="false" aria-controls="jv-panel">
         <span class="jarvis-fab-core" aria-hidden="true"></span>
         <img class="jarvis-fab-ring outer" src="assets/brand/jarvis-256.webp" width="88" height="88" alt="" aria-hidden="true">
         <img class="jarvis-fab-ring inner" src="assets/brand/jarvis-256.webp" width="88" height="88" alt="" aria-hidden="true">
         <svg class="jarvis-fab-arcs" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46"/><circle cx="50" cy="50" r="39"/></svg>
       </button>
-      <section class="jv-panel" id="jv-panel" role="dialog" aria-label="Jarvis assistant" hidden>
+      <section class="jv-panel" id="jv-panel" role="dialog" aria-label="Cooper assistant" hidden>
         <header class="jv-head">
           <span class="jv-mini jv-brand" aria-hidden="true"><img src="assets/brand/logo-mark.webp" alt=""></span>
-          <div><strong>Jarvis</strong><small class="jv-status">Cooper assistant</small></div>
+          <div><strong>Ask Cooper</strong><small class="jv-status">Cooper assistant</small></div>
           <button type="button" class="icon-btn" data-jv="clear" title="New conversation" aria-label="New conversation">${icon("reset")}</button>
           <button type="button" class="icon-btn" data-jv="close" aria-label="Close">${icon("close")}</button>
         </header>
@@ -50,7 +50,7 @@
           <input id="jv-text" autocomplete="off" maxlength="600" placeholder="Ask about water, soil, income, climate…">
           <button type="submit" class="icon-btn send" aria-label="Send">${icon("send")}</button>
         </form>
-        <p class="jv-foot">Jarvis explains your analysis; it doesn't decide. Check with your agronomist.</p>
+        <p class="jv-foot">Cooper explains your analysis; it doesn't decide. Check with your agronomist.</p>
       </section>`;
     document.body.appendChild(el);
     S.el = el;
@@ -74,7 +74,7 @@
   /* QR and link to start a WhatsApp chat with Jarvis. */
   function whatsapp() {
     return C.dialog({
-      title: "Jarvis on WhatsApp",
+      title: "Cooper on WhatsApp",
       body: `<div class="wa-box">
         <img class="wa-qr" src="assets/brand/whatsapp-qr.svg" width="232" height="232" alt="QR code that opens the WhatsApp chat">
         <p>Scan the code with your phone's camera. To chat with the AI on WhatsApp, send this text:</p>
@@ -95,8 +95,8 @@
     wrap.id = "jarvis-workspace";
     wrap.setAttribute("aria-modal", "true");
     wrap.setAttribute("role", "dialog");
-    wrap.setAttribute("aria-label", C.t("Jarvis assistant"));
-    wrap.innerHTML = '<iframe title="Jarvis" src="jarvis/index.html?v=59" allow="microphone; camera; autoplay"></iframe>';
+    wrap.setAttribute("aria-label", C.t("Cooper assistant"));
+    wrap.innerHTML = '<iframe title="Cooper assistant" src="jarvis/index.html?v=62" allow="microphone; camera; autoplay"></iframe>';
     document.body.appendChild(wrap);
     const frame = wrap.firstChild;
     S.full = { wrap, frame, prevFocus: document.activeElement };
@@ -183,7 +183,7 @@
     const f = S.field?.nombre;
     say("assistant", S.rec
       ? `Hello! I have the analysis of ${f} from ${C.dateLabel(S.rec.fecha)}. Ask me about water, soil, income, forage or climate risk, or about any rotation.`
-      : `Hello! I'm Jarvis. There's no analysis for ${f || "this field"} yet. Run one and I'll help you read it.`,
+      : `Hello! I'm Cooper. There's no analysis for ${f || "this field"} yet. Run one and I'll help you read it.`,
       S.rec ? null : [{ label: "New analysis", action: "new" }]);
     suggestions();
   }
