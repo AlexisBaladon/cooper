@@ -498,7 +498,7 @@
       ${data.zonas ? `<section class="card zones-card" data-rev>
         <div class="card-head"><div class="ch-title"><span class="chip-ic big">${icon("layers")}</span><div><h2>Zones of your field</h2>
           <p class="sub">${fmt(data.zonas.area_ha)} ha · ${fmt(data.zonas.celda_m)} m grid · NASA SRTM 30 m · R = ${fmt(data.zonas.r_factor)} MJ·mm/ha/h/yr · K = ${data.zonas.k_factor} (typical value, not measured)</p></div></div>
-          <div class="btn-row"><button type="button" class="btn soft sm" data-3d-local>${C.line("layers")}<span>View in 3D</span></button><button type="button" class="ask-jarvis" data-ask-jarvis="How can I reduce erosion in my field?">${icon("help")}<span>Ask Cooper</span></button></div></div>
+          <div class="btn-row"><button type="button" class="btn soft sm" data-3d-local>${icon("view3d")}<span>View in 3D</span></button><button type="button" class="ask-jarvis" data-ask-jarvis="How can I reduce erosion in my field?">${icon("help")}<span>Ask Cooper</span></button></div></div>
         <div class="zone-controls">
           <div class="seg" role="group" aria-label="Map layer">${Object.entries(ZONE_LAYERS).map(([k, l]) =>
             `<button type="button" data-layer="${k}" aria-pressed="${k === "erosion"}" class="${k === "erosion" ? "active" : ""}">${esc(l.label)}</button>`).join("")}</div>

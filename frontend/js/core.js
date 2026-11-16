@@ -111,10 +111,10 @@
     agua: "water", suelo: "soil", ingreso: "income", forraje: "forage", clima: "climate",
     overall: "overall", star: "best", weather: "weather", calendar: "calendar", pin: "map", map: "map",
     harvest: "harvest", sowing: "sowing", critical: "critical", images: "images", satellite: "satellite",
-    rotation: "rotation", leaf: "rotation", simulation: "simulation", thermo: "simulation", file: "reports", reports: "reports",
+    rotation: "rotation", leaf: "rotation", simulation: "simulation", thermo: "simulation", file: "export", reports: "reports",
     layers: "layers", alert: "alerts", alerts: "alerts", notifications: "notifications", profile: "profile",
     download: "export", export: "export", compare: "compare", info: "info", help: "help", search: "search",
-    reset: "reset", history: "calendar",
+    reset: "reset", history: "calendar", view3d: "view3d",
   };
   for (const f of ["harvest", "sowing", "critical", "water", "soil", "income", "forage", "climate", "home", "analysis", "field", "overall", "best",
     "weather", "calendar", "map", "images", "satellite", "rotation", "simulation", "reports", "layers", "alerts", "notifications",
