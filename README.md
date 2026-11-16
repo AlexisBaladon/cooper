@@ -1,98 +1,91 @@
-# Cooper · NASA Space Apps 2026
+<p align="center">
+  <a href="https://agrocooper.earth"><img src="docs/cooper-banner.svg" alt="Cooper: compare crop rotations with NASA data" width="100%"></a>
+</p>
 
-Cooper is a decision-support web tool that helps Uruguayan farmers compare crop
-rotations using NASA Earth observation data. It answers the
-[Field Shift: Adapting Farms with NASA Data](https://www.spaceappschallenge.org/2026/challenges/field-shift-adapting-farms-with-nasa-data/)
-challenge.
+<p align="center">
+  <a href="https://agrocooper.earth"><b>Live demo</b></a> ·
+  <a href="docs/HOW-IT-WORKS.md">How it works</a> ·
+  <a href="#run-it-locally">Run it locally</a> ·
+  <a href="#data-and-assumptions">Data and assumptions</a>
+</p>
 
-Cooper helps farmers think; it doesn't decide for them. It shows data, reasons and risks
-to review with a local agronomist. No AI makes the decisions: every result comes from
-written rules and published formulas that anyone can check. AI is optional and limited to
-language: it rewrites the narration of "Explain it simply" and powers "Ask Cooper", a chat
-that answers short questions using only the analysis on screen.
+# Cooper
 
-For a full explanation of the system, see [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
+Cooper is a decision-support web tool that helps farmers in Uruguay compare crop rotations
+using NASA Earth observation data. It is our entry for the NASA Space Apps Challenge 2026,
+[Field Shift: Adapting Farms with NASA Data](https://www.spaceappschallenge.org/2026/challenges/field-shift-adapting-farms-with-nasa-data/).
 
-## Status
+A farmer marks a field on the map. Cooper downloads 30 years of daily NASA climate and the
+real terrain of that field, simulates every rotation in its library, and shows the current
+rotation next to the two alternatives that best fit the farmer's priorities, with scores,
+reasons, risks and what is still unknown.
 
-The project was brought into this repository in five phases, and all of them are in.
+> **Cooper helps farmers think; it doesn't decide for them.** Every result comes from written
+> agronomic rules and published formulas that anyone can check. AI is optional and limited to
+> language: it rewords the narration and answers questions using only the numbers of the
+> analysis on screen. The decision stays with the farmer and their agronomist.
 
-| Phase | Content | Status |
-|---|---|---|
-| 1. Base and climate | Server, daily NASA POWER data, local climate and trends | ✅ |
-| 2. Rotation engine | Crop table, water balance, scores, explanations and climate scenarios | ✅ |
-| 3. Terrain and erosion | SRTM elevation, RUSLE erosion per rotation and a map of zones within the field | ✅ |
-| 4. Diagnosis and "Explain it simply" | Strengths and weaknesses, recommendations and a narrated 3D summary | ✅ |
-| 5. AI and documentation | Narration text written with Groq, and full documentation | ✅ |
+## Contents
 
-The team's earlier scaffold (FastAPI API, Next.js web app and first documents) is in
-[`legacy/`](legacy/).
-
-## Live deployment
-
-The public app is [https://52.71.101.193](https://52.71.101.193). Pushes and merges to
-**`main`** run the backend tests, check the frontend and automatically deploy to the
-existing AWS Lightsail server. See [GitHub Actions](https://github.com/AlexisBaladon/cooper/actions)
-and the [deployment guide](docs/AUTODEPLOY.md). Other branches run checks through pull
-requests. Server-side API keys and the NASA cache persist outside application releases.
+- [What it does](#what-it-does)
+- [Built for Uruguay](#built-for-uruguay)
+- [Run it locally](#run-it-locally)
+- [Optional features](#optional-features)
+- [Offline use](#offline-use)
+- [Project layout](#project-layout)
+- [Data and assumptions](#data-and-assumptions)
+- [Deployment](#deployment)
+- [Contributing](#contributing)
 
 ## What it does
 
-1. The farmer marks a point on a map of Uruguay, or picks one of three sample fields,
-   sets its approximate size, and tells Cooper which rotation they use today, whether they have livestock, roughly how
-   much water their soil holds and what matters most to them (saving water, soil health,
-   income, forage, climate resilience).
-2. The server downloads 30 years of daily NASA POWER data (1996–2025) for that point and
-   NASA SRTM elevation for the field.
-3. The page shows:
-   - monthly rainfall against reference evapotranspiration, to see when crops go thirsty;
-   - a risk calendar: hot days, frost-risk days, heavy-rain days and water deficit;
-   - how the climate changed between 1996–2010 and 2011–2025;
-   - **three rotations side by side**: the current one and the two alternatives that best
-     fit the farmer's priorities, each with five scores, a month-by-month calendar and an
-     explanation of why it's suggested, the supporting data, possible benefits, what we
-     don't know yet, and risks to review with an agronomist;
-   - **zones of the field** on satellite imagery: erosion for each rotation, relative
-     wetness (where water collects or dries out first), low spots with more frost risk, and slope;
-   - **strengths and weaknesses** of each rotation: every score rated good, fair or weak,
-     the reason behind it, and up to two ideas to improve each weak point;
-   - a scenario slider to recalculate everything with less rain or more heat.
-4. **Explain it simply** opens a narrated summary over a 3D model of the field, built from templates chosen by the field's data:
-   its real SRTM terrain, crops changing month by month, soil colored by erosion and soil
-   washing downhill, followed by the climate, the diagnosis, a better option and what to
-   check with an agronomist. There's also a version with simple 2D charts. The narration is
-   built from templates filled with the analysis data and read aloud by the browser's
-   English voice. Optionally, a Groq language model rewrites it in more natural English;
-   every rewritten sentence must keep exactly the same numbers, or it's discarded.
-5. **Ask Cooper**, a button in the corner, opens a chat about the current analysis. The farmer
-   can type or record a voice note (transcribed by Groq Whisper) and gets a short answer that
-   uses only the analysis data, in the language they asked in (English or Spanish).
+| | Feature | What the farmer gets |
+|---|---|---|
+| 🛰️ | **Field analysis** | 30 years of daily NASA POWER climate (1996–2025) and NASA SRTM elevation for the chosen point |
+| 🌾 | **Three rotations side by side** | The current rotation and two alternatives, each with five scores, a month-by-month calendar, supporting data, benefits, unknowns and risks |
+| 🗺️ | **Zones of the field** | Erosion for each rotation, relative wetness, low spots with more frost risk and slope, over satellite imagery or in 3D |
+| 🌧️ | **Scenarios** | Everything recalculated with less rain or more heat. A what-if simulation, not a forecast |
+| 🎬 | **Explain it simply** | A narrated summary over a 3D model of the field: real terrain, crops changing month by month, soil washing downhill |
+| 💬 | **Ask Cooper** | A voice and text assistant that answers questions about the open analysis, in English or Spanish, with 3D visuals |
+| 📱 | **WhatsApp** | The same assistant in a WhatsApp chat, for farmers who would rather not open a website |
+| 📶 | **Offline** | Fields, saved analyses, maps and exports keep working without signal |
+| 📄 | **Exports** | PDF report, Excel workbook, CSV tables and full JSON of any analysis |
 
-## The interface
+### How an analysis works
 
-The app is organised in **Home** (the decision cards: overall analysis, the best option for
-each score with "See more options", and the narrated explanation in a video-style player),
-**Analysis** (new analysis with every chart and map, and the analysis history with PDF,
-Excel, CSV and JSON exports), **My field** (several independent fields, imagery, NDVI,
-erosion and crop maps, soil, climate and crops) and **Settings** (dark mode, language,
-motion). A floating assistant explains the open analysis. See
-[docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md#the-application-indexhtml).
+1. The farmer marks a point on a map of Uruguay, or picks one of three sample fields, and tells
+   Cooper the field size, the rotation used today, whether they have livestock, roughly how much
+   water the soil holds and what matters most: saving water, soil health, income, forage or
+   climate resilience.
+2. The server downloads the NASA POWER daily series and the NASA SRTM elevation grid for that
+   field.
+3. Cooper runs a monthly water balance and a RUSLE erosion estimate for every rotation, over
+   every real year in the record, and scores each one from 0 to 100 on five topics.
+4. The page shows monthly rainfall against evapotranspiration, a risk calendar (hot days, frost
+   risk, heavy rain, water deficit), how the climate changed between 1996–2010 and 2011–2025,
+   and the three rotations with their strengths, weaknesses and ideas to improve each weak
+   point.
 
-## Adapted to Uruguay
+The interface is organised in **Home** (the decision at a glance), **Analysis** (new analysis
+and history), **My field** (several independent fields with imagery, NDVI, erosion and crop
+maps) and **Settings** (theme, language, motion, offline data). It is available in English and
+Spanish.
 
-The interface is in English, but the agronomy is Uruguayan:
+For the full explanation, see [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
 
-- **Farming year from May to April**, so a season's winter crop (wheat, barley, canola,
-  oats) and summer crop (soybean, maize, sorghum) stay together.
+## Built for Uruguay
+
+- **Farming year from May to April**, so a season's winter crop (wheat, barley, canola, oats)
+  and summer crop (soybean, maize, sorghum) stay together.
 - **Local crops and systems:** first-crop and second-crop soybean, winter forage crops
-  (*verdeos*) such as annual ryegrass, mixed pastures (*praderas*) of tall fescue, white
-  clover and birdsfoot trefoil, and the classic crop-pasture rotation.
-- **Livestock filter:** pasture and forage rotations are only suggested to farmers who
-  have livestock.
-- **No-till is assumed** where it matters, as it's the norm in Uruguay.
+  (*verdeos*) such as annual ryegrass, mixed pastures (*praderas*) of tall fescue, white clover
+  and birdsfoot trefoil, and the classic crop-pasture rotation.
+- **Livestock filter:** pasture and forage rotations are only suggested to farmers who have
+  livestock.
+- **No-till is assumed** where it matters, as it is the norm in Uruguay.
 - Points outside Uruguay get a warning that results may not apply.
 
-## Running it
+## Run it locally
 
 Requirements: Python 3.11 or newer.
 
@@ -104,82 +97,101 @@ pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-Open <http://127.0.0.1:8000>. The same server provides the API and the web page.
+Open <http://127.0.0.1:8000>. The same server provides the API and the web page; the frontend
+is plain HTML and JavaScript with no build step.
 
-If PowerShell refuses to activate the virtual environment ("running scripts is disabled"),
-run this once and try again:
+If PowerShell refuses to activate the virtual environment ("running scripts is disabled"), run
+this once and try again:
 
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 ```
 
-Tests (no internet needed): `cd backend && python -m pytest -q`
+Run the tests (no internet needed):
 
-### Optional: AI features (Groq)
+```bash
+cd backend && python -m pytest -q
+```
 
-Copy `backend/.env.example` to `backend/.env`, paste a key from
-<https://console.groq.com/keys> into `GROQ_API_KEY` and restart the server. That enables the
-rewritten narration and the "Ask Cooper" chat with voice notes. Without a key, the narration
-falls back to templates and the chat explains that it isn't set up.
-`backend/.env` is ignored by git; never commit it. Groq receives the slides' text, the chat
-questions, voice notes and a summary of the analysis, never coordinates.
+The first analysis of a new point takes about 15 to 20 seconds while Cooper downloads the NASA
+POWER series and the SRTM elevation into `data/cache/`, which is not committed. Later analyses
+of the same point are instant. The map and the page's libraries load from the internet.
 
-### Optional: spoken voice (ElevenLabs)
+## Optional features
 
-"Explain it simply" and the full-screen assistant speak with an ElevenLabs voice when
-`ELEVENLABS_API_KEY` is set in `backend/.env` (a key with the *Text to Speech* permission is
-enough). The server asks for one sentence at a time (`POST /api/voice`) and keeps every
-sentence it has already generated in `data/cache/voice`, so replaying an explanation spends
-no credit. Without the key, without credit or without a connection, the browser's own voice
-is used instead. ElevenLabs receives only the sentences to be spoken.
+Cooper works without any key. Each key below switches on one extra, and without it Cooper falls
+back to a simpler version of the same feature. Copy `backend/.env.example` to `backend/.env`,
+fill in what you need and restart the server. `backend/.env` is ignored by git; never commit it.
 
-Groq's free tier allows about 8,000 tokens per minute; each chat question uses roughly 2,500.
-If several questions arrive at once, Cooper waits a few seconds and retries before showing a
+| Feature | Setting | Without it |
+|---|---|---|
+| Natural-language narration and the assistant's answers ([Groq](https://console.groq.com/keys)) | `GROQ_API_KEY` | Narration from templates; guided answers built from the same numbers |
+| Spoken voice ([ElevenLabs](https://elevenlabs.io), *Text to Speech* permission) | `ELEVENLABS_API_KEY` | The browser's own voice |
+| WhatsApp chat ([Twilio](https://www.twilio.com)) | `WHATSAPP_ENABLED` and the `TWILIO_*` values | No WhatsApp; see [docs/WHATSAPP.md](docs/WHATSAPP.md) |
+
+What leaves the server:
+
+- **Groq** receives the text to reword, the farmer's questions, voice notes and a summary of
+  the analysis, never coordinates. Every reworded sentence must keep exactly the same numbers,
+  or it is discarded.
+- **ElevenLabs** receives only the sentences to be spoken, one at a time. Each generated
+  sentence is kept in `data/cache/voice`, so replaying an explanation spends no credit.
+- **Twilio** delivers the WhatsApp messages. Phone numbers are never included in the model
+  prompt.
+
+Groq's free tier allows about 8,000 tokens per minute and each question uses roughly 2,500. If
+several questions arrive at once, Cooper waits a few seconds and retries before showing a
 "busy" message.
-
-The first query for a new point takes about 15 to 20 seconds while it downloads the NASA
-POWER series and the SRTM elevation into `data/cache/`, which is not committed. Later queries for the same point are
-instant. The map and the page's libraries load from the internet.
 
 ## Offline use
 
 Cooper installs a service worker (`frontend/sw.js`), so after one visit with a connection the
 app opens without signal and shows what is on the device: fields, saved analyses and the latest
 result of each field, with their charts, zone maps, glossary and exports. **Settings → Offline
-use** shows what is saved and has a button that stores, for every field, the map tiles around it,
-the latest weather and the soil data. Offline, the weather chip shows when it was saved.
+use** shows what is saved and has a button that stores, for every field, the map tiles around
+it, the latest weather and the soil data.
 
-A new analysis or a new climate scenario still needs the server (the comparison runs in Python);
-a comparison already made with exactly the same settings is shown again from the device. The AI
-narration and the assistant fall back to their template and guided answers.
+A new analysis or a new climate scenario still needs the server, because the comparison runs in
+Python; a comparison already made with exactly the same settings is shown again from the
+device. The narration and the assistant fall back to their template and guided answers.
 
-`frontend/sw-files.js` lists the files to store. Regenerate it after adding or renaming frontend
-files with `python scripts/make_offline_manifest.py`; packaging a release does it automatically.
-Service workers need `https` or `localhost`.
+`frontend/sw-files.js` lists the files to store. Regenerate it after adding or renaming
+frontend files with `python scripts/make_offline_manifest.py`; packaging a release does it
+automatically. Service workers need `https` or `localhost`.
 
 ## Project layout
 
 ```
-backend/app/power.py     NASA POWER client with an on-disk cache
-backend/app/climate.py   evapotranspiration, heat, frost, heavy rain and trends
-backend/app/engine.py    water balance, indicators, scores and explanations
-backend/app/terrain.py   SRTM elevation, slope, water flow, RUSLE erosion and field zones
-backend/app/narrator.py  narration rewriting with Groq, with number checks
-backend/app/assistant.py "Ask Cooper" chat and voice-note transcription (Groq)
-backend/app/voice.py     spoken voice with ElevenLabs, saved per sentence
-backend/app/main.py      API (/api/catalog, /api/analyze, /api/narrate, /api/chat, /api/transcribe) and web server
-backend/tests/           tests with synthetic data and a simulated Groq
-backend/.env.example     template for the Groq key
-data/crops.json          crop table (editable by an agronomist)
-data/rotations.json      rotation library
-data/recommendations.json ideas to improve each weak point (editable by an agronomist)
-frontend/                web page in HTML and JavaScript (Leaflet and Chart.js)
-frontend/assistant.js    the "Ask Cooper" chat button
-frontend/slides*.{html,js,css}  "Explain it simply" (2D charts and Three.js 3D model)
-scripts/make_slides_sample.py   rebuilds the sample analysis the slides use when there is none
-docs/HOW-IT-WORKS.md     full explanation of the system
-legacy/                  the team's earlier scaffold
+backend/app/
+  main.py        API routes and web server
+  power.py       NASA POWER client with an on-disk cache
+  climate.py     evapotranspiration, heat, frost, heavy rain and trends
+  engine.py      water balance, indicators, scores and explanations
+  terrain.py     SRTM elevation, slope, water flow, RUSLE erosion and field zones
+  narrator.py    narration rewording with Groq, with number checks
+  assistant.py   short answers and voice-note transcription (Groq)
+  jarvis.py      full-screen assistant: answers with voice and visuals, validated
+  voice.py       spoken voice with ElevenLabs, cached per sentence
+  whatsapp.py    signed Twilio webhook and reply queue
+backend/tests/   tests with synthetic data and simulated providers
+data/
+  crops.json            crop table (editable by an agronomist)
+  rotations.json        rotation library
+  recommendations.json  ideas to improve each weak point (editable by an agronomist)
+frontend/        web page in HTML and JavaScript (Leaflet, Chart.js, Three.js)
+  js/            the application: home, analysis, field, maps, exports, offline
+  jarvis/        full-screen assistant with voice, 3D visuals and hand control
+  slides*.*      "Explain it simply" (2D charts and 3D model)
+  sw.js          service worker for offline use
+scripts/         offline manifest, release packaging and deployment checks
+deploy/          server configuration (AWS Lightsail, nginx, systemd)
+docs/            how it works, deployment and WhatsApp setup
+legacy/          the team's earlier scaffold (FastAPI + Next.js)
 ```
+
+Main API routes: `GET /api/catalog`, `POST /api/analyze`, `POST /api/narrate`,
+`POST /api/assistant`, `POST /api/voice`, `GET /api/weather`, `GET /api/soil` and
+`GET /api/health`. The full list is in [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
 
 ## Data and assumptions
 
@@ -187,43 +199,61 @@ legacy/                  the team's earlier scaffold
 |---|---|---|
 | Max and min temperature, rainfall, root-zone soil moisture | [NASA POWER](https://power.larc.nasa.gov/) (MERRA-2 and GPM-IMERG), daily | ~50 km |
 | Elevation | NASA SRTM 1 arc-second, via [OpenTopoData](https://www.opentopodata.org/) | 30 m |
+| Vegetation imagery (NDVI) | NASA GIBS, MODIS Terra 8-day | 250 m |
+| Current weather and forecast | [Open-Meteo](https://open-meteo.com/) | — |
+| Soil properties | [ISRIC SoilGrids](https://soilgrids.org/) | 250 m |
 | Crops and rotations | `data/crops.json`, `data/rotations.json` (general literature for Uruguay) | — |
 
-- **Reference evapotranspiration (ET0):** Hargreaves-Samani (FAO-56), from daily maximum
-  and minimum temperature and latitude.
-- **Hot day:** maximum ≥ 32 °C. **Frost risk:** minimum air temperature ≤ 2 °C, because
-  the ground and leaves get colder than the air 2 m up and the grid smooths extremes.
+How the numbers are built:
+
+- **Reference evapotranspiration (ET0):** Hargreaves-Samani (FAO-56), from daily maximum and
+  minimum temperature and latitude.
+- **Hot day:** maximum ≥ 32 °C. **Frost risk:** minimum air temperature ≤ 2 °C, because the
+  ground and leaves get colder than the air 2 m up and the grid smooths extremes.
   **Heavy rain:** ≥ 40 mm in a day.
-- **Water balance:** month by month over every real year in the record. Effective rainfall
-  uses the USDA-SCS method, crop water use is ET0 × crop coefficient (Kc, FAO-56), bare
-  soil uses Kc = 0.3, and the soil is a "bucket" of the capacity the farmer chooses.
-  Multi-year rotations are run in every phase and averaged.
-- **Dry year:** for rainfall, the 20th percentile of each month; for the crops' water
-  deficit, the 80th percentile (the worst year in five).
+- **Water balance:** month by month over every real year in the record. Effective rainfall uses
+  the USDA-SCS method, crop water use is ET0 × crop coefficient (Kc, FAO-56), bare soil uses
+  Kc = 0.3, and the soil is a "bucket" of the capacity the farmer chooses. Multi-year rotations
+  are run in every phase and averaged.
+- **Dry year:** for rainfall, the 20th percentile of each month; for the crops' water deficit,
+  the 80th percentile (the worst year in five).
 - **Scores (0–100):** water saving, soil health, indicative income, forage and climate
-  resilience. The total is a weighted average using the farmer's priorities. Thresholds
-  are heuristic and documented in `engine.subscores()`.
-- **Field:** approximated by a square of the chosen area around the point, sampled on a
-  15 × 15 grid of SRTM elevation. Slope, water flow (D8), relative wetness (TWI) and low
-  spots come from that grid.
+  resilience. The total is a weighted average using the farmer's priorities. Thresholds are
+  heuristic and documented in `engine.subscores()`.
+- **Field:** approximated by a square of the chosen area around the point, sampled on a 15 × 15
+  grid of SRTM elevation. Slope, water flow (D8), relative wetness (TWI) and low spots come
+  from that grid.
 - **Erosion (RUSLE, A = R × K × LS × C × P):** R from NASA POWER rainfall (Renard & Freimund,
   1994), spread over the months with erosive rain; K = 0.035 (a typical value, not measured);
   LS from SRTM (Moore & Burch, with a 250 m maximum slope length); C month by month from each
-  rotation's calendar, **assuming no-till**; P = 1. Reference tolerance: 7 t/ha a year.
-  Absolute values are indicative; they're most useful for comparing rotations.
-- **If OpenTopoData doesn't respond**, Cooper keeps working and estimates erosion from the
-  rain that falls on bare soil.
-- **Diagnosis:** a score of 65 or more is "good", under 40 is "weak", the rest "fair".
-  Topics the farmer rated 0 are skipped, and forage is skipped without livestock. The
-  improvement ideas come from `data/recommendations.json`, a hand-written list, not from AI.
-- **Income is relative:** it compares crops with each other; there are no prices, costs or
+  rotation's calendar, assuming no-till; P = 1. Reference tolerance: 7 t/ha a year.
+- **Diagnosis:** a score of 65 or more is "good", under 40 is "weak", the rest "fair". Topics
+  the farmer rated 0 are skipped, and forage is skipped without livestock. The improvement
+  ideas come from `data/recommendations.json`, a hand-written list, not from AI.
+
+What Cooper does not know, and says so:
+
+- **Income is relative.** It compares crops with each other; there are no prices, costs or
   yields yet.
-- **Scale:** the climate describes the area, not the field. Neighboring fields get the
-  same data.
+- **The climate describes the area, not the field.** Neighbouring fields get the same data.
+- **Erosion values are indicative.** They are most useful for comparing rotations, not as
+  absolute measurements.
 - **The crop table and thresholds come from general literature** and need review by a local
   agronomist.
+- **If OpenTopoData doesn't respond**, Cooper keeps working and estimates erosion from the rain
+  that falls on bare soil.
 
-## Collaboration
+## Deployment
 
-One branch per task and pull requests into the team's working branch. Don't commit keys,
-credentials, private farmer data or large satellite downloads.
+The public app runs at <https://agrocooper.earth> on a single AWS Lightsail server. Pushes and
+merges to `main` run the backend tests, check the frontend and deploy automatically; other
+branches run the checks through pull requests. Server-side keys and the NASA cache live outside
+application releases, so a deploy never overwrites them.
+
+See [GitHub Actions](https://github.com/AlexisBaladon/cooper/actions), the
+[deployment guide](docs/AUTODEPLOY.md) and [deploy/](deploy/).
+
+## Contributing
+
+One branch per task, merged through pull requests. Don't commit keys, credentials, private
+farmer data or large satellite downloads.
